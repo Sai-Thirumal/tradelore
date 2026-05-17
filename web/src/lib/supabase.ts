@@ -37,3 +37,8 @@ export async function fetchAllTrades() {
   if (error) throw error;
   return data || [];
 }
+
+export async function clearAllData() {
+  await supabase.from('trade_orders').delete().neq('uid', 'INVALID_UID_XYZ');
+  await supabase.from('trades').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+}

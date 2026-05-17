@@ -343,6 +343,21 @@ export default function Home() {
         </div>
         
         <div className="header-spacer"></div>
+        <input type="file" ref={fileInputRef} accept=".csv" style={{display:'none'}} onChange={handleImport} />
+        <button className="import-btn" style={{padding:'6px 12px', fontSize:'12px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text)', gap:'4px'}} onClick={async () => {
+          if (!confirm("Are you sure you want to clear all data? This cannot be undone.")) return;
+          try {
+            const res = await fetch('/api/clear', { method: 'DELETE' });
+            if (!res.ok) throw new Error("Failed");
+            setTrades([]);
+            setAllTrades([]);
+            setStats(null);
+            showToast("All data cleared successfully.", "success");
+          } catch(err) {
+            showToast("Failed to clear data.", "error");
+          }
+        }}>🗑 Clear</button>
+        <button className="import-btn" style={{padding:'6px 12px', fontSize:'12px'}} onClick={() => fileInputRef.current?.click()}>↑ Import CSV</button>
         <span id="broker-label" style={{fontSize:'12px',color:'var(--text-secondary)',padding:'7px 12px',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)'}}>
           {allTrades.length > 0 ? `${allTrades.length} trades` : 'No data'}
         </span>
@@ -432,7 +447,6 @@ export default function Home() {
             </div>
             <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
               <span style={{fontSize:'12px',color:'var(--text-secondary)'}}>{importStatus}</span>
-              <input type="file" ref={fileInputRef} accept=".csv" style={{display:'none'}} onChange={handleImport} />
               <button className="import-btn" onClick={() => fileInputRef.current?.click()}>↑ Import CSV</button>
             </div>
           </div>
