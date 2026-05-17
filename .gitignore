@@ -1,0 +1,11 @@
+node_modules/
+.env
+.env.local
+.env.*
+credentials.txt
+.next/
+__pycache__/
+venv/
+legacy/api/venv/
+*.csv
+.DS_Store
