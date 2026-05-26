@@ -5,8 +5,10 @@ import { Line, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Filler, Legend
 } from 'chart.js';
-import { fmtINR, fmtPrice, fmtDateLabel, fmtDateShort, fmtDateChart } from '@/lib/format';
-import { computeStats, filterTradesByTime } from '@/lib/trades-stats';
+import { fmtINR, fmtPrice, fmtDateLabel, fmtDateShort, fmtDateChart } from '@/lib/ui/format';
+import { computeStats, filterTradesByTime } from '@/lib/compute/stats';
+import JournalPreMarket from './components/journal/PreMarket';
+import JournalPostTrade from './components/journal/PostTrade';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Filler, Legend);
 
@@ -19,9 +21,9 @@ export default function Home() {
   const [timeFilter, setTimeFilter] = useState('All Time');
   const [mode, setMode] = useState('INR');
   
-  const [expandedTradeRow, setExpandedTradeRow] = useState<number | null>(null);
-  const [expandedRecent, setExpandedRecent] = useState<number | null>(null);
+  const [expandedTradeRow, setExpandedTradeRow] = useState<string | null>(null);
   const [modalTradeIdx, setModalTradeIdx] = useState<number | null>(null);
+  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
 
   const [importStatus, setImportStatus] = useState('');
   const [toast, setToast] = useState<{ msg: string, type: string } | null>(null);
@@ -40,7 +42,17 @@ export default function Home() {
     setTrades(filtered);
     setStats(computeStats(filtered));
     setExpandedTradeRow(null);
-    setExpandedRecent(null);
+
+    // Auto-expand the latest month
+    if (filtered.length > 0) {
+      const dates = filtered.map((t: any) => t.trade_date || t.date || '');
+      const latest = dates.reduce((a: string, b: string) => b > a ? b : a, '');
+      if (latest) {
+        const d = new Date(latest.replace(/-/g, '/'));
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        setExpandedMonths(new Set([key]));
+      }
+    }
   }, [allTrades, timeFilter]);
 
   const loadTrades = async () => {
@@ -198,115 +210,25 @@ export default function Home() {
     );
   };
 
-  // -- JOURNAL RENDERING ---
+  // -- JOURNAL (new: PreMarket Plan + Post-Trade Analysis) ---
   const renderJournal = () => {
-    if (!stats) return null;
-    const byDate: Record<string, any[]> = {};
-    for (const t of trades) {
-      const date = t.trade_date || t.date;
-      if (!byDate[date]) byDate[date] = [];
-      byDate[date].push(t);
-    }
-    const entries = Object.entries(byDate).sort(([a], [b]) => b.localeCompare(a)).map(([date, dayTrades]) => ({
-      date,
-      pnl: dayTrades.reduce((s, t) => s + t.pnl, 0),
-      trades: dayTrades.length,
-      wins: dayTrades.filter(t => t.result === 'win').length,
-      losses: dayTrades.filter(t => t.result === 'loss').length,
-      dayTrades,
-    }));
-    
     const todayStr = new Date().toISOString().split('T')[0];
-    const todayEntry = entries.find(e => e.date === todayStr) || entries[0];
-    const recent = entries.filter(e => e.date !== todayStr);
-    
-    const todayDateFmt = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+
+    // Find the latest trading day from the data
+    const latestDate = trades.length > 0
+      ? trades.reduce((latest, t) => {
+          const d = t.trade_date || t.date;
+          return d > latest ? d : latest;
+        }, '')
+      : todayStr;
+
+    const latestTrades = trades.filter(t => (t.trade_date || t.date) === latestDate);
 
     return (
       <div className={`view ${view === 'journal' ? 'active' : ''}`} id="view-journal">
-        <div className="journal-today">
-          <div className="journal-today-header">
-            <span className="today-badge">Today</span>
-            <span className="today-date">{todayDateFmt}</span>
-            <span className={`today-pnl ${todayEntry ? (todayEntry.pnl >= 0 ? 'up' : 'down') : ''}`} style={{marginLeft:'auto'}}>
-              {todayEntry ? fmtINR(todayEntry.pnl) : '—'}
-            </span>
-          </div>
-          <div className="journal-today-body">
-            {todayEntry ? (
-              <>
-                <div className="journal-today-stats">
-                  <div className="journal-today-stat"><div className="stat-val">{todayEntry.trades}</div><div className="stat-label">Trades</div></div>
-                  <div className="journal-today-stat"><div className="stat-val" style={{color:'var(--green)'}}>{todayEntry.wins}</div><div className="stat-label">Wins</div></div>
-                  <div className="journal-today-stat"><div className="stat-val" style={{color:'var(--red)'}}>{todayEntry.losses}</div><div className="stat-label">Losses</div></div>
-                  <div className="journal-today-stat"><div className="stat-val">{todayEntry.trades > 0 ? Math.round(todayEntry.wins / todayEntry.trades * 100) : 0}%</div><div className="stat-label">Win Rate</div></div>
-                </div>
-                <div className="journal-notes-area">
-                  <textarea 
-                    placeholder="Write your trade notes, market observations, and reflections…" 
-                    defaultValue={typeof window !== 'undefined' ? localStorage.getItem(`journal_${todayEntry.date}`) || '' : ''}
-                    onChange={(e) => localStorage.setItem(`journal_${todayEntry.date}`, e.target.value)}
-                  />
-                  <div style={{display:'flex',gap:'8px',marginTop:'8px'}}>
-                    <button onClick={() => showToast('Notes saved', 'success')} style={{padding:'6px 16px',background:'var(--brand)',color:'white',border:'none',borderRadius:'6px',fontSize:'12px',cursor:'pointer'}}>Save Notes</button>
-                  </div>
-                </div>
-                <div className="journal-today-trades">
-                  <div style={{fontSize:'12px',fontWeight:600,color:'var(--text-secondary)',marginBottom:'8px'}}>Trades</div>
-                  {todayEntry.dayTrades.map((t, i) => (
-                    <div key={i} className="trade-mini-row">
-                      <span style={{fontWeight:600,minWidth:'100px'}}>{t.symbol}</span>
-                      <span>{t.direction}</span>
-                      <span style={{color:'var(--text-secondary)'}}>Qty {t.qty}</span>
-                      <span style={{color:'var(--text-secondary)'}}>{fmtPrice(t.avg_entry || t.avgEntry)} → {fmtPrice(t.avg_exit || t.avgExit)}</span>
-                      <span style={{fontWeight:700,color:t.pnl >= 0 ? 'var(--green)' : 'var(--red)'}}>{fmtINR(t.pnl)}</span>
-                      <span className={`badge ${t.result}`}>{t.result.toUpperCase()}</span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div style={{color:'var(--text-secondary)',fontSize:'13px'}}>No trades today</div>
-            )}
-          </div>
-        </div>
-        
-        <div className="recent-days-title">Recent Days</div>
-        <div>
-          {recent.length === 0 ? <div style={{color:'var(--text-secondary)',fontSize:'13px',padding:'12px 0'}}>No previous days recorded.</div> : 
-            recent.map((e, i) => {
-              const isOpen = expandedRecent === i;
-              return (
-                <div key={i}>
-                  <div className="recent-day-row" onClick={() => setExpandedRecent(isOpen ? null : i)}>
-                    <span className="recent-day-date">{fmtDateLabel(e.date)}</span>
-                    <span className={`recent-day-pnl ${e.pnl >= 0 ? 'up' : 'down'}`}>{fmtINR(e.pnl)}</span>
-                    <span className="recent-day-meta">{e.trades} trades · {e.wins}W / {e.losses}L</span>
-                    <span className="recent-day-expand">{isOpen ? 'Close ▲' : 'Details ▸'}</span>
-                  </div>
-                  <div className={`recent-day-detail ${isOpen ? 'open' : ''}`}>
-                    <div className="notebook-tabs"><div className="notebook-tab active">Trades</div></div>
-                    <div>
-                      {e.dayTrades.map((t, j) => (
-                        <div key={j} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',fontSize:'12px',borderBottom:'1px solid var(--border)',gap:'8px',flexWrap:'wrap'}}>
-                          <span style={{fontWeight:600,minWidth:'90px'}}>{t.symbol}</span>
-                          <span>{t.direction} · Qty {t.qty}</span>
-                          <span style={{color:'var(--text-secondary)'}}>{fmtPrice(t.avg_entry || t.avgEntry)} → {fmtPrice(t.avg_exit || t.avgExit)}</span>
-                          <span style={{fontWeight:700,color:t.pnl >= 0 ? 'var(--green)' : 'var(--red)'}}>{fmtINR(t.pnl)}</span>
-                          <span className={`badge ${t.result}`}>{t.result.toUpperCase()}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <textarea style={{marginTop:'10px',width:'100%',minHeight:'60px',border:'1px solid var(--border)',borderRadius:'4px',padding:'8px',fontSize:'12px',fontFamily:'var(--font)'}}
-                      placeholder={`Add notes for ${fmtDateLabel(e.date)}…`}
-                      defaultValue={typeof window !== 'undefined' ? localStorage.getItem('journal_' + e.date) || '' : ''}
-                      onChange={(ev) => localStorage.setItem('journal_' + e.date, ev.target.value)} />
-                  </div>
-                </div>
-              );
-            })
-          }
-        </div>
+        <JournalPreMarket latestTradeDate={todayStr} />
+        <div style={{ height: '16px' }} />
+        <JournalPostTrade trades={latestTrades} />
       </div>
     );
   };
@@ -366,7 +288,7 @@ export default function Home() {
       <nav className="nav">
         {['dashboard', 'journal', 'tradelog'].map(v => (
           <div key={v} className={`nav-tab ${view === v ? 'active' : ''}`} onClick={() => setView(v)}>
-            {v === 'dashboard' ? 'Dashboard' : v === 'journal' ? 'Daily Journals' : 'Trade Log'}
+            {v === 'dashboard' ? 'Dashboard' : v === 'journal' ? 'Journal' : 'Trade Log'}
           </div>
         ))}
       </nav>
@@ -451,63 +373,147 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="section" style={{padding:0,overflow:'hidden'}}>
-            <table className="trade-table">
-              <thead>
-                <tr>
-                  <th>Date</th><th>Symbol</th><th>Direction</th><th>Qty</th>
-                  <th>Avg Entry</th><th>Avg Exit</th><th>Net P&amp;L</th><th>Result</th><th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {!trades.length ? (
-                  <tr><td colSpan={9}><div className="empty-state"><div className="empty-icon">📂</div><div className="empty-title">No trades yet</div><div className="empty-sub">Import a CSV file from your broker to get started</div></div></td></tr>
-                ) : trades.map((t, i) => {
-                  const isOpen = expandedTradeRow === i;
-                  return (
-                    <React.Fragment key={i}>
-                      <tr className="clickable" onClick={() => setModalTradeIdx(i)}>
-                        <td>{fmtDateShort(t.trade_date || t.date)}</td>
-                        <td style={{fontWeight:600}}>{t.symbol}{t.exchange && <span style={{fontSize:'10px',color:'var(--text-secondary)'}}> {t.exchange}</span>}</td>
-                        <td>{t.direction}</td>
-                        <td>{t.qty}</td>
-                        <td>{fmtPrice(t.avg_entry || t.avgEntry)}</td>
-                        <td>{fmtPrice(t.avg_exit || t.avgExit)}</td>
-                        <td style={{fontWeight:700,color:t.pnl >= 0 ? 'var(--green)' : 'var(--red)'}}>{fmtINR(t.pnl)}</td>
-                        <td><span className={`badge ${t.result}`}>{t.result.toUpperCase()}</span></td>
-                        <td onClick={(e) => { e.stopPropagation(); setExpandedTradeRow(isOpen ? null : i); }}>
-                          <button className={`more-info-btn ${isOpen ? 'open' : ''}`}>{isOpen ? '▾ Hide' : '▸ Orders'}</button>
-                        </td>
-                      </tr>
-                      {isOpen && (
-                        <tr className="detail-row"><td colSpan={9}>
-                          <div className="detail-panel">
-                            <div style={{fontSize:'11px',fontWeight:600,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'6px'}}>
-                              {t.orders?.length} orders · {t.direction} {t.symbol}
-                            </div>
-                            <table className="orders-table">
-                              <thead><tr><th>Time</th><th>Type</th><th>Qty</th><th>Price</th><th>Order ID</th></tr></thead>
-                              <tbody>
-                                {t.orders?.map((o: any, oi: number) => (
-                                  <tr key={oi}>
-                                    <td style={{color:'var(--text-secondary)'}}>{o.trade_time.substring(0, 16)}</td>
-                                    <td><span className={`badge-${o.type.toLowerCase()}`}>{o.type}</span></td>
-                                    <td>{o.qty}</td>
-                                    <td>{fmtPrice(o.price)}</td>
-                                    <td style={{color:'var(--text-secondary)',fontSize:'11px'}}>{o.order_id || o.trade_id || '—'}</td>
+          {!trades.length ? (
+            <div className="empty-state"><div className="empty-icon">📂</div><div className="empty-title">No trades yet</div><div className="empty-sub">Import a CSV file from your broker to get started</div></div>
+          ) : (() => {
+            // Group trades by month/year
+            const grouped: Record<string, any[]> = {};
+            for (const t of trades) {
+              const d = new Date((t.trade_date || t.date || '').replace(/-/g, '/'));
+              const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+              if (!grouped[key]) grouped[key] = [];
+              grouped[key].push(t);
+            }
+
+            // Sort groups newest first
+            const sorted = Object.entries(grouped).sort(([a], [b]) => b.localeCompare(a));
+
+            const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+            return sorted.map(([key, monthTrades]) => {
+              const [y, m] = key.split('-');
+              const label = `${MONTH_NAMES[parseInt(m) - 1]} ${y}`;
+              const isOpen = expandedMonths.has(key);
+              const monthPnl = monthTrades.reduce((s: number, t: any) => s + t.pnl, 0);
+              const wins = monthTrades.filter((t: any) => t.result === 'win').length;
+              const losses = monthTrades.filter((t: any) => t.result === 'loss').length;
+              const wr = monthTrades.length > 0 ? Math.round(wins / monthTrades.length * 100) : 0;
+
+              const toggleMonth = () => {
+                setExpandedMonths(prev => {
+                  const next = new Set(prev);
+                  if (next.has(key)) next.delete(key);
+                  else next.add(key);
+                  return next;
+                });
+                setExpandedTradeRow(null);
+              };
+
+              return (
+                <div key={key} className="month-section">
+                  <div className="month-header" onClick={toggleMonth}>
+                    <span className="month-chevron">{isOpen ? '▾' : '▸'}</span>
+                    <span className="month-label">{label}</span>
+                    <span className="month-stat">{monthTrades.length} trade{monthTrades.length !== 1 ? 's' : ''}</span>
+                    <span className="month-stat" style={{minWidth:'50px'}}>{wins}W / {losses}L</span>
+                    <span className="month-stat" style={{minWidth:'42px',fontWeight:600}}>{wr}%</span>
+                    <span className="month-pnl" style={{color: monthPnl >= 0 ? 'var(--green)' : 'var(--red)'}}>
+                      {fmtINR(monthPnl)}
+                    </span>
+                  </div>
+
+                  {isOpen && (
+                    <div className="month-body">
+                      {(() => {
+                        // Group month trades by day
+                        const byDay: Record<string, any[]> = {};
+                        for (const t of monthTrades) {
+                          const dt = t.trade_date || t.date || '';
+                          if (!byDay[dt]) byDay[dt] = [];
+                          byDay[dt].push(t);
+                        }
+                        const days = Object.entries(byDay).sort(([a], [b]) => b.localeCompare(a));
+
+                        return days.map(([dayDate, dayTrades]) => {
+                          const dayPnl = dayTrades.reduce((s: number, t: any) => s + t.pnl, 0);
+                          const dayWins = dayTrades.filter((t: any) => t.result === 'win').length;
+                          const dayLosses = dayTrades.filter((t: any) => t.result === 'loss').length;
+
+                          return (
+                            <div key={dayDate} className="day-group">
+                              <div className="day-header">
+                                <span className="day-date">{fmtDateLabel(dayDate)}</span>
+                                <span className="day-meta">{dayTrades.length} trade{dayTrades.length !== 1 ? 's' : ''} · {dayWins}W / {dayLosses}L</span>
+                                <span className="day-pnl" style={{color: dayPnl >= 0 ? 'var(--green)' : 'var(--red)'}}>
+                                  {fmtINR(dayPnl)}
+                                </span>
+                              </div>
+                              <table className="trade-table">
+                                <thead>
+                                  <tr>
+                                    <th>Symbol</th><th>Dir</th><th>Qty</th>
+                                    <th>Avg Entry</th><th>Avg Exit</th><th>Net P&amp;L</th><th>Result</th><th></th>
                                   </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </td></tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                                </thead>
+                                <tbody>
+                                  {dayTrades.sort((a: any, b: any) => (b.exit_time || b.exitTime || '').localeCompare(a.exit_time || a.exitTime || '')).map((t: any, i: number) => {
+                                    const rowKey = `${key}_${dayDate}_${i}`;
+                                    const isRowOpen = expandedTradeRow === rowKey;
+                                    return (
+                                      <React.Fragment key={i}>
+                                        <tr className="clickable" onClick={() => {
+                                          const allIdx = allTrades.findIndex((at: any) => (at.id || `${at.symbol}_${at.entry_time || at.entryTime}`) === (t.id || `${t.symbol}_${t.entry_time || t.entryTime}`));
+                                          window.open(`/trade?idx=${allIdx >= 0 ? allIdx : trades.indexOf(t)}`, '_blank');
+                                        }}>
+                                          <td style={{fontWeight:600}}>{t.symbol}{t.exchange && <span style={{fontSize:'10px',color:'var(--text-secondary)'}}> {t.exchange}</span>}</td>
+                                          <td>{t.direction === 'LONG' ? 'L' : 'S'}</td>
+                                          <td>{t.qty}</td>
+                                          <td>{fmtPrice(t.avg_entry || t.avgEntry)}</td>
+                                          <td>{fmtPrice(t.avg_exit || t.avgExit)}</td>
+                                          <td style={{fontWeight:700,color:t.pnl >= 0 ? 'var(--green)' : 'var(--red)'}}>{fmtINR(t.pnl)}</td>
+                                          <td><span className={`badge ${t.result}`}>{t.result.toUpperCase()}</span></td>
+                                          <td onClick={(e) => { e.stopPropagation(); setExpandedTradeRow(isRowOpen ? null : rowKey); }}>
+                                            <button className={`more-info-btn ${isRowOpen ? 'open' : ''}`}>{isRowOpen ? '▾ Hide' : '▸ Orders'}</button>
+                                          </td>
+                                        </tr>
+                                        {isRowOpen && (
+                                          <tr className="detail-row"><td colSpan={8}>
+                                            <div className="detail-panel">
+                                              <div style={{fontSize:'11px',fontWeight:600,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'6px'}}>
+                                                {t.orders?.length} orders · {t.direction} {t.symbol}
+                                              </div>
+                                              <table className="orders-table">
+                                                <thead><tr><th>Time</th><th>Type</th><th>Qty</th><th>Price</th><th>Order ID</th></tr></thead>
+                                                <tbody>
+                                                  {t.orders?.map((o: any, oi: number) => (
+                                                    <tr key={oi}>
+                                                      <td style={{color:'var(--text-secondary)'}}>{o.trade_time.substring(0, 16)}</td>
+                                                      <td><span className={`badge-${o.type.toLowerCase()}`}>{o.type}</span></td>
+                                                      <td>{o.qty}</td>
+                                                      <td>{fmtPrice(o.price)}</td>
+                                                      <td style={{color:'var(--text-secondary)',fontSize:'11px'}}>{o.order_id || o.trade_id || '—'}</td>
+                                                    </tr>
+                                                  ))}
+                                                </tbody>
+                                              </table>
+                                            </div>
+                                          </td></tr>
+                                        )}
+                                      </React.Fragment>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  )}
+                </div>
+              );
+            });
+          })()}
         </div>
       </div>
 

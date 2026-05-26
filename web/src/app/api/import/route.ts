@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { parseCsv } from '@/lib/csv-parser';
-import { storeOrders, fetchAllOrders, replaceTrades } from '@/lib/supabase';
-import { matchTrades } from '@/lib/trade-matcher';
+import { parseCsv } from '@/lib/engine/csv-parser';
+import { storeOrders, fetchAllOrders, replaceTrades } from '@/lib/db/supabase';
+import { matchTrades } from '@/lib/engine/trade-matcher';
 
 export async function POST(request: Request) {
   try {
@@ -26,10 +26,18 @@ export async function POST(request: Request) {
 
     await replaceTrades(allTrades);
 
+    // Observable metrics: raw fills vs collapsed fills vs final trades
+    const fillsWithOrderId = allOrders.filter((o: any) => o.order_id).length;
+    const uniqueOrderIds = new Set(allOrders.filter((o: any) => o.order_id).map((o: any) => o.order_id)).size;
+
     return NextResponse.json({
       imported_orders: newOrders.length,
       total_orders: allOrders.length,
-      total_trades: allTrades.length
+      total_trades: allTrades.length,
+      raw_fills: allOrders.length,
+      fills_with_order_id: fillsWithOrderId,
+      unique_order_ids: uniqueOrderIds,
+      collapsed_fills: uniqueOrderIds + allOrders.filter((o: any) => !o.order_id).length,
     });
 
   } catch (error: any) {

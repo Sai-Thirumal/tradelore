@@ -1,0 +1,85 @@
+import { NextResponse } from 'next/server';
+import { getUnderlying, toYahooSymbol, istToUnix } from '@/lib/engine/symbols';
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const symbol = searchParams.get('symbol') || '';
+  const fromStr = searchParams.get('from') || '';
+  const toStr = searchParams.get('to') || '';
+
+  if (!symbol) {
+    return NextResponse.json({ error: 'symbol required' }, { status: 400 });
+  }
+
+  const { underlying } = getUnderlying(symbol);
+  const yahooSymbol = toYahooSymbol(underlying);
+
+  // Convert IST times to Unix timestamps
+  const entryUnix = fromStr ? istToUnix(fromStr) : 0;
+  const exitUnix = toStr ? istToUnix(toStr) : 0;
+  const durationSec = exitUnix - entryUnix;
+
+  // Determine interval and padding
+  const isIntraday = durationSec > 0 && durationSec <= 86400; // ≤1 day
+  const interval = isIntraday ? '5m' : '1d';
+
+  // Pad: 2 days before entry, 2 days after exit (or 5 days for intraday)
+  const padSec = isIntraday ? 86400 * 5 : 86400 * 2;
+  const period1 = Math.floor(entryUnix - padSec);
+  const period2 = Math.floor(Math.max(exitUnix, entryUnix + 86400) + padSec);
+
+  // Use period1/period2 for exact date range (range= is relative to "now")
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=${interval}&period1=${period1}&period2=${period2}&includePrePost=false`;
+
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+    });
+
+    if (!res.ok) {
+      return NextResponse.json({ error: `Yahoo returned ${res.status}` }, { status: 502 });
+    }
+
+    const json = await res.json();
+    const result = json.chart?.result?.[0];
+
+    if (!result) {
+      return NextResponse.json({ error: 'No data for this symbol' }, { status: 404 });
+    }
+
+    const timestamps: number[] = result.timestamp || [];
+    const quote = result.indicators?.quote?.[0] || {};
+    const opens: number[] = quote.open || [];
+    const highs: number[] = quote.high || [];
+    const lows: number[] = quote.low || [];
+    const closes: number[] = quote.close || [];
+    const volumes: number[] = quote.volume || [];
+
+    const candles = [];
+    for (let i = 0; i < timestamps.length; i++) {
+      if (opens[i] == null || closes[i] == null) continue;
+      candles.push({
+        time: timestamps[i] as any,
+        open: opens[i],
+        high: highs[i] || opens[i],
+        low: lows[i] || opens[i],
+        close: closes[i],
+        volume: volumes[i] || 0,
+      });
+    }
+
+    return NextResponse.json({
+      underlying,
+      yahooSymbol,
+      interval,
+      candles,
+      from: fromStr,
+      to: toStr,
+    });
+
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}

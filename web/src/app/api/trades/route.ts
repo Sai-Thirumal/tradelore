@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { fetchAllTrades } from '@/lib/supabase';
+import { fetchAllTrades } from '@/lib/db/supabase';
 
 export async function GET() {
   try {

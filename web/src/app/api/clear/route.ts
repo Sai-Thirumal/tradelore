@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { clearAllData } from '@/lib/supabase';
+import { clearAllData } from '@/lib/db/supabase';
 
 export async function DELETE() {
   try {
