@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { fmtINR, fmtPrice } from '@/lib/ui/format';
 
 const EMOTIONS = [
@@ -33,7 +33,6 @@ interface Trade {
   orders?: any[];
 }
 
-// ── Helpers (module-level) ──
 function getTradeId(t: Trade): string {
   return t.id || `${t.symbol}_${t.entry_time || t.entryTime}`;
 }
@@ -42,11 +41,20 @@ function lsKey(tradeId: string): string {
   return `trade_journal_${tradeId}`;
 }
 
-export default function JournalPostTrade({ trades }: { trades: Trade[] }) {
+function fmtDateLabel(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-IN', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+export default function JournalPostTrade({ trades, date }: { trades: Trade[]; date: string }) {
   const [playbooks, setPlaybooks] = useState<Playbook[]>([]);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
 
-  // Per-trade state — keyed by tradeId
   const [riskAmounts, setRiskAmounts] = useState<Record<string, string>>({});
   const [profitTargetEntries, setProfitTargetEntries] = useState<Record<string, string>>({});
   const [profitTargetExits, setProfitTargetExits] = useState<Record<string, string>>({});
@@ -60,7 +68,6 @@ export default function JournalPostTrade({ trades }: { trades: Trade[] }) {
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
 
-  // Load playbooks
   useEffect(() => {
     fetch('/api/playbooks')
       .then(r => r.json())
@@ -68,19 +75,13 @@ export default function JournalPostTrade({ trades }: { trades: Trade[] }) {
       .catch(() => {});
   }, []);
 
-  // Load journal data for all trades (localStorage + API)
   useEffect(() => {
     for (const t of trades) {
       const tid = getTradeId(t);
-      // localStorage first
       const cached = localStorage.getItem(lsKey(tid));
       if (cached) {
-        try {
-          const j = JSON.parse(cached);
-          applyJournal(tid, j);
-        } catch {}
+        try { applyJournal(tid, JSON.parse(cached)); } catch {}
       }
-      // API
       fetch(`/api/trade-journal?trade_id=${encodeURIComponent(tid)}`)
         .then(r => r.json())
         .then(data => {
@@ -114,7 +115,6 @@ export default function JournalPostTrade({ trades }: { trades: Trade[] }) {
     if (j.importantNotes !== undefined) setImportantNotes(p => ({ ...p, [tid]: j.importantNotes }));
   };
 
-  // Auto-save to localStorage on any field change
   const persistLocal = useCallback((tid: string) => {
     localStorage.setItem(lsKey(tid), JSON.stringify({
       riskAmount: riskAmounts[tid] || '',
@@ -176,10 +176,18 @@ export default function JournalPostTrade({ trades }: { trades: Trade[] }) {
 
   if (!trades.length) {
     return (
-      <div className="posttrade-empty">
-        <div className="posttrade-empty-icon">📝</div>
-        <div className="posttrade-empty-title">No trades today</div>
-        <div className="posttrade-empty-sub">Post-market analysis will appear here once you have trades.</div>
+      <div className="posttrade-card">
+        <div className="posttrade-header">
+          <div>
+            <div className="posttrade-label">Post-Market Analysis</div>
+            <div className="posttrade-date">{fmtDateLabel(date)}</div>
+          </div>
+        </div>
+        <div className="posttrade-empty">
+          <div className="posttrade-empty-icon">📝</div>
+          <div className="posttrade-empty-title">No trades for {fmtDateLabel(date)}</div>
+          <div className="posttrade-empty-sub">Post-market analysis will appear here once trades are imported.</div>
+        </div>
       </div>
     );
   }
@@ -188,192 +196,157 @@ export default function JournalPostTrade({ trades }: { trades: Trade[] }) {
   const exitPrice = (t: Trade) => t.avg_exit ?? t.avgExit ?? 0;
 
   return (
-    <div className="posttrade-wrap">
+    <div className="posttrade-card">
       <div className="posttrade-header">
-        <span>Post-Market Analysis</span>
+        <div>
+          <div className="posttrade-label">Post-Market Analysis</div>
+          <div className="posttrade-date">{fmtDateLabel(date)}</div>
+        </div>
         <span className="posttrade-count">{trades.length} trade{trades.length !== 1 ? 's' : ''}</span>
       </div>
 
-      {trades.map((t, i) => {
-        const tid = getTradeId(t);
-        const isOpen = expandedIdx === i;
-        const isSaving = savingIds.has(tid);
-        const isSaved = savedIds.has(tid);
+      <div className="posttrade-body">
+        <table className="trade-table">
+          <thead>
+            <tr>
+              <th>Symbol</th><th>Dir</th><th>Qty</th>
+              <th>Avg Entry</th><th>Avg Exit</th><th>Net P&amp;L</th><th>Result</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {trades.map((t, i) => {
+              const tid = getTradeId(t);
+              const isOpen = expandedIdx === i;
 
-        return (
-          <div key={tid} className={`posttrade-trade ${isOpen ? 'expanded' : ''}`}>
-            {/* Trade row header — click to expand */}
-            <div
-              className="posttrade-trade-header"
-              onClick={() => setExpandedIdx(isOpen ? null : i)}
-            >
-              <span className="posttrade-chevron">{isOpen ? '▾' : '▸'}</span>
-              <span className="posttrade-symbol">{t.symbol}</span>
-              <span className="posttrade-direction">{t.direction}</span>
-              <span className="posttrade-qty">Qty {t.qty}</span>
-              <span className="posttrade-prices">
-                {fmtPrice(entryPrice(t))} → {fmtPrice(exitPrice(t))}
-              </span>
-              <span
-                className="posttrade-pnl"
-                style={{ color: t.pnl >= 0 ? 'var(--green)' : 'var(--red)' }}
-              >
-                {fmtINR(t.pnl)}
-              </span>
-              <span className={`badge ${t.result}`}>{t.result.toUpperCase()}</span>
-            </div>
+              return (
+                <React.Fragment key={tid}>
+                  <tr className={`pt-row ${isOpen ? 'pt-expanded' : ''}`}>
+                    <td style={{fontWeight:600}}>{t.symbol}</td>
+                    <td>{t.direction === 'LONG' ? 'L' : 'S'}</td>
+                    <td>{t.qty}</td>
+                    <td>{fmtPrice(entryPrice(t))}</td>
+                    <td>{fmtPrice(exitPrice(t))}</td>
+                    <td style={{fontWeight:700,color:t.pnl >= 0 ? 'var(--green)' : 'var(--red)'}}>{fmtINR(t.pnl)}</td>
+                    <td><span className={`badge ${t.result}`}>{t.result.toUpperCase()}</span></td>
+                    <td>
+                      <button
+                        className={`more-info-btn ${isOpen ? 'open' : ''}`}
+                        onClick={() => setExpandedIdx(isOpen ? null : i)}
+                      >
+                        {isOpen ? '▾ Hide' : '▸ Journal'}
+                      </button>
+                    </td>
+                  </tr>
+                  {isOpen && (() => {
+                    const isSaving = savingIds.has(tid);
+                    const isSaved = savedIds.has(tid);
+                    return (
+                      <tr className="pt-journal-row">
+                        <td colSpan={8}>
+                          <div className="posttrade-form">
+                            <div className="posttrade-grid">
+                              <div className="posttrade-field">
+                                <label>Risk on this trade (₹)</label>
+                                <input type="number" placeholder="Amount risked"
+                                  value={riskAmounts[tid] || ''}
+                                  onChange={e => setRiskAmounts(p => ({ ...p, [tid]: e.target.value }))} />
+                              </div>
+                              <div className="posttrade-field">
+                                <label>Entry price target</label>
+                                <input type="number" placeholder={fmtPrice(entryPrice(t))}
+                                  value={profitTargetEntries[tid] || ''}
+                                  onChange={e => setProfitTargetEntries(p => ({ ...p, [tid]: e.target.value }))} />
+                              </div>
+                              <div className="posttrade-field">
+                                <label>Exit price target</label>
+                                <input type="number" placeholder="Target exit"
+                                  value={profitTargetExits[tid] || ''}
+                                  onChange={e => setProfitTargetExits(p => ({ ...p, [tid]: e.target.value }))} />
+                              </div>
+                              <div className="posttrade-field">
+                                <label>Position sizing</label>
+                                <input type="text" placeholder="e.g. 2% of capital, 1 lot"
+                                  value={positionSizings[tid] || ''}
+                                  onChange={e => setPositionSizings(p => ({ ...p, [tid]: e.target.value }))} />
+                              </div>
+                            </div>
 
-            {/* Expanded journal form */}
-            {isOpen && (
-              <div className="posttrade-form">
-                <div className="posttrade-grid">
-                  {/* Risk Amount */}
-                  <div className="posttrade-field">
-                    <label>Risk on this trade (₹)</label>
-                    <input
-                      type="number"
-                      placeholder="Amount risked"
-                      value={riskAmounts[tid] || ''}
-                      onChange={e => {
-                        setRiskAmounts(p => ({ ...p, [tid]: e.target.value }));
-                      }}
-                    />
-                  </div>
+                            <div className="posttrade-field">
+                              <label>Playbook used</label>
+                              <select value={playbookIds[tid] || ''}
+                                onChange={e => setPlaybookIds(p => ({ ...p, [tid]: e.target.value }))}>
+                                <option value="">— Select playbook —</option>
+                                {playbooks.map(pb => (
+                                  <option key={pb.id} value={pb.id}>{pb.name}</option>
+                                ))}
+                              </select>
+                            </div>
 
-                  {/* Entry Price Target */}
-                  <div className="posttrade-field">
-                    <label>Entry price target</label>
-                    <input
-                      type="number"
-                      placeholder={fmtPrice(entryPrice(t))}
-                      value={profitTargetEntries[tid] || ''}
-                      onChange={e => {
-                        setProfitTargetEntries(p => ({ ...p, [tid]: e.target.value }));
-                      }}
-                    />
-                  </div>
+                            <div className="posttrade-field">
+                              <label>What worked</label>
+                              <textarea placeholder="What went well on this trade?" rows={2}
+                                value={whatWorked[tid] || ''}
+                                onChange={e => setWhatWorked(p => ({ ...p, [tid]: e.target.value }))} />
+                            </div>
 
-                  {/* Exit Price Target */}
-                  <div className="posttrade-field">
-                    <label>Exit price target</label>
-                    <input
-                      type="number"
-                      placeholder="Target exit"
-                      value={profitTargetExits[tid] || ''}
-                      onChange={e => {
-                        setProfitTargetExits(p => ({ ...p, [tid]: e.target.value }));
-                      }}
-                    />
-                  </div>
+                            <div className="posttrade-field">
+                              <label>What didn&rsquo;t work</label>
+                              <textarea placeholder="What could have been better?" rows={2}
+                                value={whatDidnt[tid] || ''}
+                                onChange={e => setWhatDidnt(p => ({ ...p, [tid]: e.target.value }))} />
+                            </div>
 
-                  {/* Position Sizing */}
-                  <div className="posttrade-field">
-                    <label>Position sizing</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 2% of capital, 1 lot"
-                      value={positionSizings[tid] || ''}
-                      onChange={e => {
-                        setPositionSizings(p => ({ ...p, [tid]: e.target.value }));
-                      }}
-                    />
-                  </div>
-                </div>
+                            <div className="posttrade-field">
+                              <label>Lessons learned</label>
+                              <textarea placeholder="Key takeaways from this trade" rows={2}
+                                value={lessonsLearned[tid] || ''}
+                                onChange={e => setLessonsLearned(p => ({ ...p, [tid]: e.target.value }))} />
+                            </div>
 
-                {/* Playbook */}
-                <div className="posttrade-field">
-                  <label>Playbook used</label>
-                  <select
-                    value={playbookIds[tid] || ''}
-                    onChange={e => setPlaybookIds(p => ({ ...p, [tid]: e.target.value }))}
-                  >
-                    <option value="">— Select playbook —</option>
-                    {playbooks.map(pb => (
-                      <option key={pb.id} value={pb.id}>{pb.name}</option>
-                    ))}
-                  </select>
-                </div>
+                            <div className="posttrade-field">
+                              <label>Emotions during this trade</label>
+                              <div className="posttrade-emotions">
+                                {EMOTIONS.map(em => {
+                                  const selected = (emotions[tid] || []).includes(em);
+                                  return (
+                                    <button key={em}
+                                      className={`posttrade-emotion-chip ${selected ? 'active' : ''}`}
+                                      onClick={() => toggleEmotion(tid, em)}>
+                                      {selected && <span className="emotion-dot">✓</span>}
+                                      {em}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
 
-                {/* What Worked */}
-                <div className="posttrade-field">
-                  <label>What worked</label>
-                  <textarea
-                    placeholder="What went well on this trade?"
-                    value={whatWorked[tid] || ''}
-                    onChange={e => setWhatWorked(p => ({ ...p, [tid]: e.target.value }))}
-                    rows={2}
-                  />
-                </div>
+                            <div className="posttrade-field">
+                              <label>Important notes</label>
+                              <textarea placeholder="Anything else worth remembering about this trade" rows={2}
+                                value={importantNotes[tid] || ''}
+                                onChange={e => setImportantNotes(p => ({ ...p, [tid]: e.target.value }))} />
+                            </div>
 
-                {/* What Didn't */}
-                <div className="posttrade-field">
-                  <label>What didn&rsquo;t work</label>
-                  <textarea
-                    placeholder="What could have been better?"
-                    value={whatDidnt[tid] || ''}
-                    onChange={e => setWhatDidnt(p => ({ ...p, [tid]: e.target.value }))}
-                    rows={2}
-                  />
-                </div>
-
-                {/* Lessons Learned */}
-                <div className="posttrade-field">
-                  <label>Lessons learned</label>
-                  <textarea
-                    placeholder="Key takeaways from this trade"
-                    value={lessonsLearned[tid] || ''}
-                    onChange={e => setLessonsLearned(p => ({ ...p, [tid]: e.target.value }))}
-                    rows={2}
-                  />
-                </div>
-
-                {/* Emotions */}
-                <div className="posttrade-field">
-                  <label>Emotions during this trade</label>
-                  <div className="posttrade-emotions">
-                    {EMOTIONS.map(em => {
-                      const selected = (emotions[tid] || []).includes(em);
-                      return (
-                        <button
-                          key={em}
-                          className={`posttrade-emotion-chip ${selected ? 'active' : ''}`}
-                          onClick={() => toggleEmotion(tid, em)}
-                        >
-                          {selected && <span className="emotion-dot">✓</span>}
-                          {em}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Important Notes */}
-                <div className="posttrade-field">
-                  <label>Important notes</label>
-                  <textarea
-                    placeholder="Anything else worth remembering about this trade"
-                    value={importantNotes[tid] || ''}
-                    onChange={e => setImportantNotes(p => ({ ...p, [tid]: e.target.value }))}
-                    rows={2}
-                  />
-                </div>
-
-                {/* Save Button */}
-                <div className="posttrade-actions">
-                  <button
-                    className={`posttrade-save-btn ${isSaved ? 'saved' : ''}`}
-                    onClick={() => handleSave(tid)}
-                    disabled={isSaving}
-                  >
-                    {isSaved ? '✓ Saved' : isSaving ? 'Saving…' : 'Save'}
-                  </button>
-                  <span className="posttrade-autosave-hint">Auto-saved locally</span>
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })}
+                            <div className="posttrade-actions">
+                              <button
+                                className={`posttrade-save-btn ${isSaved ? 'saved' : ''}`}
+                                onClick={() => handleSave(tid)}
+                                disabled={isSaving}>
+                                {isSaved ? '✓ Saved' : isSaving ? 'Saving…' : 'Save'}
+                              </button>
+                              <span className="posttrade-autosave-hint">Auto-saved locally</span>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })()}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

@@ -40,24 +40,17 @@ export function computeStats(trades: any[]) {
   };
 }
 
-export function filterTradesByTime(trades: any[], filter: string) {
-  if (filter === 'All Time') return trades;
-  const now = new Date();
+export function filterTradesByDateRange(trades: any[], start: string, end: string) {
+  if (!start && !end) return trades;
+  const s = start ? new Date(start + 'T00:00:00') : null;
+  const e = end ? new Date(end + 'T23:59:59') : null;
 
   return trades.filter(t => {
     const timeStr = t.entry_time || t.entryTime;
     const dateStr = t.trade_date || t.date;
     const d = new Date(timeStr.replace(' ', 'T'));
-    
-    switch (filter) {
-      case 'Today':        return dateStr === now.toISOString().split('T')[0];
-      case 'This Week':    { const ws = new Date(now); ws.setDate(now.getDate() - now.getDay()); ws.setHours(0,0,0,0); return d >= ws; }
-      case 'This Month':   return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-      case 'Last 30 Days': { const ago = new Date(now); ago.setDate(now.getDate() - 30); return d >= ago; }
-      case 'Last Month':   { const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1); return d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear(); }
-      case 'Quarter':      { const qs = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1); return d >= qs; }
-      case 'YTD':          return d.getFullYear() === now.getFullYear();
-      default:             return true;
-    }
+    if (s && d < s) return false;
+    if (e && d > e) return false;
+    return true;
   });
 }

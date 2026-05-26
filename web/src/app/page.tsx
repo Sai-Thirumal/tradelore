@@ -6,7 +6,8 @@ import {
   Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Filler, Legend
 } from 'chart.js';
 import { fmtINR, fmtPrice, fmtDateLabel, fmtDateShort, fmtDateChart } from '@/lib/ui/format';
-import { computeStats, filterTradesByTime } from '@/lib/compute/stats';
+import { computeStats, filterTradesByDateRange } from '@/lib/compute/stats';
+import DateRangePicker from './components/DateRangePicker';
 import JournalPreMarket from './components/journal/PreMarket';
 import JournalPostTrade from './components/journal/PostTrade';
 
@@ -18,8 +19,8 @@ export default function Home() {
   const [stats, setStats] = useState<any>(null);
   
   const [view, setView] = useState('dashboard');
-  const [timeFilter, setTimeFilter] = useState('All Time');
-  const [mode, setMode] = useState('INR');
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
   
   const [expandedTradeRow, setExpandedTradeRow] = useState<string | null>(null);
   const [modalTradeIdx, setModalTradeIdx] = useState<number | null>(null);
@@ -28,9 +29,6 @@ export default function Home() {
   const [importStatus, setImportStatus] = useState('');
   const [toast, setToast] = useState<{ msg: string, type: string } | null>(null);
   
-  const [isTimeMenuOpen, setIsTimeMenuOpen] = useState(false);
-  const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
-  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -38,7 +36,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const filtered = filterTradesByTime(allTrades, timeFilter);
+    const filtered = filterTradesByDateRange(allTrades, customStart, customEnd);
     setTrades(filtered);
     setStats(computeStats(filtered));
     setExpandedTradeRow(null);
@@ -53,7 +51,7 @@ export default function Home() {
         setExpandedMonths(new Set([key]));
       }
     }
-  }, [allTrades, timeFilter]);
+  }, [allTrades, customStart, customEnd]);
 
   const loadTrades = async () => {
     try {
@@ -163,52 +161,7 @@ export default function Home() {
     );
   };
 
-  const renderWeekdayBars = () => {
-    if (!stats) return null;
-    const DAY_NAMES = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
-    const wStats = Array.from({ length: 7 }, () => ({ pnl: 0, trades: 0, wins: 0 }));
-    
-    for (const t of trades) {
-      const dow = new Date((t.entry_time || t.entryTime).replace(' ', 'T')).getDay();
-      wStats[dow].pnl += t.pnl;
-      wStats[dow].trades++;
-      if (t.result === 'win') wStats[dow].wins++;
-    }
-    
-    const tradingDays = [1,2,3,4,5].map(i => ({
-      day: DAY_NAMES[i],
-      pnl: wStats[i].pnl,
-      trades: wStats[i].trades,
-      winPct: wStats[i].trades > 0 ? Math.round(wStats[i].wins / wStats[i].trades * 100) : 0,
-    }));
 
-    if (!trades.length) {
-      return <div className="weekday-bars">{tradingDays.map((w,i) => <div key={i} className="weekday-bar" style={{height:'40px'}}><div className="day-label">{w.day}</div><div className="day-pnl" style={{color:'var(--text-secondary)'}}>—</div><div className="day-meta">no data</div></div>)}</div>;
-    }
-
-    const maxAbs = Math.max(1, ...tradingDays.map(w => Math.abs(w.pnl)));
-    const best   = tradingDays.reduce((a, b) => b.pnl > a.pnl ? b : a);
-
-    return (
-      <div>
-        <div style={{ position: 'absolute', top: '20px', right: '20px', fontSize: '12px', color: 'var(--brand)', fontWeight: 600 }}>
-          {best.trades > 0 ? `Best day: ${best.day}` : ''}
-        </div>
-        <div className="weekday-bars">
-          {tradingDays.map((w, i) => {
-            const height = w.trades > 0 ? Math.max(30, (Math.abs(w.pnl) / maxAbs) * 120) : 30;
-            return (
-              <div key={i} className={`weekday-bar${w.day === best.day && best.trades > 0 ? ' best' : ''}${w.pnl < 0 ? ' negative' : ''}`} style={{height: `${height}px`}}>
-                <div className="day-label">{w.day}</div>
-                <div className="day-pnl" style={{color: w.pnl >= 0 ? 'var(--green)' : 'var(--red)'}}>{w.trades > 0 ? fmtINR(w.pnl) : '—'}</div>
-                <div className="day-meta">{w.trades > 0 ? `${w.trades} trades · ${w.winPct}% win` : 'no trades'}</div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
 
   // -- JOURNAL (new: PreMarket Plan + Post-Trade Analysis) ---
   const renderJournal = () => {
@@ -228,7 +181,7 @@ export default function Home() {
       <div className={`view ${view === 'journal' ? 'active' : ''}`} id="view-journal">
         <JournalPreMarket latestTradeDate={todayStr} />
         <div style={{ height: '16px' }} />
-        <JournalPostTrade trades={latestTrades} />
+        <JournalPostTrade trades={latestTrades} date={latestDate} />
       </div>
     );
   };
@@ -236,35 +189,22 @@ export default function Home() {
   return (
     <>
       <header className="header">
-        <span className="logo">TradeLore</span>
-        
-        <div className="popup-wrap">
-          <button className="popup-trigger" onClick={() => { setIsModeMenuOpen(!isModeMenuOpen); setIsTimeMenuOpen(false); }}>
-            <span>{mode}</span><span className="arrow">▾</span>
-          </button>
-          <div className={`popup-menu ${isModeMenuOpen ? 'open' : ''}`}>
-            {['INR', '%', 'Privacy'].map(m => (
-              <div key={m} className={`item ${mode === m ? 'active' : ''}`} onClick={() => { setMode(m); setIsModeMenuOpen(false); }}>
-                {mode === m && <span className="dot"></span>} {m === 'Privacy' ? '🔒 Privacy' : m}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="popup-wrap">
-          <button className="popup-trigger" onClick={() => { setIsTimeMenuOpen(!isTimeMenuOpen); setIsModeMenuOpen(false); }}>
-            <span>{timeFilter}</span><span className="arrow">▾</span>
-          </button>
-          <div className={`popup-menu ${isTimeMenuOpen ? 'open' : ''}`}>
-            {['Today','This Week','This Month','Last 30 Days','Last Month','Quarter','YTD','All Time'].map(t => (
-              <div key={t} className={`item ${timeFilter === t ? 'active' : ''}`} onClick={() => { setTimeFilter(t); setIsTimeMenuOpen(false); }}>
-                {timeFilter === t && <span className="dot"></span>} {t}
-              </div>
-            ))}
-          </div>
-        </div>
+        <span className="logo">
+          <svg width="20" height="24" viewBox="0 0 20 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="logo-mark">
+            <line x1="10" y1="2" x2="10" y2="7" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round"/>
+            <path d="M3 7H12.5L17 11.5V17H3V7Z" fill="#f97316"/>
+            <line x1="10" y1="17" x2="10" y2="22" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+          TradeLore
+        </span>
         
         <div className="header-spacer"></div>
+        <DateRangePicker
+          start={customStart}
+          end={customEnd}
+          onChange={(s, e) => { setCustomStart(s); setCustomEnd(e); }}
+          onClear={() => { setCustomStart(''); setCustomEnd(''); }}
+        />
         <input type="file" ref={fileInputRef} accept=".csv" style={{display:'none'}} onChange={handleImport} />
         <button className="import-btn" style={{padding:'6px 12px', fontSize:'12px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text)', gap:'4px'}} onClick={async () => {
           if (!confirm("Are you sure you want to clear all data? This cannot be undone.")) return;
@@ -280,9 +220,6 @@ export default function Home() {
           }
         }}>🗑 Clear</button>
         <button className="import-btn" style={{padding:'6px 12px', fontSize:'12px'}} onClick={() => fileInputRef.current?.click()}>↑ Import CSV</button>
-        <span id="broker-label" style={{fontSize:'12px',color:'var(--text-secondary)',padding:'7px 12px',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)'}}>
-          {allTrades.length > 0 ? `${allTrades.length} trades` : 'No data'}
-        </span>
       </header>
 
       <nav className="nav">
@@ -316,8 +253,8 @@ export default function Home() {
                 {!stats || !stats.dailyArr.length ? <div className="chart-empty"><div className="chart-empty-icon">📈</div><div className="chart-empty-text">Import trades to see P&amp;L curve</div></div> :
                   <Line data={{
                     labels: stats.dailyArr.map((d: any) => fmtDateChart(d.date)),
-                    datasets: [{ data: stats.cumulativeArr.map((d: any) => d.pnl), borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.06)', fill: true, borderWidth: 2, pointRadius: 2, pointHoverRadius: 5, tension: 0.3 }]
-                  }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { grid: { color: '#f5f5f5' } } } }} />
+                    datasets: [{ data: stats.cumulativeArr.map((d: any) => d.pnl), borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.06)', fill: true, borderWidth: 2, pointRadius: 0, tension: 0.3 }]
+                  }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { display: false } }, y: { grid: { color: '#f5f5f5' } } } }} />
                 }
               </div>
             </div>
@@ -330,7 +267,7 @@ export default function Home() {
                   <Bar data={{
                     labels: stats.dailyArr.map((d: any) => fmtDateChart(d.date)),
                     datasets: [{ data: stats.dailyArr.map((d: any) => d.pnl), backgroundColor: stats.dailyArr.map((v: any) => v.pnl >= 0 ? '#16a34a' : '#dc2626'), borderRadius: 4 }]
-                  }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { grid: { color: '#f5f5f5' } } } }} />
+                  }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { display: false } }, y: { grid: { color: '#f5f5f5' } } } }} />
                 }
               </div>
             </div>
@@ -349,12 +286,7 @@ export default function Home() {
             {renderCalendar()}
           </div>
 
-          <div className="section" style={{ position: 'relative' }}>
-            <div className="section-header">
-              <div><div className="section-title">Weekday Performance</div><div className="section-subtitle">Mon–Fri P&amp;L intensity</div></div>
-            </div>
-            {renderWeekdayBars()}
-          </div>
+
         </div>
 
         {/* JOURNAL */}
