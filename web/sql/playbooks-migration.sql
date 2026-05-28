@@ -17,7 +17,7 @@ INSERT INTO public.playbooks (name, data, is_default)
 SELECT 
   'Opening Range Breakout',
   '{
-    "markets": ["stocks", "futures"],
+    "markets": ["Stocks", "Futures"],
     "timeframes": ["5m", "15m"],
     "trading_style": "momentum",
     "market_environment": "trending",
@@ -56,7 +56,7 @@ INSERT INTO public.playbooks (name, data, is_default)
 SELECT 
   'VWAP Mean Reversion',
   '{
-    "markets": ["stocks", "futures"],
+    "markets": ["Stocks", "Futures"],
     "timeframes": ["5m", "15m"],
     "trading_style": "mean reversion",
     "market_environment": "ranging",
@@ -95,7 +95,7 @@ INSERT INTO public.playbooks (name, data, is_default)
 SELECT 
   'Trend Continuation Pullback',
   '{
-    "markets": ["stocks", "futures", "forex", "crypto"],
+    "markets": ["Stocks", "Indices", "Options", "Futures"],
     "timeframes": ["1h", "4h", "daily"],
     "trading_style": "trend following",
     "market_environment": "trending",

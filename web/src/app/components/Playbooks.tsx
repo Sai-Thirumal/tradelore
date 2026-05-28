@@ -45,7 +45,7 @@ interface Playbook {
 // ── Constants ──
 const MAX_PLAYBOOKS = 8;
 
-const MARKETS = ['stocks', 'futures', 'forex', 'crypto'];
+const MARKETS = ['Stocks', 'Indices', 'Options', 'Futures'];
 const TIMEFRAMES = ['5m', '15m', '1h', '4h', 'daily'];
 const ENTRY_TYPES = ['limit', 'market', 'stop'];
 const STOP_TYPES = ['fixed', 'ATR', 'structure'];
