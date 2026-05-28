@@ -9,6 +9,7 @@
 │   ├── JournalPreMarket     Date header, market outlook, bias, capital, key levels, news
 │   └── JournalPostTrade     Expandable per-trade journal forms
 ├── Trade Log tab            Month → Day → Trade hierarchy
+├── Playbooks tab            Card grid of trading setups, tabbed create/edit form (max 8)
 └── Modal                    Trade detail popup (legacy, being phased out)
 
 /trade?idx=N                Trade detail page (trade/page.tsx)
@@ -21,6 +22,16 @@
 ---
 
 ## Component Index
+
+### `components/Playbooks.tsx`
+`src/app/components/Playbooks.tsx`
+
+- **Props:** None (self-contained, fetches own data)
+- **State:** playbooks list, formOpen, editingId, activeTab, formData, deleteTarget
+- **Data flow:** GET `/api/playbooks` → mount; POST/PUT/DELETE for CRUD
+- **Features:** Card grid (2-col responsive), tabbed create/edit form (9 tabs), max 8 limit, delete confirmation dialog, toast notifications
+- **Tabs:** Identity → Market Conditions → Entry Rules → Stop Loss → Targets & Exit → Position Sizing → Grading → Stats & Review → Notes
+- **Styles:** All scoped to `pb-` prefix in a `<style>` tag inside the component
 
 ### `components/journal/PreMarket.tsx`
 `src/app/components/JournalPreMarket.tsx`

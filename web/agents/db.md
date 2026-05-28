@@ -66,33 +66,52 @@ CREATE TABLE public.trades (
 ---
 
 ### `playbooks`
-Trading strategies. Seeded with 5 defaults.
+Trading strategy setups. Stores all playbook detail in a `data` JSONB column. Max 8 playbooks enforced in UI.
 
 ```sql
 CREATE TABLE public.playbooks (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name            TEXT NOT NULL,
-  description     TEXT DEFAULT '',
-  criteria        TEXT DEFAULT '',
-  entry_rules     TEXT DEFAULT '',
-  exit_rules      TEXT DEFAULT '',
-  position_sizing TEXT DEFAULT '',
-  rating          INTEGER DEFAULT 3,  -- 1–5 stars
-  created_at      TIMESTAMPTZ DEFAULT NOW()
+  description     TEXT DEFAULT '',           -- legacy, being phased out
+  criteria        TEXT DEFAULT '',           -- legacy
+  entry_rules     TEXT DEFAULT '',           -- legacy
+  exit_rules      TEXT DEFAULT '',           -- legacy
+  position_sizing TEXT DEFAULT '',           -- legacy
+  rating          INTEGER DEFAULT 3,        -- legacy (1–5 stars)
+  data            JSONB DEFAULT '{}'::jsonb, -- all structured playbook fields
+  is_default      BOOLEAN DEFAULT false,     -- true for pre-seeded example setups
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- RLS: Allow all (service role / anon key)
--- Indexes: (none — small table, full scan OK)
+-- Index: idx_playbooks_name ON (name)
 ```
 
-**Seed data (5 playbooks):**
-| Name | Rating |
-|------|--------|
-| Trend Following | ★★★★ |
-| Mean Reversion | ★★★ |
-| Breakout Trading | ★★★★ |
-| Options Selling | ★★★ |
-| Gap Trading | ★★ |
+**`data` JSONB structure** (9 categories of fields):
+```
+{
+  markets: string[], timeframes: string[], trading_style: string,
+  market_environment: string, best_session: string, macro_invalidation: string,
+  entry_trigger: string, entry_confirmation: string, entry_filters: string, entry_type: string,
+  stop_placement: string, stop_type: string, stop_invalidation: string,
+  target_1: string, target_2: string, min_rr: string, scale_out: string,
+  trailing_stop: string, early_exit_rule: string,
+  risk_percent: number, grade: string,
+  grade_a_plus: string, grade_b: string, ideal_chart: string,
+  win_rate: number, avg_rr: number, max_consecutive_losses: number, failure_conditions: string,
+  psychology_notes: string, common_mistakes: string, trade_links: string[]
+}
+```
+
+**Seed data (3 example playbooks):**
+| Name | Style | Markets |
+|------|-------|---------|
+| Opening Range Breakout | Momentum | Stocks, Futures |
+| VWAP Mean Reversion | Mean Reversion | Stocks, Futures |
+| Trend Continuation Pullback | Trend Following | Stocks, Futures, Forex, Crypto |
+
+Migration SQL at `sql/playbooks-migration.sql`.
 
 ---
 

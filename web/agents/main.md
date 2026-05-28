@@ -36,6 +36,7 @@ src/
 │   ├── components/
 │   │   ├── journal/  — PreMarket, PostTrade
 │   │   ├── chart/    — TradeChart
+│   │   ├── Playbooks.tsx  — Trading setup playbooks (card grid + tabbed form)
 │   │   └── shared/   — Reusable (buttons, inputs, modals)
 │   ├── api/          — Next.js API routes (file = route)
 │   └── trade/        — Trade detail page

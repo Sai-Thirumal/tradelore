@@ -8,7 +8,7 @@
 ├── clear/            DELETE — Wipe all trade data
 ├── daily-journal/    GET|POST — Pre-market plan by date
 ├── import/           POST  — Upload broker CSV, parse → match → store
-├── playbooks/        GET|POST — Trading strategies CRUD
+├── playbooks/        GET|POST|PUT|DELETE — Trading strategy setups CRUD
 ├── trade-journal/    GET|POST — Per-trade post-market analysis
 └── trades/           GET   — All completed trades
 ```
@@ -92,15 +92,34 @@ Save or update pre-market plan. Upserts on `date`.
 ```
 
 ### GET /api/playbooks
-List all trading playbooks.
+List all trading playbooks, or get a single one by ID.
 
-**Response:** `Playbook[]`
+**Params:** `id` (optional UUID — returns single playbook if provided)
+**Response:** `Playbook[] | Playbook`
 ```json
-[{ "id": "uuid", "name": "Trend Following", "description": "...", "rating": 4 }]
+[{ "id": "uuid", "name": "Opening Range Breakout", "data": { ... }, "is_default": true, "created_at": "...", "updated_at": "..." }]
 ```
+
+On preview deploys without Supabase env vars, gracefully returns `[]`.
 
 ### POST /api/playbooks
 Create a new playbook.
+
+**Body:** `{ "name": "My Setup", "data": { "markets": ["stocks"], ... } }`
+**Response:** Created playbook (201)
+
+### PUT /api/playbooks
+Update an existing playbook.
+
+**Body:** `{ "id": "uuid", "name": "New Name", "data": { ... } }`
+Only `id` is required. Pass `name` and/or `data` to update those fields individually.
+**Response:** Updated playbook
+
+### DELETE /api/playbooks
+Delete a playbook.
+
+**Params:** `id` (required UUID)
+**Response:** `{ "success": true }`
 
 ### GET /api/trade-journal
 Get journal entry for a specific trade.
