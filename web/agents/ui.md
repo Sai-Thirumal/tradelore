@@ -26,12 +26,13 @@
 ### `components/Playbooks.tsx`
 `src/app/components/Playbooks.tsx`
 
-- **Props:** None (self-contained, fetches own data)
-- **State:** playbooks list, formOpen, editingId, activeTab, formData, deleteTarget
-- **Data flow:** GET `/api/playbooks` → mount; POST/PUT/DELETE for CRUD
-- **Features:** Card grid (2-col responsive), tabbed create/edit form (9 tabs), max 8 limit, delete confirmation dialog, toast notifications
-- **Tabs:** Identity → Market Conditions → Entry Rules → Stop Loss → Targets & Exit → Position Sizing → Grading → Stats & Review → Notes
-- **Styles:** All scoped to `pb-` prefix in a `<style>` tag inside the component
+- **Props:** None (self-contained, fetches own data + computed stats)
+- **State:** playbooks list, stats (per-playbook computed metrics), formOpen, editingId, activeTab, formData, deleteTarget
+- **Data flow:** GET `/api/playbooks` → mount; GET `/api/playbooks/stats` → computed win rate & avg R:R; POST/PUT/DELETE for CRUD
+- **Features:** Card grid (2-col responsive), tabbed create/edit form (8 tabs), max 8 limit, computed live stats, delete confirmation dialog
+- **Tabs:** Identity → Market Conditions → Entry Rules → Stop Loss → Targets & Exit → Position Sizing → Grading → Notes
+- **Markets:** Stocks, Indices, Options, Futures (tag chips)
+- **Stats:** Win rate and avg R:R computed from actual tagged trades, not manually entered
 
 ### `components/journal/PreMarket.tsx`
 `src/app/components/JournalPreMarket.tsx`
@@ -66,11 +67,11 @@
 
 | File | Type | Notes |
 |------|------|-------|
-| `app/page.tsx` | Client | Main dashboard, 3 tabs, ~470 lines |
+| `app/page.tsx` | Client | Main dashboard, 4 tabs (Dashboard, Journal, Trade Log, Playbooks) |
 | `app/layout.tsx` | Server | Root layout |
 | `app/trade/page.tsx` | Client | Trade detail, `useSearchParams`, journal form |
 | `app/trade/layout.tsx` | Server | `force-dynamic` for `useSearchParams` |
-| `app/globals.css` | Global | All styles, ~900 lines, CSS custom properties |
+| `app/globals.css` | Global | All styles, ~950 lines, CSS custom properties |
 
 ---
 

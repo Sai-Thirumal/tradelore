@@ -9,6 +9,7 @@
 ├── daily-journal/    GET|POST — Pre-market plan by date
 ├── import/           POST  — Upload broker CSV, parse → match → store
 ├── playbooks/        GET|POST|PUT|DELETE — Trading strategy setups CRUD
+│   └── stats/        GET   — Computed win rate & avg R:R per playbook from tagged trades
 ├── trade-journal/    GET|POST — Per-trade post-market analysis
 └── trades/           GET   — All completed trades
 ```
@@ -105,7 +106,7 @@ On preview deploys without Supabase env vars, gracefully returns `[]`.
 ### POST /api/playbooks
 Create a new playbook.
 
-**Body:** `{ "name": "My Setup", "data": { "markets": ["stocks"], ... } }`
+**Body:** `{ "name": "My Setup", "data": { "markets": ["Stocks"], ... } }`
 **Response:** Created playbook (201)
 
 ### PUT /api/playbooks
@@ -120,6 +121,24 @@ Delete a playbook.
 
 **Params:** `id` (required UUID)
 **Response:** `{ "success": true }`
+
+### GET /api/playbooks/stats
+Returns computed performance stats for each playbook based on trades tagged with it in the journal.
+
+**Response:** `Record<string, PlaybookStats>`
+```json
+{
+  "playbook-uuid": {
+    "total_trades": 12, "wins": 7, "losses": 5,
+    "win_rate": 58, "avg_rr": 1.8,
+    "total_pnl": 12500, "max_consecutive_losses": 3
+  }
+}
+```
+- `win_rate`: 0–100 integer
+- `avg_rr`: actual P&L / risk_amount average
+- `max_consecutive_losses`: longest losing streak
+- Only returns playbooks that have at least one tagged trade
 
 ### GET /api/trade-journal
 Get journal entry for a specific trade.

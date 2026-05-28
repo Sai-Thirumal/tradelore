@@ -37,6 +37,7 @@ src/
 │   │   ├── journal/  — PreMarket, PostTrade
 │   │   ├── chart/    — TradeChart
 │   │   ├── Playbooks.tsx  — Trading setup playbooks (card grid + tabbed form)
+│   │   ├── DateRangePicker.tsx — Dual-calendar date range filter
 │   │   └── shared/   — Reusable (buttons, inputs, modals)
 │   ├── api/          — Next.js API routes (file = route)
 │   └── trade/        — Trade detail page
@@ -47,7 +48,7 @@ src/
 1. **No code without spec.** If the user hasn't given a complete feature spec, ask clarifying questions. DO NOT write implementation code.
 2. **Update agent docs on every change.** New API route → update `api.md`. New component → update `ui.md`. Schema change → update `db.md`.
 3. **Deploy after each logical chunk.** Backend change → deploy. Frontend change → deploy. Integration → deploy. Catch failures early.
-4. **Never push to GitHub.** Vercel token handles deployment directly. The repo is read-only.
+4. **Push to GitHub only when asked.** Vercel is the primary deployment target. Push commits when the user explicitly requests it.
 5. **Supabase pagination.** Every `.select('*')` without `.limit()` or `.single()` caps at 1,000 rows. Always paginate with `.range(from, to)` for functions that can exceed this.
 6. **TypeScript strict.** No `any` in lib functions. Use `any` sparingly in components for Supabase row types.
 7. **Client components need `'use client'`.** Server components are the default. `useSearchParams` requires `force-dynamic` in a server-component layout.

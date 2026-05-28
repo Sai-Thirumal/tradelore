@@ -88,7 +88,7 @@ CREATE TABLE public.playbooks (
 -- Index: idx_playbooks_name ON (name)
 ```
 
-**`data` JSONB structure** (9 categories of fields):
+**`data` JSONB structure** (8 form tabs — win rate and avg R:R are computed from tagged trades, not stored):
 ```
 {
   markets: string[], timeframes: string[], trading_style: string,
@@ -99,8 +99,17 @@ CREATE TABLE public.playbooks (
   trailing_stop: string, early_exit_rule: string,
   risk_percent: number, grade: string,
   grade_a_plus: string, grade_b: string, ideal_chart: string,
-  win_rate: number, avg_rr: number, max_consecutive_losses: number, failure_conditions: string,
-  psychology_notes: string, common_mistakes: string, trade_links: string[]
+  failure_conditions: string,
+  psychology_notes: string, common_mistakes: string
+}
+```
+
+**Computed stats** (from `/api/playbooks/stats` — not stored in playbooks table):
+```
+{
+  total_trades: number, wins: number, losses: number,
+  win_rate: number (0-100), avg_rr: number,
+  total_pnl: number, max_consecutive_losses: number
 }
 ```
 
@@ -109,9 +118,9 @@ CREATE TABLE public.playbooks (
 |------|-------|---------|
 | Opening Range Breakout | Momentum | Stocks, Futures |
 | VWAP Mean Reversion | Mean Reversion | Stocks, Futures |
-| Trend Continuation Pullback | Trend Following | Stocks, Futures, Forex, Crypto |
+| Trend Continuation Pullback | Trend Following | Stocks, Indices, Options, Futures |
 
-Migration SQL at `sql/playbooks-migration.sql`.
+Markets options: `['Stocks', 'Indices', 'Options', 'Futures']`
 
 ---
 
