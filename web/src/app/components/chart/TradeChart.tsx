@@ -53,6 +53,20 @@ export default function TradeChart({ symbol, direction, avgEntry, avgExit, entry
           chartRef.current = null;
         }
 
+        const istTimeFormatter = (time: number) => {
+          const d = new Date(time * 1000);
+          const tz = 'Asia/Kolkata';
+          if (data.interval === '5m') {
+            return d.toLocaleString('en-IN', { timeZone: tz, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+          }
+          // Daily: show date, add year only if not current year
+          const istYear = parseInt(d.toLocaleString('en-IN', { timeZone: tz, year: 'numeric' }));
+          const nowIstYear = parseInt(new Date().toLocaleString('en-IN', { timeZone: tz, year: 'numeric' }));
+          const opts: Intl.DateTimeFormatOptions = { timeZone: tz, day: 'numeric', month: 'short' };
+          if (istYear !== nowIstYear) opts.year = 'numeric';
+          return d.toLocaleString('en-IN', opts);
+        };
+
         const chart = createChart(containerRef.current!, {
           width,
           height: 400,
@@ -60,7 +74,7 @@ export default function TradeChart({ symbol, direction, avgEntry, avgExit, entry
           grid: { vertLines: { color: '#f5f5f5' }, horzLines: { color: '#f5f5f5' } },
           crosshair: { mode: 0 },
           rightPriceScale: { borderColor: '#e5e5e5' },
-          timeScale: { borderColor: '#e5e5e5', timeVisible: data.interval === '5m' },
+          timeScale: { borderColor: '#e5e5e5', timeVisible: data.interval === '5m', tickMarkFormatter: istTimeFormatter },
         });
         chartRef.current = chart;
 

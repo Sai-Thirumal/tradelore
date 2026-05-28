@@ -10,6 +10,7 @@ import { computeStats, filterTradesByDateRange } from '@/lib/compute/stats';
 import DateRangePicker from './components/DateRangePicker';
 import JournalPreMarket from './components/journal/PreMarket';
 import JournalPostTrade from './components/journal/PostTrade';
+import Playbooks from './components/Playbooks';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Filler, Legend);
 
@@ -223,9 +224,9 @@ export default function Home() {
       </header>
 
       <nav className="nav">
-        {['dashboard', 'journal', 'tradelog'].map(v => (
+        {['dashboard', 'journal', 'tradelog', 'playbooks'].map(v => (
           <div key={v} className={`nav-tab ${view === v ? 'active' : ''}`} onClick={() => setView(v)}>
-            {v === 'dashboard' ? 'Dashboard' : v === 'journal' ? 'Journal' : 'Trade Log'}
+            {v === 'dashboard' ? 'Dashboard' : v === 'journal' ? 'Journal' : v === 'tradelog' ? 'Trade Log' : 'Playbooks'}
           </div>
         ))}
       </nav>
@@ -446,6 +447,11 @@ export default function Home() {
               );
             });
           })()}
+        </div>
+
+        {/* PLAYBOOKS */}
+        <div className={`view ${view === 'playbooks' ? 'active' : ''}`} id="view-playbooks">
+          <Playbooks />
         </div>
       </div>
 
