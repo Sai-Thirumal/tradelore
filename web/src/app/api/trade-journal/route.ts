@@ -1,12 +1,27 @@
 import { NextResponse } from 'next/server';
-import { fetchTradeJournal, saveTradeJournal } from '@/lib/db/supabase';
+import { fetchTradeJournal, fetchAllTradeJournals, saveTradeJournal } from '@/lib/db/supabase';
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const tradeId = searchParams.get('trade_id');
     if (!tradeId) {
-      return NextResponse.json({ error: 'trade_id required' }, { status: 400 });
+      // Return all journal trade_ids that have at least one filled field
+      const all = await fetchAllTradeJournals();
+      const trade_ids = all
+        .filter((j: any) => {
+          const hasNumber = j.risk_amount !== null || j.profit_target_entry !== null || j.profit_target_exit !== null;
+          const hasText = (j.position_sizing && j.position_sizing.trim() !== '') ||
+            (j.playbook_id && j.playbook_id.trim() !== '') ||
+            (j.what_worked && j.what_worked.trim() !== '') ||
+            (j.what_didnt && j.what_didnt.trim() !== '') ||
+            (j.lessons_learned && j.lessons_learned.trim() !== '') ||
+            (j.emotions && j.emotions.trim() !== '') ||
+            (j.important_notes && j.important_notes.trim() !== '');
+          return hasNumber || hasText;
+        })
+        .map((j: any) => j.trade_id);
+      return NextResponse.json({ trade_ids });
     }
     const entry = await fetchTradeJournal(tradeId);
     return NextResponse.json(entry || null);

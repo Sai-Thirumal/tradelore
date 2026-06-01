@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { Line, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Filler, Legend
@@ -15,6 +16,7 @@ import Playbooks from './components/Playbooks';
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Filler, Legend);
 
 export default function Home() {
+  const router = useRouter();
   const [allTrades, setAllTrades] = useState<any[]>([]);
   const [trades, setTrades] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
@@ -29,6 +31,7 @@ export default function Home() {
 
   const [importStatus, setImportStatus] = useState('');
   const [toast, setToast] = useState<{ msg: string, type: string } | null>(null);
+  const [journaledTradeIds, setJournaledTradeIds] = useState<Set<string>>(new Set());
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -60,6 +63,16 @@ export default function Home() {
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       setAllTrades(data);
+      // Also load journal status for all trades
+      try {
+        const jRes = await fetch('/api/trade-journal');
+        if (jRes.ok) {
+          const jData = await jRes.json();
+          if (jData.trade_ids) {
+            setJournaledTradeIds(new Set(jData.trade_ids));
+          }
+        }
+      } catch {}
     } catch (err: any) {
       showToast('Could not reach API: ' + err.message, 'error');
     }
@@ -298,7 +311,7 @@ export default function Home() {
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px',flexWrap:'wrap',gap:'10px'}}>
             <div>
               <h2 style={{fontSize:'18px',fontWeight:600}}>Trade Log</h2>
-              <span style={{fontSize:'12px',color:'var(--text-secondary)'}}>{trades.length ? `${trades.length} trades · click row for detail · ▸ Orders to see legs` : 'Import a CSV to populate'}</span>
+              <span style={{fontSize:'12px',color:'var(--text-secondary)'}}>{trades.length ? `${trades.length} trades` : 'Import a CSV to populate'}</span>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
               <span style={{fontSize:'12px',color:'var(--text-secondary)'}}>{importStatus}</span>
@@ -367,46 +380,65 @@ export default function Home() {
                         }
                         const days = Object.entries(byDay).sort(([a], [b]) => b.localeCompare(a));
 
-                        return days.map(([dayDate, dayTrades]) => {
-                          const dayPnl = dayTrades.reduce((s: number, t: any) => s + t.pnl, 0);
-                          const dayWins = dayTrades.filter((t: any) => t.result === 'win').length;
-                          const dayLosses = dayTrades.filter((t: any) => t.result === 'loss').length;
+                        return (
+                          <table className="trade-table">
+                            <thead>
+                              <tr>
+                                <th>Symbol</th><th>Dir</th><th>Qty</th>
+                                <th>Avg Entry</th><th>Avg Exit</th><th>Net P&amp;L</th><th>Journal</th><th></th>
+                              </tr>
+                            </thead>
+                            {days.map(([dayDate, dayTrades]) => {
+                              const dayPnl = dayTrades.reduce((s: number, t: any) => s + t.pnl, 0);
+                              const dayWins = dayTrades.filter((t: any) => t.result === 'win').length;
+                              const dayLosses = dayTrades.filter((t: any) => t.result === 'loss').length;
 
-                          return (
-                            <div key={dayDate} className="day-group">
-                              <div className="day-header">
-                                <span className="day-date">{fmtDateLabel(dayDate)}</span>
-                                <span className="day-meta">{dayTrades.length} trade{dayTrades.length !== 1 ? 's' : ''} · {dayWins}W / {dayLosses}L</span>
-                                <span className="day-pnl" style={{color: dayPnl >= 0 ? 'var(--green)' : 'var(--red)'}}>
-                                  {fmtINR(dayPnl)}
-                                </span>
-                              </div>
-                              <table className="trade-table">
-                                <thead>
-                                  <tr>
-                                    <th>Symbol</th><th>Dir</th><th>Qty</th>
-                                    <th>Avg Entry</th><th>Avg Exit</th><th>Net P&amp;L</th><th>Result</th><th></th>
+                              return (
+                                <tbody key={dayDate} className="day-group">
+                                  <tr className="day-header-row">
+                                    <td colSpan={8}>
+                                      <div className="day-header">
+                                        <span className="day-date">{fmtDateLabel(dayDate)}</span>
+                                        <span className="day-meta">{dayTrades.length} trade{dayTrades.length !== 1 ? 's' : ''} · {dayWins}W / {dayLosses}L</span>
+                                        <span className="day-pnl" style={{color: dayPnl >= 0 ? 'var(--green)' : 'var(--red)'}}>
+                                          {fmtINR(dayPnl)}
+                                        </span>
+                                      </div>
+                                    </td>
                                   </tr>
-                                </thead>
-                                <tbody>
                                   {dayTrades.sort((a: any, b: any) => (b.exit_time || b.exitTime || '').localeCompare(a.exit_time || a.exitTime || '')).map((t: any, i: number) => {
                                     const rowKey = `${key}_${dayDate}_${i}`;
                                     const isRowOpen = expandedTradeRow === rowKey;
+                                    const allIdx = allTrades.findIndex((at: any) => (at.id || `${at.symbol}_${at.entry_time || at.entryTime}`) === (t.id || `${t.symbol}_${t.entry_time || t.entryTime}`));
+                                    const tradeIdx = allIdx >= 0 ? allIdx : trades.indexOf(t);
+                                    const tradeUrl = `/trade?idx=${tradeIdx}`;
                                     return (
                                       <React.Fragment key={i}>
-                                        <tr className="clickable" onClick={() => {
-                                          const allIdx = allTrades.findIndex((at: any) => (at.id || `${at.symbol}_${at.entry_time || at.entryTime}`) === (t.id || `${t.symbol}_${t.entry_time || t.entryTime}`));
-                                          window.open(`/trade?idx=${allIdx >= 0 ? allIdx : trades.indexOf(t)}`, '_blank');
-                                        }}>
+                                        <tr className="clickable" onClick={() => router.push(tradeUrl)}>
                                           <td style={{fontWeight:600}}>{t.symbol}{t.exchange && <span style={{fontSize:'10px',color:'var(--text-secondary)'}}> {t.exchange}</span>}</td>
                                           <td>{t.direction === 'LONG' ? 'L' : 'S'}</td>
                                           <td>{t.qty}</td>
                                           <td>{fmtPrice(t.avg_entry || t.avgEntry)}</td>
                                           <td>{fmtPrice(t.avg_exit || t.avgExit)}</td>
                                           <td style={{fontWeight:700,color:t.pnl >= 0 ? 'var(--green)' : 'var(--red)'}}>{fmtINR(t.pnl)}</td>
-                                          <td><span className={`badge ${t.result}`}>{t.result.toUpperCase()}</span></td>
-                                          <td onClick={(e) => { e.stopPropagation(); setExpandedTradeRow(isRowOpen ? null : rowKey); }}>
-                                            <button className={`more-info-btn ${isRowOpen ? 'open' : ''}`}>{isRowOpen ? '▾ Hide' : '▸ Orders'}</button>
+                                          <td>
+                                            <span style={{display:'inline-flex', alignItems:'center', gap:'4px'}}>
+                                              <span style={{width:'6px', height:'6px', borderRadius:'50%', background: journaledTradeIds.has(t.id || `${t.symbol}_${t.entry_time || t.entryTime}`) ? '#16a34a' : '#d1d5db', display:'inline-block'}}></span>
+                                              <span style={{fontSize:'11px', color:'var(--text-secondary)'}}>{journaledTradeIds.has(t.id || `${t.symbol}_${t.entry_time || t.entryTime}`) ? 'Yes' : 'No'}</span>
+                                            </span>
+                                          </td>
+                                          <td>
+                                            <span style={{display:'inline-flex', gap:'10px', alignItems:'center'}}>
+                                              <button
+                                                className="more-info-btn"
+                                                style={{background:'#1a1a1a', color:'#fff', border:'1px solid #1a1a1a', padding:'5px 12px'}}
+                                                onClick={(e) => { e.stopPropagation(); router.push(tradeUrl); }}
+                                              >View Trade | Journal</button>
+                                              <button
+                                                className={`more-info-btn ${isRowOpen ? 'open' : ''}`}
+                                                onClick={(e) => { e.stopPropagation(); setExpandedTradeRow(isRowOpen ? null : rowKey); }}
+                                              >{isRowOpen ? '▾ Hide' : '▸ Orders'}</button>
+                                            </span>
                                           </td>
                                         </tr>
                                         {isRowOpen && (
@@ -436,10 +468,10 @@ export default function Home() {
                                     );
                                   })}
                                 </tbody>
-                              </table>
-                            </div>
-                          );
-                        });
+                              );
+                            })}
+                          </table>
+                        );
                       })()}
                     </div>
                   )}

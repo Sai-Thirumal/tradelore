@@ -67,6 +67,7 @@ export default function JournalPostTrade({ trades, date }: { trades: Trade[]; da
   const [importantNotes, setImportantNotes] = useState<Record<string, string>>({});
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [journaledTradeIds, setJournaledTradeIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetch('/api/playbooks')
@@ -74,6 +75,18 @@ export default function JournalPostTrade({ trades, date }: { trades: Trade[]; da
       .then(data => { if (Array.isArray(data)) setPlaybooks(data); })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    // Load journal status for all trades
+    fetch('/api/trade-journal')
+      .then(r => r.json())
+      .then(data => {
+        if (data.trade_ids) {
+          setJournaledTradeIds(new Set(data.trade_ids));
+        }
+      })
+      .catch(() => {});
+  }, [trades]);
 
   useEffect(() => {
     for (const t of trades) {
@@ -210,7 +223,7 @@ export default function JournalPostTrade({ trades, date }: { trades: Trade[]; da
           <thead>
             <tr>
               <th>Symbol</th><th>Dir</th><th>Qty</th>
-              <th>Avg Entry</th><th>Avg Exit</th><th>Net P&amp;L</th><th>Result</th><th></th>
+              <th>Avg Entry</th><th>Avg Exit</th><th>Net P&amp;L</th><th>Journal</th><th></th>
             </tr>
           </thead>
           <tbody>
@@ -227,7 +240,12 @@ export default function JournalPostTrade({ trades, date }: { trades: Trade[]; da
                     <td>{fmtPrice(entryPrice(t))}</td>
                     <td>{fmtPrice(exitPrice(t))}</td>
                     <td style={{fontWeight:700,color:t.pnl >= 0 ? 'var(--green)' : 'var(--red)'}}>{fmtINR(t.pnl)}</td>
-                    <td><span className={`badge ${t.result}`}>{t.result.toUpperCase()}</span></td>
+                    <td>
+                      <span style={{display:'inline-flex', alignItems:'center', gap:'4px'}}>
+                        <span style={{width:'6px', height:'6px', borderRadius:'50%', background: journaledTradeIds.has(tid) ? '#16a34a' : '#d1d5db', display:'inline-block'}}></span>
+                        <span style={{fontSize:'11px', color:'var(--text-secondary)'}}>{journaledTradeIds.has(tid) ? 'Yes' : 'No'}</span>
+                      </span>
+                    </td>
                     <td>
                       <button
                         className={`more-info-btn ${isOpen ? 'open' : ''}`}
