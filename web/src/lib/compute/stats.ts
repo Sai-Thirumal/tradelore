@@ -21,7 +21,12 @@ export function computeStats(trades: any[]) {
   const avgWinLoss   = avgLoss > 0 ? avgWin / avgLoss : (avgWin > 0 ? 999 : 0);
 
   const dayPnl: Record<string, number> = {};
-  for (const t of trades) dayPnl[t.trade_date || t.date] = (dayPnl[t.trade_date || t.date] || 0) + t.pnl;
+  const dayTrades: Record<string, number> = {};
+  for (const t of trades) {
+    const date = t.trade_date || t.date;
+    dayPnl[date] = (dayPnl[date] || 0) + t.pnl;
+    dayTrades[date] = (dayTrades[date] || 0) + 1;
+  }
 
   const sortedDays = Object.keys(dayPnl).sort();
   const greenDays  = sortedDays.filter(d => dayPnl[d] > 0).length;
@@ -36,7 +41,7 @@ export function computeStats(trades: any[]) {
     netPnl, tradeWinPct, profitFactor, dayWinPct, avgWinLoss,
     totalWins, totalLosses, avgWin, avgLoss,
     winCount: wins.length, lossCount: losses.length,
-    greenDays, redDays, dayPnl, dailyArr, cumulativeArr,
+    greenDays, redDays, dayPnl, dayTrades, dailyArr, cumulativeArr,
   };
 }
 

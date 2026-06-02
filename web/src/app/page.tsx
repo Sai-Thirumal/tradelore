@@ -28,6 +28,7 @@ export default function Home() {
   
   const [expandedTradeRow, setExpandedTradeRow] = useState<string | null>(null);
   const [modalTradeIdx, setModalTradeIdx] = useState<number | null>(null);
+  const [showCalInfo, setShowCalInfo] = useState(false);
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
 
   const [importStatus, setImportStatus] = useState('');
@@ -288,16 +289,19 @@ export default function Home() {
               if (d === null) return <td key={j} className="day-cell other-month"></td>;
               const key = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
               const pnl = stats.dayPnl && key in stats.dayPnl ? stats.dayPnl[key] : null;
+              const tradeCount = stats.dayTrades && key in stats.dayTrades ? stats.dayTrades[key] : null;
               const isToday = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
               if (pnl !== null) { weekPnl += pnl; weekDays++; }
               const cls = 'day-cell' + (isToday ? ' today' : '');
               const miniCls = pnl !== null ? (pnl >= 0 ? 'up' : 'down') : '';
               const miniText = pnl !== null ? (pnl >= 0 ? '+' : '') + (Math.abs(pnl) >= 1000 ? (pnl/1000).toFixed(1)+'k' : pnl.toFixed(0)) : '';
-              
+              const tradesText = tradeCount !== null ? `${tradeCount} trade${tradeCount !== 1 ? 's' : ''}` : '';
+
               return (
                 <td key={j} className={cls}>
                   <span className="day-num">{d}</span>
                   {miniText && <span className={`mini-pnl ${miniCls}`}>{miniText}</span>}
+                  {tradesText && <span className="mini-trades">{tradesText}</span>}
                 </td>
               );
             });
@@ -544,7 +548,7 @@ export default function Home() {
           <div className="charts-row">
             <div className="section fade-in-up">
               <div className="section-header">
-                <div><div className="section-title">Cumulative Net P&amp;L</div><div className="section-subtitle">Running total · realized only</div></div>
+                <div><div className="section-title">Cumulative Net P&amp;L</div></div>
                 <span style={{fontSize:'20px',fontWeight:700,color: stats && stats.cumulativeArr.length ? (stats.cumulativeArr[stats.cumulativeArr.length-1].pnl >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--text-secondary)'}}>
                   {stats && stats.cumulativeArr.length ? fmtINR(stats.cumulativeArr[stats.cumulativeArr.length-1].pnl) : '—'}
                 </span>
@@ -560,7 +564,7 @@ export default function Home() {
             </div>
             <div className="section fade-in-up">
               <div className="section-header">
-                <div><div className="section-title">Daily Net P&amp;L</div><div className="section-subtitle">Green = win day · Red = loss day</div></div>
+                <div><div className="section-title">Daily Net P&amp;L</div></div>
               </div>
               <div className="chart-wrap">
                 {!stats || !stats.dailyArr.length ? <div className="chart-empty"><div className="chart-empty-icon">📊</div><div className="chart-empty-text">Import trades to see daily P&amp;L</div></div> :
@@ -580,7 +584,22 @@ export default function Home() {
                   const d = new Date(stats.dailyArr[stats.dailyArr.length - 1].date + 'T00:00:00');
                   return `${['January','February','March','April','May','June','July','August','September','October','November','December'][d.getMonth()]} ${d.getFullYear()}`;
                 })() : 'Calendar'}</div>
-                <div className="section-subtitle">Daily P&amp;L · weekly totals</div>
+              </div>
+              <div style={{position:'relative'}}>
+                <button className="cal-info-btn" onClick={() => setShowCalInfo(v => !v)} title="Calendar info">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.2"/><path d="M8 7v4M8 5.5V5.51" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
+                </button>
+                {showCalInfo && (
+                  <div className="cal-info-popup" onClick={() => setShowCalInfo(false)}>
+                    <div className="cal-info-inner" onClick={e => e.stopPropagation()}>
+                      <div className="cal-info-row"><span className="cal-info-dot" style={{background:'var(--brand)'}}></span> Today</div>
+                      <div className="cal-info-row"><span className="cal-info-dot" style={{background:'var(--green)'}}></span> Win day</div>
+                      <div className="cal-info-row"><span className="cal-info-dot" style={{background:'var(--red)'}}></span> Loss day</div>
+                      <div className="cal-info-row"><span className="cal-info-dot" style={{background:'var(--brand-light)',border:'1px solid var(--border)'}}></span> Trading day</div>
+                      <div className="cal-info-row" style={{marginTop:'6px',fontSize:'11px',color:'var(--text-secondary)'}}>P&amp;L = realized only. Weekly totals on the right.</div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             {renderCalendar()}
