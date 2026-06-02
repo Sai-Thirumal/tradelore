@@ -22,6 +22,7 @@ export default function Home() {
   const [stats, setStats] = useState<any>(null);
   
   const [view, setView] = useState('dashboard');
+  const [journalTab, setJournalTab] = useState('premarket');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   
@@ -34,6 +35,24 @@ export default function Home() {
   const [journaledTradeIds, setJournaledTradeIds] = useState<Set<string>>(new Set());
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cumChartRef = useRef<any>(null);
+  const dailyChartRef = useRef<any>(null);
+
+  /* Chart.js line glow plugin */
+  const lineGlowPlugin = {
+    id: 'lineGlow',
+    beforeDatasetsDraw(chart: any) {
+      const ctx = chart.ctx;
+      ctx.save();
+      ctx.shadowColor = 'rgba(249, 115, 22, 0.35)';
+      ctx.shadowBlur = 14;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+    },
+    afterDatasetsDraw(chart: any) {
+      chart.ctx.restore();
+    }
+  };
 
   useEffect(() => {
     loadTrades();
@@ -56,6 +75,57 @@ export default function Home() {
       }
     }
   }, [allTrades, customStart, customEnd]);
+
+  /* Apply gradient fills after chart renders */
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      // Cumulative line chart gradient
+      if (cumChartRef.current) {
+        const chart = cumChartRef.current;
+        const area = chart.chartArea;
+        if (area) {
+          const ctx = chart.ctx;
+          const grad = ctx.createLinearGradient(0, area.top, 0, area.bottom);
+          grad.addColorStop(0, 'rgba(249,115,22,0.18)');
+          grad.addColorStop(0.6, 'rgba(249,115,22,0.04)');
+          grad.addColorStop(1, 'rgba(249,115,22,0.0)');
+          chart.data.datasets[0].backgroundColor = grad;
+          chart.data.datasets[0].borderColor = '#f97316';
+          chart.data.datasets[0].borderWidth = 2.5;
+          chart.data.datasets[0].tension = 0.4;
+          chart.data.datasets[0].pointRadius = 0;
+          chart.data.datasets[0].pointHoverRadius = 5;
+          chart.data.datasets[0].pointHoverBackgroundColor = '#f97316';
+          chart.data.datasets[0].pointHoverBorderColor = '#fff';
+          chart.data.datasets[0].pointHoverBorderWidth = 2;
+          chart.update('none');
+        }
+      }
+      // Daily bar chart gradients
+      if (dailyChartRef.current && stats?.dailyArr) {
+        const chart = dailyChartRef.current;
+        const area = chart.chartArea;
+        if (area) {
+          const ctx = chart.ctx;
+          const colors = stats.dailyArr.map((v: any) => {
+            const grad = ctx.createLinearGradient(0, area.bottom, 0, area.top);
+            if (v.pnl >= 0) {
+              grad.addColorStop(0, 'rgba(22,163,74,0.55)');
+              grad.addColorStop(1, 'rgba(22,163,74,0.85)');
+            } else {
+              grad.addColorStop(0, 'rgba(220,38,38,0.55)');
+              grad.addColorStop(1, 'rgba(220,38,38,0.85)');
+            }
+            return grad;
+          });
+          chart.data.datasets[0].backgroundColor = colors;
+          chart.data.datasets[0].borderRadius = 5;
+          chart.data.datasets[0].borderSkipped = false;
+          chart.update('none');
+        }
+      }
+    });
+  }, [stats]);
 
   const loadTrades = async () => {
     try {
@@ -193,9 +263,18 @@ export default function Home() {
 
     return (
       <div className={`view ${view === 'journal' ? 'active' : ''}`} id="view-journal">
-        <JournalPreMarket latestTradeDate={todayStr} />
-        <div style={{ height: '16px' }} />
-        <JournalPostTrade trades={latestTrades} date={latestDate} />
+        <div className="journal-subtabs fade-in-up">
+          <div className={`journal-subtab ${journalTab === 'premarket' ? 'active' : ''}`} onClick={() => setJournalTab('premarket')}>
+            Pre-Market
+          </div>
+          <div className={`journal-subtab ${journalTab === 'posttrade' ? 'active' : ''}`} onClick={() => setJournalTab('posttrade')}>
+            Post-Market
+          </div>
+        </div>
+        <div className="fade-in-up">
+          {journalTab === 'premarket' && <JournalPreMarket latestTradeDate={todayStr} />}
+          {journalTab === 'posttrade' && <JournalPostTrade trades={latestTrades} date={latestDate} />}
+        </div>
       </div>
     );
   };
@@ -247,16 +326,154 @@ export default function Home() {
       <div className="main">
         {/* DASHBOARD */}
         <div className={`view ${view === 'dashboard' ? 'active' : ''}`} id="view-dashboard">
-          <div className="stat-pills">
-            <div className="stat-pill"><span className="label">Net P&amp;L</span><span className={`value ${stats?.netPnl >= 0 ? 'green' : 'red'}`}>{stats ? fmtINR(stats.netPnl) : '—'}</span><span className="sub">{stats ? `${stats.winCount + stats.lossCount} completed trades` : 'Import CSV to start'}</span></div>
-            <div className="stat-pill"><span className="label">Trade Win %</span><span className="value">{stats ? stats.tradeWinPct.toFixed(1) + '%' : '—'}</span><span className="sub">{stats ? `${stats.winCount} Wins · ${stats.lossCount} Losses` : '—'}</span></div>
-            <div className="stat-pill"><span className="label">Profit Factor</span><span className="value">{pf}</span><span className="sub">{stats ? `W ${fmtINR(stats.totalWins, false)} · L ${fmtINR(stats.totalLosses, false)}` : '—'}</span></div>
-            <div className="stat-pill"><span className="label">Day Win %</span><span className="value">{stats ? stats.dayWinPct.toFixed(1) + '%' : '—'}</span><span className="sub">{stats ? `${stats.greenDays} Green · ${stats.redDays} Red` : '—'}</span></div>
-            <div className="stat-pill"><span className="label">Avg Win / Loss</span><span className="value">{awl}</span><span className="sub">{stats ? `+${fmtINR(stats.avgWin, false)} · −${fmtINR(stats.avgLoss, false)}` : '—'}</span></div>
+          <div className="stat-pills stagger">
+            {/* Net P&L */}
+            <div className="stat-pill fade-in-up">
+              <div className="sp-text">
+                <span className="label">Net P&amp;L</span>
+                <span className={`value ${stats?.netPnl >= 0 ? 'green' : 'red'}`}>{stats ? fmtINR(stats.netPnl) : '—'}</span>
+              </div>
+              {stats && (
+                <div className="sp-viz">
+                  <svg viewBox="0 0 48 32" width="48" height="32">
+                    {/* mini sparkline area */}
+                    {(() => {
+                      const arr = stats.cumulativeArr.slice(-20);
+                      if (arr.length < 2) return null;
+                      const vals = arr.map((d: any) => d.pnl);
+                      const min = Math.min(...vals), max = Math.max(...vals);
+                      const range = max - min || 1;
+                      const pts = vals.map((v: number, i: number) => `${(i / (vals.length - 1)) * 48},${28 - ((v - min) / range) * 26}`).join(' ');
+                      const areaPts = `0,28 ${pts} 48,28`;
+                      const isUp = vals[vals.length - 1] >= vals[0];
+                      return (
+                        <>
+                          <polygon points={areaPts} fill={isUp ? 'rgba(22,163,74,0.12)' : 'rgba(220,38,38,0.12)'} />
+                          <polyline points={pts} fill="none" stroke={isUp ? 'var(--green)' : 'var(--red)'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </>
+                      );
+                    })()}
+                  </svg>
+                </div>
+              )}
+            </div>
+
+            {/* Trade Win % */}
+            <div className="stat-pill fade-in-up">
+              <div className="sp-text">
+                <span className="label">Trade Win %</span>
+                <span className="value">{stats ? stats.tradeWinPct.toFixed(1) + '%' : '—'}</span>
+              </div>
+              {stats && (
+                <div className="sp-viz">
+                  <svg viewBox="0 0 48 48" width="48" height="48">
+                    {/* Track: 3 color segments — red, blue breakeven, green */}
+                    <circle cx="24" cy="24" r="18" fill="none" stroke="#fecaca" strokeWidth="4" strokeDasharray="54.3 113.1" transform="rotate(-90 24 24)" />
+                    <circle cx="24" cy="24" r="18" fill="none" stroke="#c7d2fe" strokeWidth="4" strokeDasharray="4.5 113.1" strokeDashoffset="-54.3" transform="rotate(-90 24 24)" />
+                    <circle cx="24" cy="24" r="18" fill="none" stroke="#bbf7d0" strokeWidth="4" strokeDasharray="54.3 113.1" strokeDashoffset="-58.8" transform="rotate(-90 24 24)" />
+                    {/* Filled arc — solid color based on zone */}
+                    {(() => {
+                      const v = stats.tradeWinPct;
+                      const pct = (v / 100) * 113.1;
+                      const color = v < 48 ? '#ef4444' : v <= 52 ? '#6366f1' : '#16a34a';
+                      return (
+                        <circle cx="24" cy="24" r="18" fill="none" stroke={color} strokeWidth="4" strokeLinecap="round"
+                          strokeDasharray={`${pct} 113.1`} transform="rotate(-90 24 24)" />
+                      );
+                    })()}
+                    <text x="24" y="27" textAnchor="middle" fontSize="10" fontWeight="700" fill="var(--text)" fontFamily="var(--font-display)">{Math.round(stats.tradeWinPct)}</text>
+                  </svg>
+                </div>
+              )}
+            </div>
+
+            {/* Profit Factor */}
+            <div className="stat-pill fade-in-up">
+              <div className="sp-text">
+                <span className="label">Profit Factor</span>
+                <span className="value">{pf}</span>
+              </div>
+              {stats && (
+                <div className="sp-viz">
+                  <svg viewBox="0 0 48 32" width="48" height="32">
+                    {/* gauge track */}
+                    <rect x="2" y="18" width="44" height="6" rx="3" fill="var(--surface)" stroke="var(--border)" strokeWidth="0.5" />
+                    {/* filled portion */}
+                    {(() => {
+                      const val = Math.min(Math.max(stats.profitFactor, 0), 3);
+                      const pct = val / 3;
+                      const color = val >= 1 ? 'var(--green)' : val >= 0.5 ? '#f59e0b' : 'var(--red)';
+                      return <rect x="2" y="18" width={pct * 44} height="6" rx="3" fill={color} opacity="0.85" />;
+                    })()}
+                    {/* break-even marker at 1.0 */}
+                    <line x1="16.7" y1="14" x2="16.7" y2="28" stroke="var(--text-secondary)" strokeWidth="1" strokeDasharray="2 2" />
+                    <text x="16.7" y="12" textAnchor="middle" fontSize="7" fill="var(--text-secondary)" fontFamily="var(--font)">1.0</text>
+                  </svg>
+                </div>
+              )}
+            </div>
+
+            {/* Day Win % */}
+            <div className="stat-pill fade-in-up">
+              <div className="sp-text">
+                <span className="label">Day Win %</span>
+                <span className="value">{stats ? stats.dayWinPct.toFixed(1) + '%' : '—'}</span>
+              </div>
+              {stats && (
+                <div className="sp-viz">
+                  <svg viewBox="0 0 48 48" width="48" height="48">
+                    {/* Track: 3 color segments — red, blue breakeven, green */}
+                    <circle cx="24" cy="24" r="18" fill="none" stroke="#fecaca" strokeWidth="4" strokeDasharray="54.3 113.1" transform="rotate(-90 24 24)" />
+                    <circle cx="24" cy="24" r="18" fill="none" stroke="#c7d2fe" strokeWidth="4" strokeDasharray="4.5 113.1" strokeDashoffset="-54.3" transform="rotate(-90 24 24)" />
+                    <circle cx="24" cy="24" r="18" fill="none" stroke="#bbf7d0" strokeWidth="4" strokeDasharray="54.3 113.1" strokeDashoffset="-58.8" transform="rotate(-90 24 24)" />
+                    {/* Filled arc — solid color based on zone */}
+                    {(() => {
+                      const v = stats.dayWinPct;
+                      const pct = (v / 100) * 113.1;
+                      const color = v < 48 ? '#ef4444' : v <= 52 ? '#6366f1' : '#16a34a';
+                      return (
+                        <circle cx="24" cy="24" r="18" fill="none" stroke={color} strokeWidth="4" strokeLinecap="round"
+                          strokeDasharray={`${pct} 113.1`} transform="rotate(-90 24 24)" />
+                      );
+                    })()}
+                    <text x="24" y="27" textAnchor="middle" fontSize="10" fontWeight="700" fill="var(--text)" fontFamily="var(--font-display)">{Math.round(stats.dayWinPct)}</text>
+                  </svg>
+                </div>
+              )}
+            </div>
+
+            {/* Avg Win / Loss */}
+            <div className="stat-pill fade-in-up">
+              <div className="sp-text">
+                <span className="label">Avg Win / Loss</span>
+                <span className="value">{awl}</span>
+              </div>
+              {stats && (
+                <div className="sp-viz">
+                  <svg viewBox="0 0 48 36" width="48" height="36">
+                    {(() => {
+                      const win = Math.abs(stats.avgWin || 0);
+                      const loss = Math.abs(stats.avgLoss || 0);
+                      const max = Math.max(win, loss, 1);
+                      const winW = (win / max) * 42;
+                      const lossW = (loss / max) * 42;
+                      return (
+                        <>
+                          <text x="2" y="10" fontSize="7" fill="var(--text-secondary)" fontFamily="var(--font)">Win</text>
+                          <rect x="2" y="13" width={winW} height="5" rx="2.5" fill="var(--green)" opacity="0.85" />
+                          <text x="2" y="26" fontSize="7" fill="var(--text-secondary)" fontFamily="var(--font)">Loss</text>
+                          <rect x="2" y="29" width={lossW} height="5" rx="2.5" fill="var(--red)" opacity="0.85" />
+                        </>
+                      );
+                    })()}
+                  </svg>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="charts-row">
-            <div className="section">
+            <div className="section fade-in-up">
               <div className="section-header">
                 <div><div className="section-title">Cumulative Net P&amp;L</div><div className="section-subtitle">Running total · realized only</div></div>
                 <span style={{fontSize:'20px',fontWeight:700,color: stats && stats.cumulativeArr.length ? (stats.cumulativeArr[stats.cumulativeArr.length-1].pnl >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--text-secondary)'}}>
@@ -265,20 +482,20 @@ export default function Home() {
               </div>
               <div className="chart-wrap">
                 {!stats || !stats.dailyArr.length ? <div className="chart-empty"><div className="chart-empty-icon">📈</div><div className="chart-empty-text">Import trades to see P&amp;L curve</div></div> :
-                  <Line data={{
+                  <Line ref={cumChartRef} plugins={[lineGlowPlugin]} data={{
                     labels: stats.dailyArr.map((d: any) => fmtDateChart(d.date)),
                     datasets: [{ data: stats.cumulativeArr.map((d: any) => d.pnl), borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.06)', fill: true, borderWidth: 2, pointRadius: 0, tension: 0.3 }]
                   }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { display: false } }, y: { grid: { color: '#f5f5f5' } } } }} />
                 }
               </div>
             </div>
-            <div className="section">
+            <div className="section fade-in-up">
               <div className="section-header">
                 <div><div className="section-title">Daily Net P&amp;L</div><div className="section-subtitle">Green = win day · Red = loss day</div></div>
               </div>
               <div className="chart-wrap">
                 {!stats || !stats.dailyArr.length ? <div className="chart-empty"><div className="chart-empty-icon">📊</div><div className="chart-empty-text">Import trades to see daily P&amp;L</div></div> :
-                  <Bar data={{
+                  <Bar ref={dailyChartRef} data={{
                     labels: stats.dailyArr.map((d: any) => fmtDateChart(d.date)),
                     datasets: [{ data: stats.dailyArr.map((d: any) => d.pnl), backgroundColor: stats.dailyArr.map((v: any) => v.pnl >= 0 ? '#16a34a' : '#dc2626'), borderRadius: 4 }]
                   }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { display: false } }, y: { grid: { color: '#f5f5f5' } } } }} />
@@ -287,7 +504,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="section cal-section">
+          <div className="section cal-section fade-in-up">
             <div className="section-header">
               <div>
                 <div className="section-title">{stats && stats.dailyArr.length ? (() => {
@@ -308,7 +525,7 @@ export default function Home() {
 
         {/* TRADE LOG */}
         <div className={`view ${view === 'tradelog' ? 'active' : ''}`} id="view-tradelog">
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px',flexWrap:'wrap',gap:'10px'}}>
+          <div className="fade-in-up" style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px',flexWrap:'wrap',gap:'10px'}}>
             <div>
               <h2 style={{fontSize:'18px',fontWeight:600}}>Trade Log</h2>
               <span style={{fontSize:'12px',color:'var(--text-secondary)'}}>{trades.length ? `${trades.length} trades` : 'Import a CSV to populate'}</span>
@@ -356,7 +573,7 @@ export default function Home() {
               };
 
               return (
-                <div key={key} className="month-section">
+                <div key={key} className="month-section fade-in-up">
                   <div className="month-header" onClick={toggleMonth}>
                     <span className="month-chevron">{isOpen ? '▾' : '▸'}</span>
                     <span className="month-label">{label}</span>
@@ -483,7 +700,7 @@ export default function Home() {
 
         {/* PLAYBOOKS */}
         <div className={`view ${view === 'playbooks' ? 'active' : ''}`} id="view-playbooks">
-          <Playbooks />
+          <div className="fade-in-up"><Playbooks /></div>
         </div>
       </div>
 
