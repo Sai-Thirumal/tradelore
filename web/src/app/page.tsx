@@ -38,19 +38,110 @@ export default function Home() {
   const cumChartRef = useRef<any>(null);
   const dailyChartRef = useRef<any>(null);
 
-  /* Chart.js line glow plugin */
-  const lineGlowPlugin = {
-    id: 'lineGlow',
-    beforeDatasetsDraw(chart: any) {
-      const ctx = chart.ctx;
+  /* Chart.js split-area plugin: green fill above zero, red fill below zero */
+  const splitAreaPlugin = {
+    id: 'splitArea',
+    beforeDatasetDraw(chart: any, args: any) {
+      const datasetIndex = args.index;
+      if (datasetIndex !== 0) return;
+      const meta = chart.getDatasetMeta(datasetIndex);
+      if (!meta || meta.hidden) return;
+      const { ctx, chartArea, scales } = chart;
+      const yScale = scales.y;
+      const zeroY = yScale.getPixelForValue(0);
+      const points = meta.data;
+      if (!points || points.length < 2) return;
+
+      const drawArea = (polyline: {x:number,y:number}[], above: boolean) => {
+        if (polyline.length < 2) return;
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(polyline[0].x, polyline[0].y);
+        for (let i = 1; i < polyline.length; i++) {
+          ctx.lineTo(polyline[i].x, polyline[i].y);
+        }
+        ctx.lineTo(polyline[polyline.length - 1].x, zeroY);
+        ctx.lineTo(polyline[0].x, zeroY);
+        ctx.closePath();
+        let grad: CanvasGradient;
+        if (above) {
+          grad = ctx.createLinearGradient(0, chartArea.top, 0, zeroY);
+          grad.addColorStop(0, 'rgba(22, 163, 74, 0.30)');
+          grad.addColorStop(1, 'rgba(22, 163, 74, 0.03)');
+        } else {
+          grad = ctx.createLinearGradient(0, zeroY, 0, chartArea.bottom);
+          grad.addColorStop(0, 'rgba(220, 38, 38, 0.03)');
+          grad.addColorStop(1, 'rgba(220, 38, 38, 0.28)');
+        }
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.restore();
+      };
+
+      // Dashed zero line
       ctx.save();
-      ctx.shadowColor = 'rgba(249, 115, 22, 0.35)';
-      ctx.shadowBlur = 14;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
-    },
-    afterDatasetsDraw(chart: any) {
-      chart.ctx.restore();
+      ctx.beginPath();
+      ctx.setLineDash([4, 3]);
+      ctx.strokeStyle = 'rgba(100, 116, 139, 0.45)';
+      ctx.lineWidth = 1;
+      ctx.moveTo(chartArea.left, zeroY);
+      ctx.lineTo(chartArea.right, zeroY);
+      ctx.stroke();
+      ctx.restore();
+
+      // Split path at zero crossings
+      let posSeg: {x:number,y:number}[] = [];
+      let negSeg: {x:number,y:number}[] = [];
+
+      for (let i = 0; i < points.length; i++) {
+        const p = points[i];
+        const prev = i > 0 ? points[i - 1] : null;
+
+        if (prev) {
+          const prevAbove = prev.y < zeroY;
+          const currAbove = p.y < zeroY;
+          const prevOn = Math.abs(prev.y - zeroY) < 0.5;
+          const currOn = Math.abs(p.y - zeroY) < 0.5;
+
+          if ((prevAbove && !currAbove && !currOn) || (!prevAbove && !prevOn && currAbove)) {
+            const t = (zeroY - prev.y) / (p.y - prev.y);
+            const ix = prev.x + t * (p.x - prev.x);
+            const cp = { x: ix, y: zeroY };
+
+            if (prevAbove || prevOn) {
+              posSeg.push(cp);
+              drawArea(posSeg, true);
+              posSeg = [];
+              negSeg = currOn ? [] : [cp];
+            } else {
+              negSeg.push(cp);
+              drawArea(negSeg, false);
+              negSeg = [];
+              posSeg = currOn ? [] : [cp];
+            }
+            continue;
+          }
+        }
+
+        const isAbove = p.y < zeroY;
+        const isOn = Math.abs(p.y - zeroY) < 0.5;
+
+        if (isAbove) {
+          if (negSeg.length >= 2) drawArea(negSeg, false);
+          negSeg = [];
+          posSeg.push({ x: p.x, y: p.y });
+        } else if (isOn) {
+          if (posSeg.length) posSeg.push({ x: p.x, y: zeroY });
+          if (negSeg.length) negSeg.push({ x: p.x, y: zeroY });
+        } else {
+          if (posSeg.length >= 2) drawArea(posSeg, true);
+          posSeg = [];
+          negSeg.push({ x: p.x, y: p.y });
+        }
+      }
+
+      if (posSeg.length >= 2) drawArea(posSeg, true);
+      if (negSeg.length >= 2) drawArea(negSeg, false);
     }
   };
 
@@ -79,28 +170,6 @@ export default function Home() {
   /* Apply gradient fills after chart renders */
   useEffect(() => {
     requestAnimationFrame(() => {
-      // Cumulative line chart gradient
-      if (cumChartRef.current) {
-        const chart = cumChartRef.current;
-        const area = chart.chartArea;
-        if (area) {
-          const ctx = chart.ctx;
-          const grad = ctx.createLinearGradient(0, area.top, 0, area.bottom);
-          grad.addColorStop(0, 'rgba(249,115,22,0.18)');
-          grad.addColorStop(0.6, 'rgba(249,115,22,0.04)');
-          grad.addColorStop(1, 'rgba(249,115,22,0.0)');
-          chart.data.datasets[0].backgroundColor = grad;
-          chart.data.datasets[0].borderColor = '#f97316';
-          chart.data.datasets[0].borderWidth = 2.5;
-          chart.data.datasets[0].tension = 0.4;
-          chart.data.datasets[0].pointRadius = 0;
-          chart.data.datasets[0].pointHoverRadius = 5;
-          chart.data.datasets[0].pointHoverBackgroundColor = '#f97316';
-          chart.data.datasets[0].pointHoverBorderColor = '#fff';
-          chart.data.datasets[0].pointHoverBorderWidth = 2;
-          chart.update('none');
-        }
-      }
       // Daily bar chart gradients
       if (dailyChartRef.current && stats?.dailyArr) {
         const chart = dailyChartRef.current;
@@ -482,10 +551,10 @@ export default function Home() {
               </div>
               <div className="chart-wrap">
                 {!stats || !stats.dailyArr.length ? <div className="chart-empty"><div className="chart-empty-icon">📈</div><div className="chart-empty-text">Import trades to see P&amp;L curve</div></div> :
-                  <Line ref={cumChartRef} plugins={[lineGlowPlugin]} data={{
+                  <Line ref={cumChartRef} plugins={[splitAreaPlugin]} data={{
                     labels: stats.dailyArr.map((d: any) => fmtDateChart(d.date)),
-                    datasets: [{ data: stats.cumulativeArr.map((d: any) => d.pnl), borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.06)', fill: true, borderWidth: 2, pointRadius: 0, tension: 0.3 }]
-                  }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { display: false } }, y: { grid: { color: '#f5f5f5' } } } }} />
+                    datasets: [{ data: stats.cumulativeArr.map((d: any) => d.pnl), borderColor: '#16a34a', backgroundColor: 'transparent', fill: false, borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: '#16a34a', pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2, tension: 0.35, segment: { borderColor: (ctx: any) => ctx.p1.parsed.y >= 0 ? '#16a34a' : '#dc2626' } }]
+                  }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { display: false } }, y: { grid: { color: '#f0efec' }, border: { display: false } } } }} />
                 }
               </div>
             </div>
