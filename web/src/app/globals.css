@@ -652,6 +652,20 @@ body::before {
   align-items: center;
   gap: 8px;
 }
+.premarket-readonly {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.6;
+  margin: 0;
+  padding: 10px 14px;
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+.premarket-readonly:empty::after,
+.premarket-readonly[style] {
+  /* handled inline */
+}
 .premarket-chip-count {
   font-size: 11px;
   font-weight: 500;
@@ -1030,6 +1044,12 @@ tbody.day-group + tbody.day-group .day-header-row td {
 .td-back:hover { text-decoration: underline; }
 .td-badge-wrap { display: flex; align-items: center; gap: 10px; }
 .td-pnl { font-size: 20px; font-weight: 700; font-family: var(--font-display); letter-spacing: -0.5px; }
+.td-header-symbol {
+  font-size: 18px; font-weight: 600; font-family: var(--font-display);
+  letter-spacing: -0.3px; margin: 0; flex: 1; text-align: center;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 0 16px;
+}
 
 /* Title row */
 .td-title-row {
@@ -1131,6 +1151,11 @@ tbody.day-group + tbody.day-group .day-header-row td {
   width: 100%; border: 1px solid var(--border); border-radius: var(--radius-sm);
   padding: 8px 10px; font-family: var(--font); font-size: 13px;
   background: var(--bg); color: var(--text); transition: border-color 0.15s;
+}
+.td-readonly {
+  padding: 8px 10px; font-size: 13px; color: var(--text);
+  line-height: 1.5; min-height: 20px;
+  word-break: break-word;
 }
 .td-field input:focus, .td-field select:focus, .td-field textarea:focus {
   outline: none; border-color: var(--brand);

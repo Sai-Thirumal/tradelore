@@ -53,13 +53,33 @@ export default function TradeChart({ symbol, direction, avgEntry, avgExit, entry
           chartRef.current = null;
         }
 
+        const tz = 'Asia/Kolkata';
+        let dateShown = false;
+
         const istTimeFormatter = (time: number) => {
           const d = new Date(time * 1000);
-          const tz = 'Asia/Kolkata';
+
           if (data.interval === '5m') {
-            return d.toLocaleString('en-IN', { timeZone: tz, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+            const parts = new Intl.DateTimeFormat('en-IN', {
+              timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+              hour: '2-digit', minute: '2-digit', hour12: false,
+            }).formatToParts(d);
+            const get = (t: string) => parts.find(p => p.type === t)?.value || '';
+
+            const h24 = parseInt(get('hour'));
+            const h12 = h24 % 12 || 12;
+            const mins = get('minute');
+            const ampm = h24 >= 12 ? 'p.m.' : 'a.m.';
+
+            if (!dateShown) {
+              dateShown = true;
+              const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+              return `${parseInt(get('day'))} ${months[parseInt(get('month')) - 1]}`;
+            }
+            return `${h12}:${mins} ${ampm}`;
           }
-          // Daily: show date, add year only if not current year
+
+          // Daily: each tick is a different day — show date, year only if not current year
           const istYear = parseInt(d.toLocaleString('en-IN', { timeZone: tz, year: 'numeric' }));
           const nowIstYear = parseInt(new Date().toLocaleString('en-IN', { timeZone: tz, year: 'numeric' }));
           const opts: Intl.DateTimeFormatOptions = { timeZone: tz, day: 'numeric', month: 'short' };
@@ -69,12 +89,12 @@ export default function TradeChart({ symbol, direction, avgEntry, avgExit, entry
 
         const chart = createChart(containerRef.current!, {
           width,
-          height: 400,
+          height: 520,
           layout: { background: { type: ColorType.Solid, color: '#ffffff' }, textColor: '#737373' },
           grid: { vertLines: { color: '#f5f5f5' }, horzLines: { color: '#f5f5f5' } },
           crosshair: { mode: 0 },
           rightPriceScale: { borderColor: '#e5e5e5' },
-          timeScale: { borderColor: '#e5e5e5', timeVisible: data.interval === '5m', tickMarkFormatter: istTimeFormatter },
+          timeScale: { borderColor: '#e5e5e5', timeVisible: false, tickMarkFormatter: istTimeFormatter },
         });
         chartRef.current = chart;
 
@@ -90,13 +110,10 @@ export default function TradeChart({ symbol, direction, avgEntry, avgExit, entry
         const isLong = direction === 'LONG';
 
         const markers: any[] = [];
-        if (entryUnix > 0) markers.push({ time: entryUnix, position: isLong ? 'belowBar' : 'aboveBar', color: isLong ? '#16a34a' : '#dc2626', shape: isLong ? 'arrowUp' : 'arrowDown', text: `ENTRY ₹${avgEntry.toFixed(2)}`, size: 2 });
-        if (exitUnix > 0) markers.push({ time: exitUnix, position: isLong ? 'aboveBar' : 'belowBar', color: isLong ? '#16a34a' : '#dc2626', shape: isLong ? 'arrowDown' : 'arrowUp', text: `EXIT ₹${avgExit.toFixed(2)}`, size: 2 });
+        if (entryUnix > 0) markers.push({ time: entryUnix, position: isLong ? 'belowBar' : 'aboveBar', color: '#1a1a1a', shape: isLong ? 'arrowUp' : 'arrowDown', text: `ENTRY ₹${avgEntry.toFixed(2)}`, size: 2, font: 'bold 11px sans-serif' });
+        if (exitUnix > 0) markers.push({ time: exitUnix, position: isLong ? 'aboveBar' : 'belowBar', color: '#1a1a1a', shape: isLong ? 'arrowDown' : 'arrowUp', text: `EXIT ₹${avgExit.toFixed(2)}`, size: 2, font: 'bold 11px sans-serif' });
 
         createSeriesMarkers(series, markers);
-
-        series.createPriceLine({ price: avgEntry, color: isLong ? '#16a34a' : '#dc2626', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'ENTRY' });
-        series.createPriceLine({ price: avgExit, color: isLong ? '#16a34a' : '#dc2626', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'EXIT' });
 
         chart.timeScale().fitContent();
         if (!cancelled) setStatus('ok');
@@ -130,7 +147,7 @@ export default function TradeChart({ symbol, direction, avgEntry, avgExit, entry
           {meta?.interval === '5m' ? '5-min' : 'Daily'}
         </span>
       </h3>
-      <div style={{position:'relative',width:'100%',height:'400px'}}>
+      <div style={{position:'relative',width:'100%',height:'520px'}}>
         <div ref={containerRef} style={{width:'100%',height:'100%'}} />
         {status === 'loading' && (
           <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',background:'var(--bg)'}}>

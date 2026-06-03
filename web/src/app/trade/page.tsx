@@ -64,6 +64,13 @@ export default function TradeDetailPage() {
 
   const [playbooks, setPlaybooks] = useState<any[]>([]);
 
+  // Tab state: 'trade' | 'premarket' | 'postmarket'
+  const [activeTab, setActiveTab] = useState<'trade' | 'premarket' | 'postmarket'>('trade');
+
+  // Pre-market plan state (view-only, fetched from daily_journal)
+  const [preMarket, setPreMarket] = useState<any>(null);
+  const [preMarketLoading, setPreMarketLoading] = useState(false);
+
   // Fetch trade data
   useEffect(() => {
     if (idx === null || isNaN(idx)) {
@@ -92,6 +99,19 @@ export default function TradeDetailPage() {
       .then(data => { if (Array.isArray(data)) setPlaybooks(data); })
       .catch(() => {});
   }, []);
+
+  // Fetch pre-market plan for this trade's date
+  useEffect(() => {
+    if (!trade?.trade_date) return;
+    setPreMarketLoading(true);
+    fetch(`/api/daily-journal?date=${trade.trade_date}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data && data.date) setPreMarket(data);
+      })
+      .catch(() => {})
+      .finally(() => setPreMarketLoading(false));
+  }, [trade?.trade_date]);
 
   // Load journal from localStorage + API
   useEffect(() => {
@@ -184,21 +204,31 @@ export default function TradeDetailPage() {
 
   return (
     <div className="trade-detail-page">
-      {/* Top bar */}
+      {/* Header — compact single row */}
       <div className="td-topbar">
         <a href="/" className="td-back">← TradeLore</a>
+        <h1 className="td-header-symbol">{trade.symbol}</h1>
         <div className="td-badge-wrap">
-          <span className={`badge ${trade.result}`}>{trade.result.toUpperCase()}</span>
           <span className="td-pnl" style={{color: trade.pnl >= 0 ? 'var(--green)' : 'var(--red)'}}>{fmtINR(trade.pnl)}</span>
+          <span className={`badge ${trade.result}`}>{trade.result.toUpperCase()}</span>
         </div>
       </div>
 
-      <div className="td-title-row">
-        <h1>{trade.symbol}</h1>
-        <span className="td-date">{fmtDateLabel(trade.trade_date)}</span>
+      {/* Tab switcher — same design as journal-subtabs */}
+      <div className="journal-subtabs">
+        <div className={`journal-subtab ${activeTab === 'trade' ? 'active' : ''}`} onClick={() => setActiveTab('trade')}>
+          View Trade
+        </div>
+        <div className={`journal-subtab ${activeTab === 'premarket' ? 'active' : ''}`} onClick={() => setActiveTab('premarket')}>
+          Pre Market
+        </div>
+        <div className={`journal-subtab ${activeTab === 'postmarket' ? 'active' : ''}`} onClick={() => setActiveTab('postmarket')}>
+          Post Market
+        </div>
       </div>
 
-      {/* Section 1: Stats + Chart */}
+      {/* Tab: View Trade — Stats + Chart */}
+      {activeTab === 'trade' && (
       <div className="td-section-1">
         {/* Stats panel */}
         <div className="td-stats">
@@ -260,8 +290,52 @@ export default function TradeDetailPage() {
           />
         </div>
       </div>
+      )}
 
-      {/* Section 2: Trade Journal */}
+      {/* Tab: Pre Market — day-level plan, read-only */}
+      {activeTab === 'premarket' && (
+      <div className="td-section-2">
+        <div className="td-journal-head">
+          <h2>Pre-Market Plan</h2>
+          <span className="td-date">{fmtDateLabel(trade.trade_date)}</span>
+        </div>
+
+        {preMarketLoading ? (
+          <p style={{color:'var(--text-secondary)',fontSize:'13px',padding:'16px 0'}}>Loading…</p>
+        ) : (
+          <>
+            <div className="td-field">
+              <label>What are you looking for in today&rsquo;s market?</label>
+              <p className="td-readonly">{preMarket?.market_outlook || 'Not filled'}</p>
+            </div>
+
+            <div className="td-field">
+              <label>Market bias</label>
+              <p className="td-readonly">{preMarket?.outlook_bias || 'Not filled'}</p>
+            </div>
+
+            <div className="td-journal-grid">
+              <div className="td-field">
+                <label>Capital to deploy</label>
+                <p className="td-readonly">{preMarket?.capital_to_deploy ? `₹${Number(preMarket.capital_to_deploy).toLocaleString('en-IN')}` : 'Not filled'}</p>
+              </div>
+              <div className="td-field">
+                <label>Key levels</label>
+                <p className="td-readonly" style={{whiteSpace:'pre-wrap'}}>{preMarket?.key_levels || 'Not filled'}</p>
+              </div>
+            </div>
+
+            <div className="td-field">
+              <label>News / events to be aware of</label>
+              <p className="td-readonly" style={{whiteSpace:'pre-wrap'}}>{preMarket?.news_events || 'Not filled'}</p>
+            </div>
+          </>
+        )}
+      </div>
+      )}
+
+      {/* Tab: Post Market — trade journal form */}
+      {activeTab === 'postmarket' && (
       <div className="td-section-2">
         <div className="td-journal-head">
           <h2>Trade Journal</h2>
@@ -333,6 +407,7 @@ export default function TradeDetailPage() {
 
         <p className="td-autosave">Auto-saved locally · Syncs with Journal tab</p>
       </div>
+      )}
     </div>
   );
 }
