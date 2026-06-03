@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useState, useEffect, useRef } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { fmtINR, fmtPrice, fmtDateLabel, fmtDateShort } from '@/lib/ui/format';
 
@@ -41,12 +41,16 @@ function getTradeId(t: Trade): string {
 
 export default function TradeDetailPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const idxStr = searchParams.get('idx');
   const idx = idxStr ? parseInt(idxStr) : null;
 
+  const [allTrades, setAllTrades] = useState<Trade[]>([]);
   const [trade, setTrade] = useState<Trade | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const switcherRef = useRef<HTMLDivElement>(null);
 
   // Journal state
   const [riskAmount, setRiskAmount] = useState('');
@@ -85,12 +89,30 @@ export default function TradeDetailPage() {
         if (!Array.isArray(data) || idx >= data.length || idx < 0) {
           setError('Trade not found');
         } else {
+          setAllTrades(data);
           setTrade(data[idx]);
         }
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   }, [idx]);
+
+  // Close switcher on click outside
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (switcherRef.current && !switcherRef.current.contains(e.target as Node)) {
+        setSwitcherOpen(false);
+      }
+    }
+    if (switcherOpen) {
+      document.addEventListener('mousedown', onDocClick);
+      return () => document.removeEventListener('mousedown', onDocClick);
+    }
+  }, [switcherOpen]);
+
+  const sameDayTrades = trade && allTrades.length > 0
+    ? allTrades.map((t, i) => ({ ...t, originalIdx: i })).filter(t => t.trade_date === trade.trade_date)
+    : [];
 
   // Fetch playbooks
   useEffect(() => {
@@ -207,7 +229,44 @@ export default function TradeDetailPage() {
       {/* Header — compact single row */}
       <div className="td-topbar">
         <a href="/" className="td-back">← TradeLore</a>
-        <h1 className="td-header-symbol">{trade.symbol}</h1>
+
+        {/* Same-day trade switcher */}
+        <div className="popup-wrap td-trade-switcher" ref={switcherRef}>
+          <button
+            className="popup-trigger td-symbol-trigger"
+            onClick={() => setSwitcherOpen(o => !o)}
+            disabled={sameDayTrades.length <= 1}
+          >
+            <span className="td-header-symbol">{trade.symbol}</span>
+            {sameDayTrades.length > 1 && (
+              <span className="arrow">▼</span>
+            )}
+          </button>
+          {sameDayTrades.length > 1 && (
+            <div className={`popup-menu td-switcher-menu ${switcherOpen ? 'open' : ''}`}>
+              {sameDayTrades.map((t) => (
+                <div
+                  key={t.originalIdx}
+                  className={`item td-switcher-item ${t.originalIdx === idx ? 'active' : ''}`}
+                  onClick={() => {
+                    setSwitcherOpen(false);
+                    router.push(`/trade?idx=${t.originalIdx}`);
+                  }}
+                >
+                  <span className="td-swi-symbol">{t.symbol}</span>
+                  <span className="td-swi-time">{t.entry_time?.substring(11, 16)}</span>
+                  <span
+                    className="td-swi-pnl"
+                    style={{ color: t.pnl >= 0 ? 'var(--green)' : 'var(--red)' }}
+                  >
+                    {fmtINR(t.pnl)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="td-badge-wrap">
           <span className="td-pnl" style={{color: trade.pnl >= 0 ? 'var(--green)' : 'var(--red)'}}>{fmtINR(trade.pnl)}</span>
           <span className={`badge ${trade.result}`}>{trade.result.toUpperCase()}</span>

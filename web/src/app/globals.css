@@ -342,6 +342,35 @@ body::before {
   background: #ffedd5;
 }
 
+.calendar-table td.day-cell.clickable {
+  cursor: pointer;
+}
+.calendar-table td.day-cell.clickable:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.calendar-table td.day-cell .day-tooltip {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--brand);
+  background: var(--brand-light);
+  padding: 1px 5px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 5;
+}
+.calendar-table td.day-cell.clickable:hover .day-tooltip {
+  opacity: 1;
+}
+
 .calendar-table td.other-month {
   color: #d4d4d4;
   background: transparent;
@@ -1050,6 +1079,33 @@ tbody.day-group + tbody.day-group .day-header-row td {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   padding: 0 16px;
 }
+
+/* Same-day trade switcher popup */
+.td-trade-switcher { flex: 1; display: flex; justify-content: center; }
+.td-symbol-trigger {
+  border: none !important; background: transparent !important; padding: 0 !important;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 3px;
+}
+.td-symbol-trigger:disabled { cursor: default; opacity: 1; }
+.td-symbol-trigger .arrow { font-size: 10px; color: var(--text-secondary); transition: transform 0.15s; }
+.td-symbol-trigger:hover .arrow { color: var(--brand); }
+.td-switcher-menu {
+  left: 50%;
+  right: auto !important;
+  transform: translateX(-50%);
+  min-width: 280px;
+  top: calc(100% + 8px);
+}
+.td-switcher-item {
+  display: grid !important;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 14px !important;
+}
+.td-swi-symbol { font-size: 13px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-swi-time { font-size: 11px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.td-swi-pnl { font-size: 12px; font-weight: 700; font-family: var(--font-display); letter-spacing: -0.2px; text-align: right; }
 
 /* Title row */
 .td-title-row {

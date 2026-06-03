@@ -292,16 +292,35 @@ export default function Home() {
               const tradeCount = stats.dayTrades && key in stats.dayTrades ? stats.dayTrades[key] : null;
               const isToday = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
               if (pnl !== null) { weekPnl += pnl; weekDays++; }
-              const cls = 'day-cell' + (isToday ? ' today' : '');
+              const cls = 'day-cell' + (isToday ? ' today' : '') + (tradeCount ? ' clickable' : '');
               const miniCls = pnl !== null ? (pnl >= 0 ? 'up' : 'down') : '';
               const miniText = pnl !== null ? (pnl >= 0 ? '+' : '') + (Math.abs(pnl) >= 1000 ? (pnl/1000).toFixed(1)+'k' : pnl.toFixed(0)) : '';
               const tradesText = tradeCount !== null ? `${tradeCount} trade${tradeCount !== 1 ? 's' : ''}` : '';
 
+              const dayTrades = allTrades
+                .map((t: any, i: number) => ({ ...t, originalIdx: i }))
+                .filter((t: any) => t.trade_date === key)
+                .sort((a: any, b: any) => (a.entry_time || '').localeCompare(b.entry_time || ''));
+              const firstIdx = dayTrades.length > 0 ? dayTrades[0].originalIdx : null;
+
               return (
-                <td key={j} className={cls}>
+                <td
+                  key={j}
+                  className={cls}
+                  onClick={() => {
+                    if (firstIdx !== null) {
+                      router.push(`/trade?idx=${firstIdx}`);
+                    }
+                  }}
+                >
                   <span className="day-num">{d}</span>
                   {miniText && <span className={`mini-pnl ${miniCls}`}>{miniText}</span>}
                   {tradesText && <span className="mini-trades">{tradesText}</span>}
+                  {tradeCount && (
+                    <span className="day-tooltip">
+                      {tradeCount === 1 ? 'View trade' : `${tradeCount} trades`} →
+                    </span>
+                  )}
                 </td>
               );
             });
