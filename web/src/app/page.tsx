@@ -459,18 +459,29 @@ export default function Home() {
               {stats && (
                 <div className="sp-viz">
                   <svg viewBox="0 0 48 48" width="48" height="48">
-                    {/* Track: 3 color segments — red, blue breakeven, green */}
-                    <circle cx="24" cy="24" r="18" fill="none" stroke="#fecaca" strokeWidth="4" strokeDasharray="54.3 113.1" transform="rotate(-90 24 24)" />
-                    <circle cx="24" cy="24" r="18" fill="none" stroke="#c7d2fe" strokeWidth="4" strokeDasharray="4.5 113.1" strokeDashoffset="-54.3" transform="rotate(-90 24 24)" />
-                    <circle cx="24" cy="24" r="18" fill="none" stroke="#bbf7d0" strokeWidth="4" strokeDasharray="54.3 113.1" strokeDashoffset="-58.8" transform="rotate(-90 24 24)" />
-                    {/* Filled arc — solid color based on zone */}
                     {(() => {
-                      const v = stats.tradeWinPct;
-                      const pct = (v / 100) * 113.1;
-                      const color = v < 48 ? '#ef4444' : v <= 52 ? '#6366f1' : '#16a34a';
+                      const total = trades.length;
+                      const w = stats.winCount;
+                      const l = stats.lossCount;
+                      const be = total - w - l;
+                      const C = 2 * Math.PI * 18; // ~113.1
+                      const wLen = total > 0 ? (w / total) * C : 0;
+                      const lLen = total > 0 ? (l / total) * C : 0;
+                      const beLen = total > 0 ? (be / total) * C : 0;
                       return (
-                        <circle cx="24" cy="24" r="18" fill="none" stroke={color} strokeWidth="4" strokeLinecap="round"
-                          strokeDasharray={`${pct} 113.1`} transform="rotate(-90 24 24)" />
+                        <>
+                          <circle cx="24" cy="24" r="18" fill="none" stroke="var(--border)" strokeWidth="4" />
+                          <circle cx="24" cy="24" r="18" fill="none" stroke="#16a34a" strokeWidth="4" strokeLinecap="butt"
+                            strokeDasharray={`${wLen} ${C}`} transform="rotate(-90 24 24)" />
+                          {lLen > 0 && (
+                            <circle cx="24" cy="24" r="18" fill="none" stroke="#dc2626" strokeWidth="4" strokeLinecap="butt"
+                              strokeDasharray={`${lLen} ${C}`} strokeDashoffset={`-${wLen}`} transform="rotate(-90 24 24)" />
+                          )}
+                          {beLen > 0 && (
+                            <circle cx="24" cy="24" r="18" fill="none" stroke="#d4d4d4" strokeWidth="4" strokeLinecap="butt"
+                              strokeDasharray={`${beLen} ${C}`} strokeDashoffset={`-${wLen + lLen}`} transform="rotate(-90 24 24)" />
+                          )}
+                        </>
                       );
                     })()}
                     <text x="24" y="27" textAnchor="middle" fontSize="10" fontWeight="700" fill="var(--text)" fontFamily="var(--font-display)">{Math.round(stats.tradeWinPct)}</text>
@@ -514,18 +525,29 @@ export default function Home() {
               {stats && (
                 <div className="sp-viz">
                   <svg viewBox="0 0 48 48" width="48" height="48">
-                    {/* Track: 3 color segments — red, blue breakeven, green */}
-                    <circle cx="24" cy="24" r="18" fill="none" stroke="#fecaca" strokeWidth="4" strokeDasharray="54.3 113.1" transform="rotate(-90 24 24)" />
-                    <circle cx="24" cy="24" r="18" fill="none" stroke="#c7d2fe" strokeWidth="4" strokeDasharray="4.5 113.1" strokeDashoffset="-54.3" transform="rotate(-90 24 24)" />
-                    <circle cx="24" cy="24" r="18" fill="none" stroke="#bbf7d0" strokeWidth="4" strokeDasharray="54.3 113.1" strokeDashoffset="-58.8" transform="rotate(-90 24 24)" />
-                    {/* Filled arc — solid color based on zone */}
                     {(() => {
-                      const v = stats.dayWinPct;
-                      const pct = (v / 100) * 113.1;
-                      const color = v < 48 ? '#ef4444' : v <= 52 ? '#6366f1' : '#16a34a';
+                      const days = Object.keys(stats.dayPnl);
+                      const green = days.filter((d: string) => stats.dayPnl[d] > 0).length;
+                      const red = days.filter((d: string) => stats.dayPnl[d] < 0).length;
+                      const be = days.length - green - red;
+                      const C = 2 * Math.PI * 18; // ~113.1
+                      const gLen = days.length > 0 ? (green / days.length) * C : 0;
+                      const rLen = days.length > 0 ? (red / days.length) * C : 0;
+                      const beLen = days.length > 0 ? (be / days.length) * C : 0;
                       return (
-                        <circle cx="24" cy="24" r="18" fill="none" stroke={color} strokeWidth="4" strokeLinecap="round"
-                          strokeDasharray={`${pct} 113.1`} transform="rotate(-90 24 24)" />
+                        <>
+                          <circle cx="24" cy="24" r="18" fill="none" stroke="var(--border)" strokeWidth="4" />
+                          <circle cx="24" cy="24" r="18" fill="none" stroke="#16a34a" strokeWidth="4" strokeLinecap="butt"
+                            strokeDasharray={`${gLen} ${C}`} transform="rotate(-90 24 24)" />
+                          {rLen > 0 && (
+                            <circle cx="24" cy="24" r="18" fill="none" stroke="#dc2626" strokeWidth="4" strokeLinecap="butt"
+                              strokeDasharray={`${rLen} ${C}`} strokeDashoffset={`-${gLen}`} transform="rotate(-90 24 24)" />
+                          )}
+                          {beLen > 0 && (
+                            <circle cx="24" cy="24" r="18" fill="none" stroke="#d4d4d4" strokeWidth="4" strokeLinecap="butt"
+                              strokeDasharray={`${beLen} ${C}`} strokeDashoffset={`-${gLen + rLen}`} transform="rotate(-90 24 24)" />
+                          )}
+                        </>
                       );
                     })()}
                     <text x="24" y="27" textAnchor="middle" fontSize="10" fontWeight="700" fill="var(--text)" fontFamily="var(--font-display)">{Math.round(stats.dayWinPct)}</text>
