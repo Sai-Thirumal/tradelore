@@ -113,10 +113,23 @@ export default function TradeChart({ symbol, direction, avgEntry, avgExit, entry
         const markers: any[] = [];
 
         if (orders && orders.length > 0) {
-          // Dedupe: collapse legs with same time + same price + same type into one marker
+          // Dedupe: collapse legs that fall into the same candle bucket
+          // Bucket key = candle boundary + price + type — avoids multiple
+          // markers inside the same candle where they can't be distinguished.
+          // Marker time stays at the exact fill time; only the dedup key buckets.
+          const bucket = (timeStr: string) => {
+            const d = new Date(timeStr.replace(' ', 'T') + '+05:30');
+            if (data.interval === '1d') return timeStr.substring(0, 10); // "2026-05-25"
+            // 5m: round down to nearest 5-min boundary
+            const m = d.getUTCMinutes();
+            d.setUTCMinutes(Math.floor(m / 5) * 5, 0, 0);
+            const pad = (n: number) => String(n).padStart(2, '0');
+            return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+          };
+
           const seen = new Map<string, any>();
           for (const o of orders) {
-            const key = `${o.trade_time}|${Number(o.price).toFixed(2)}|${o.type}`;
+            const key = `${bucket(o.trade_time)}|${Number(o.price).toFixed(2)}|${o.type}`;
             if (!seen.has(key)) seen.set(key, o);
           }
 
