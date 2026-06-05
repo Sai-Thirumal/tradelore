@@ -11,9 +11,10 @@ interface Props {
   avgExit: number;
   entryTime: string;
   exitTime: string;
+  orders?: { type: string; trade_time: string; price: number | string; qty: number | string }[];
 }
 
-export default function TradeChart({ symbol, direction, avgEntry, avgExit, entryTime, exitTime }: Props) {
+export default function TradeChart({ symbol, direction, avgEntry, avgExit, entryTime, exitTime, orders }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
   const [status, setStatus] = useState<'loading' | 'error' | 'ok'>('loading');
@@ -110,8 +111,42 @@ export default function TradeChart({ symbol, direction, avgEntry, avgExit, entry
         const isLong = direction === 'LONG';
 
         const markers: any[] = [];
-        if (entryUnix > 0) markers.push({ time: entryUnix, position: isLong ? 'belowBar' : 'aboveBar', color: '#1a1a1a', shape: isLong ? 'arrowUp' : 'arrowDown', text: `ENTRY ₹${avgEntry.toFixed(2)}`, size: 2, font: 'bold 11px sans-serif' });
-        if (exitUnix > 0) markers.push({ time: exitUnix, position: isLong ? 'aboveBar' : 'belowBar', color: '#1a1a1a', shape: isLong ? 'arrowDown' : 'arrowUp', text: `EXIT ₹${avgExit.toFixed(2)}`, size: 2, font: 'bold 11px sans-serif' });
+
+        if (orders && orders.length > 0) {
+          // One marker per order leg — no averaging
+          for (const o of orders) {
+            const orderUnix = istToUnix(o.trade_time);
+            if (orderUnix <= 0) continue;
+
+            const isEntry = (isLong && o.type === 'BUY') || (!isLong && o.type === 'SELL');
+
+            if (isEntry) {
+              markers.push({
+                time: orderUnix,
+                position: isLong ? 'belowBar' : 'aboveBar',
+                color: '#1a1a1a',
+                shape: isLong ? 'arrowUp' : 'arrowDown',
+                text: `ENTRY ₹${Number(o.price).toFixed(2)}`,
+                size: 2,
+                font: 'bold 11px sans-serif',
+              });
+            } else {
+              markers.push({
+                time: orderUnix,
+                position: isLong ? 'aboveBar' : 'belowBar',
+                color: '#1a1a1a',
+                shape: isLong ? 'arrowDown' : 'arrowUp',
+                text: `EXIT ₹${Number(o.price).toFixed(2)}`,
+                size: 2,
+                font: 'bold 11px sans-serif',
+              });
+            }
+          }
+        } else {
+          // Fallback: single markers from aggregated times/prices
+          if (entryUnix > 0) markers.push({ time: entryUnix, position: isLong ? 'belowBar' : 'aboveBar', color: '#1a1a1a', shape: isLong ? 'arrowUp' : 'arrowDown', text: `ENTRY ₹${avgEntry.toFixed(2)}`, size: 2, font: 'bold 11px sans-serif' });
+          if (exitUnix > 0) markers.push({ time: exitUnix, position: isLong ? 'aboveBar' : 'belowBar', color: '#1a1a1a', shape: isLong ? 'arrowDown' : 'arrowUp', text: `EXIT ₹${avgExit.toFixed(2)}`, size: 2, font: 'bold 11px sans-serif' });
+        }
 
         createSeriesMarkers(series, markers);
 
@@ -137,7 +172,7 @@ export default function TradeChart({ symbol, direction, avgEntry, avgExit, entry
       window.removeEventListener('resize', onResize);
       if (chartRef.current) { try { chartRef.current.remove(); } catch {} }
     };
-  }, [symbol, entryTime, exitTime]);
+  }, [symbol, entryTime, exitTime, orders]);
 
   return (
     <>

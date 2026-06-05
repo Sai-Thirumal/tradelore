@@ -346,6 +346,7 @@ export default function TradeDetailPage() {
             avgExit={trade.avg_exit}
             entryTime={trade.entry_time}
             exitTime={trade.exit_time}
+            orders={trade.orders}
           />
         </div>
       </div>
