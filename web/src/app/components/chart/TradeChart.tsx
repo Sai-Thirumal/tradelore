@@ -113,8 +113,14 @@ export default function TradeChart({ symbol, direction, avgEntry, avgExit, entry
         const markers: any[] = [];
 
         if (orders && orders.length > 0) {
-          // One marker per order leg — no averaging
+          // Dedupe: collapse legs with same time + same price + same type into one marker
+          const seen = new Map<string, any>();
           for (const o of orders) {
+            const key = `${o.trade_time}|${Number(o.price).toFixed(2)}|${o.type}`;
+            if (!seen.has(key)) seen.set(key, o);
+          }
+
+          for (const o of seen.values()) {
             const orderUnix = istToUnix(o.trade_time);
             if (orderUnix <= 0) continue;
 
