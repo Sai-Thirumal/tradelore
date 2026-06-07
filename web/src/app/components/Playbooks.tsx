@@ -663,6 +663,11 @@ const PB_STYLES = `
     .pb-grid { grid-template-columns: 1fr; }
   }
 
+  /* override global stat-pill min-width inside playbook cards */
+  @media (max-width: 1024px) {
+    .pb-grid .stat-pill { min-width: 0; flex: 1 1 auto; }
+  }
+
   /* ── Card action buttons (hover reveal) ── */
   .pb-card-actions {
     display: flex;

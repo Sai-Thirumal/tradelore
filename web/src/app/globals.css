@@ -209,7 +209,11 @@ body::before {
 }
 
 /* ── Main ── */
-.main { max-width: 1200px; margin: 0 auto; padding: 24px; }
+.main { max-width: none; margin: 0 auto; padding: 16px; }
+
+@media (min-width: 1025px) {
+  .main { max-width: min(83vw, 1600px); padding: 24px; }
+}
 .view { display: none; }
 .view.active { display: block; }
 
@@ -1345,6 +1349,20 @@ tbody.day-group + tbody.day-group .day-header-row td {
 .drp-btn-a:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* ── Responsive ── */
+
+/* Tablet + Phone: table scrolling + stat pill wrapping */
+@media (max-width: 1024px) {
+  .stat-pill { flex: 1 1 30%; min-width: 200px; }
+  .stat-pill .sp-viz svg { width: 40px; height: 40px; }
+  .month-body { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+  .posttrade-body { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+  .cal-section { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .month-section { overflow: visible; }
+  .trade-table { min-width: 600px; }
+  .calendar-table { min-width: 600px; }
+}
+
+/* Phone: nav + charts + layout */
 @media (max-width: 768px) {
   .charts-row { grid-template-columns: 1fr; }
   .stat-pills { flex-wrap: wrap; }
@@ -1362,4 +1380,22 @@ tbody.day-group + tbody.day-group .day-header-row td {
   .td-journal-grid { grid-template-columns: 1fr 1fr; }
   .td-journal-grid-3 { grid-template-columns: 1fr; }
   .td-title-row { flex-direction: column; gap: 2px; }
+  /* nav: scroll tabs instead of overflowing page */
+  .nav { overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 0 12px; }
+  .nav-tab { flex-shrink: 0; padding: 14px 16px; font-size: 13px; }
+  /* date picker */
+  .drp-popover { width: calc(100vw - 32px); max-width: 520px; }
+  .drp-panels { flex-direction: column; gap: 16px; }
+  /* prevent body horizontal scroll from wide children */
+  body { overflow-x: hidden; }
+}
+
+/* Phone */
+@media (max-width: 480px) {
+  .stat-pill { flex: 1 1 100%; min-width: 0; }
+  .stat-pill .sp-viz svg { width: 32px; height: 32px; }
+  .td-journal-grid { grid-template-columns: 1fr; }
+  .td-metrics { grid-template-columns: 1fr; }
+  .drp-popover { width: calc(100vw - 24px); max-width: none; }
+  .header .import-btn { font-size: 11px; padding: 5px 10px; }
 }
