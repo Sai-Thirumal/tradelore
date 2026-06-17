@@ -4,19 +4,24 @@
 
 ```
 /                           Main dashboard (page.tsx)
-├── Dashboard tab            Stat pills, P&L charts, calendar, weekday bars
+├── Dashboard tab            Stat pills, P&L charts, monthly calendar
 ├── Journal tab              PreMarket plan + PostTrade analysis
-│   ├── JournalPreMarket     Date header, market outlook, bias, capital, key levels, news
-│   └── JournalPostTrade     Expandable per-trade journal forms
+│   ├── PreMarket            Date header, market outlook, bias, capital, key levels, news
+│   └── PostTrade            Expandable per-trade journal forms
 ├── Trade Log tab            Month → Day → Trade hierarchy
 ├── Playbooks tab            Card grid of trading setups, tabbed create/edit form (max 8)
+├── Reports tab              Overview metrics + grouped report tables/charts
 └── Modal                    Trade detail popup (legacy, being phased out)
 
+/login                      Sign-up/login landing page
+├── Left visual panel        Brand, value copy, dashboard preview
+└── Right auth panel         Sign up / Log in form
+
 /trade?idx=N                Trade detail page (trade/page.tsx)
-├── Header                   Symbol, date, result badge, P&L card
-├── Left panel               Quick stats (direction/qty/entry/exit) + Details + Order legs
-├── Right panel              TradingView lightweight-charts (sticky) + entry/exit markers
-└── Journal form             Same fields as PostTrade, synced via localStorage + API
+├── Header                   Back link, same-day trade switcher, result badge, P&L
+├── View Trade tab           Quick stats, gross/net P&L, order legs, chart
+├── Pre Market tab           Read-only daily pre-market plan
+└── Post Market tab          Journal form synced via localStorage + API
 ```
 
 ---
@@ -34,8 +39,50 @@
 - **Markets:** Stocks, Indices, Options, Futures (tag chips)
 - **Stats:** Win rate and avg R:R computed from actual tagged trades, not manually entered
 
+### `app/login/page.tsx`
+`src/app/login/page.tsx`
+
+- **Type:** Client page, dynamic layout
+- **Data source:** Supabase Auth via `lib/supabase/client.ts`
+- **Features:** Sign up / Log in segmented control, email/password form, email confirmation message, redirect to `next` path
+- **Callback:** `/auth/callback` exchanges email/OAuth codes for a server session
+- **Production Auth URL:** Supabase redirect must include `https://web-phi-one-12.vercel.app/auth/callback`
+
+### `components/reports/ReportsPage.tsx`
+`src/app/components/reports/ReportsPage.tsx`
+
+- **Props:** None
+- **State:** `subTab` (`overview` or `reports`)
+- **Data flow:** delegates fetching to child components
+- **Features:** Overview/Reports subtab shell for the Reports main nav tab
+
+### `components/reports/ReportsOverview.tsx`
+`src/app/components/reports/ReportsOverview.tsx`
+
+- **Props:** None
+- **Data source:** GET `/api/reports/overview`
+- **Features:** Two-column overview table sections for trade performance, holding/volume, trading days, daily P&L, risk/drawdown
+- **Metrics:** net P&L, largest win/loss, profit factor, hold times, logged days, drawdown, R-multiples, total commissions
+
+### `components/reports/ReportsList.tsx`
+`src/app/components/reports/ReportsList.tsx`
+
+- **Props:** None
+- **State:** report category dropdown, day/time subtab, dropdown open state
+- **Categories:** Day & Time, Instruments, Risk, Playbooks, Options
+- **Implemented:** Day & Time and Instruments
+- **Placeholders:** Risk, Playbooks, Options
+
+### `components/reports/DayTimeReport.tsx`
+`src/app/components/reports/DayTimeReport.tsx`
+
+- **Props:** `{ group: 'days' | 'months' | 'trade-time' | 'trade-duration' | 'instruments' }`
+- **Data source:** GET `/api/reports/day-time?group=...`
+- **Features:** stat cards, Chart.js line/bar charts, table pagination, P&L sorting, min-trades filter, W/L ratio filter
+- **Chart modes:** P&L and win % for instruments; combo P&L/count/avg-win plus win % for day/time groups
+
 ### `components/journal/PreMarket.tsx`
-`src/app/components/JournalPreMarket.tsx`
+`src/app/components/journal/PreMarket.tsx`
 
 - **Props:** `{ latestTradeDate: string }`
 - **State:** marketOutlook, outlookBias, capitalToDeploy, keyLevels, newsEvents
@@ -44,9 +91,9 @@
 - **Auto-save:** localStorage on every keystroke via `useCallback` + `useEffect`
 
 ### `components/journal/PostTrade.tsx`
-`src/app/components/JournalPostTrade.tsx`
+`src/app/components/journal/PostTrade.tsx`
 
-- **Props:** `{ trades: Trade[] }`
+- **Props:** `{ trades: Trade[]; date: string }`
 - **State:** Per-trade keyed maps (`riskAmounts[tid]`, `whatWorked[tid]`, ...)
 - **Data flow:** localStorage (`trade_journal_{tradeId}`) → mount; API (`/api/trade-journal?trade_id=`) → overwrite
 - **One panel open at a time:** `expandedIdx` state
@@ -54,12 +101,12 @@
 - **Playbooks:** Fetched from `/api/playbooks`, shown as dropdown
 
 ### `components/chart/TradeChart.tsx`
-`src/app/components/TradeChart.tsx`
+`src/app/components/chart/TradeChart.tsx`
 
-- **Props:** `{ symbol, direction, avgEntry, avgExit, entryTime, exitTime }`
+- **Props:** `{ symbol, direction, avgEntry, avgExit, entryTime, exitTime, orders? }`
 - **Library:** `lightweight-charts` v5 (TradingView) — loaded via `next/dynamic({ ssr: false })`
 - **Data source:** `/api/chart` → Yahoo Finance proxy
-- **Features:** CandlestickSeries, `createSeriesMarkers()` for entry/exit arrows, `createPriceLine()` for dashed lines
+- **Features:** CandlestickSeries, `createSeriesMarkers()` for entry/exit arrows, deduped order markers by candle/price/type
 - **States:** loading → error → ok (all rendered in single return, ref div always mounted)
 - **Smart interval:** 5-min for intraday, daily for multi-day trades
 
@@ -67,11 +114,14 @@
 
 | File | Type | Notes |
 |------|------|-------|
-| `app/page.tsx` | Client | Main dashboard, 4 tabs (Dashboard, Journal, Trade Log, Playbooks) |
+| `app/page.tsx` | Client | Main dashboard, 5 tabs (Dashboard, Journal, Trade Log, Playbooks, Reports) |
 | `app/layout.tsx` | Server | Root layout |
-| `app/trade/page.tsx` | Client | Trade detail, `useSearchParams`, journal form |
+| `app/login/page.tsx` | Client | Sign-up/login landing page |
+| `app/login/layout.tsx` | Server | `force-dynamic` for `useSearchParams` |
+| `app/auth/callback/route.ts` | Route | Supabase callback code exchange |
+| `app/trade/page.tsx` | Client | Trade detail, `useSearchParams`, same-day switcher, chart/pre-market/post-market tabs |
 | `app/trade/layout.tsx` | Server | `force-dynamic` for `useSearchParams` |
-| `app/globals.css` | Global | All styles, ~950 lines, CSS custom properties |
+| `app/globals.css` | Global | All styles, ~1500 lines, CSS custom properties |
 
 ---
 
@@ -88,14 +138,32 @@
 
 ### Trade matching pipeline
 ```
-Broker CSV rows → csv-parser.ts (parse)
-  → storeOrders() (Supabase insert)
-  → fetchAllOrders() (Supabase select, paginated)
+Signed-in user → Broker CSV rows → csv-parser.ts (parse)
+  → storeOrders(userId) (Supabase insert with user_id)
+  → fetchAllOrders(userId) (Supabase select, paginated)
   → collapseFills() (merge by order_id, weighted avg price)
   → matchTrades() (position tracker by symbol+date)
-  → replaceTrades() (Supabase delete+insert)
-  → fetchAllTrades() (Supabase select, paginated)
+  → replaceTrades(userId) (delete+insert only that user's trades)
+  → fetchAllTrades(userId) (Supabase select, paginated)
   → Frontend renders
+```
+
+### Reports data flow
+```
+Reports tab
+  → ReportsPage subtab shell
+  → ReportsOverview → /api/reports/overview
+  → ReportsList → DayTimeReport → /api/reports/day-time?group=...
+  → Chart.js charts + paginated/filterable table
+```
+
+### Auth UI flow
+```
+Logged-out visitor
+  → proxy.ts redirects protected pages to /login
+  → sign up or log in
+  → /auth/callback creates session for email/OAuth redirects
+  → header shows Logout next to Import CSV
 ```
 
 ### Trade ID generation
@@ -104,7 +172,7 @@ function getTradeId(t: Trade): string {
   return t.id || `${t.symbol}_${t.entry_time || t.entryTime}`;
 }
 ```
-Used consistently across JournalPostTrade, trade detail page, localStorage keys, and API calls.
+Used consistently across PostTrade, trade detail page, localStorage keys, and API calls.
 
 ---
 
@@ -115,6 +183,7 @@ Single `globals.css` file, organized by section with comment headers:
 - `── Stat Pills ──`, `── Charts ──`, `── Calendar ──`
 - `── JOURNAL — Pre-Market Plan ──`, `── JOURNAL — Post-Trade Analysis ──`
 - `── TRADE LOG — Month Sections ──`, `── Day groups ──`
+- `── REPORTS ──`
 - `── TRADE DETAIL PAGE ──`
 
 All colors via CSS custom properties. Reuse existing classes before adding new ones.

@@ -14,6 +14,7 @@ Raw broker fills. One row = one exchange execution. Not a trade — multiple fil
 ```sql
 CREATE TABLE public.trade_orders (
   uid          TEXT PRIMARY KEY,       -- {order_id}_{trade_id} or fallback hash
+  user_id      UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   symbol       TEXT NOT NULL,
   exchange     TEXT,
   segment      TEXT,
@@ -33,6 +34,8 @@ CREATE TABLE public.trade_orders (
 
 **Key invariant:** Multiple rows can share the same `order_id` (partial fills). `trade-matcher.ts` collapses them before position tracking.
 
+**Multi-user invariant:** API insert code prefixes `uid` with `user_id` before upsert so two users can import broker files with matching broker IDs.
+
 ---
 
 ### `trades`
@@ -41,6 +44,7 @@ Completed trades. Built by `matchTrades()` from collapsed fills. Position fully 
 ```sql
 CREATE TABLE public.trades (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   symbol       TEXT NOT NULL,
   exchange     TEXT,
   segment      TEXT,
@@ -50,6 +54,8 @@ CREATE TABLE public.trades (
   avg_entry    NUMERIC NOT NULL,       -- Weighted avg of entry fills
   avg_exit     NUMERIC NOT NULL,       -- Weighted avg of exit fills
   pnl          NUMERIC NOT NULL,
+  commission   NUMERIC DEFAULT 0,       -- Total trade costs, if migration applied
+  commission_breakdown JSONB,           -- Brokerage/STT/exchange/SEBI/stamp/DP/GST
   entry_time   TEXT NOT NULL,          -- First entry fill timestamp
   exit_time    TEXT NOT NULL,          -- Last exit fill timestamp
   trade_date   TEXT NOT NULL,          -- entry_time date part (YYYY-MM-DD)
@@ -63,6 +69,11 @@ CREATE TABLE public.trades (
 - LONG: `(avg_exit − avg_entry) × qty`
 - SHORT: `(avg_entry − avg_exit) × qty`
 
+**Commission note:**
+- New matched trades include `commission` and `commission_breakdown` from `lib/engine/commission.ts`.
+- Legacy rows may not have these columns populated; `/api/trades`, `/api/playbooks/stats`, and report routes compute commission on read when missing.
+- UI labels that say **Net P&L** should use `pnl - commission`. Stored `result` is currently based on gross `pnl`.
+
 ---
 
 ### `playbooks`
@@ -71,6 +82,7 @@ Trading strategy setups. Stores all playbook detail in a `data` JSONB column. Ma
 ```sql
 CREATE TABLE public.playbooks (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id          UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   name            TEXT NOT NULL,
   description     TEXT DEFAULT '',           -- legacy, being phased out
   criteria        TEXT DEFAULT '',           -- legacy
@@ -84,8 +96,8 @@ CREATE TABLE public.playbooks (
   updated_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
--- RLS: Allow all (service role / anon key)
--- Index: idx_playbooks_name ON (name)
+-- RLS: user-owned policies via auth.uid() = user_id
+-- Index: idx_playbooks_user_name ON (user_id, name)
 ```
 
 **`data` JSONB structure** (8 form tabs — win rate and avg R:R are computed from tagged trades, not stored):
@@ -109,7 +121,8 @@ CREATE TABLE public.playbooks (
 {
   total_trades: number, wins: number, losses: number,
   win_rate: number (0-100), avg_rr: number,
-  total_pnl: number, max_consecutive_losses: number
+  total_pnl: number, net_pnl: number, total_commission: number,
+  max_consecutive_losses: number
 }
 ```
 
@@ -122,6 +135,8 @@ CREATE TABLE public.playbooks (
 
 Markets options: `['Stocks', 'Indices', 'Options', 'Futures']`
 
+Seed rows with `user_id IS NULL` act as global templates. `fetchPlaybooks(userId)` clones them into a user's account on first playbook load.
+
 ---
 
 ### `trade_journal`
@@ -130,6 +145,7 @@ Per-trade post-market analysis. One row per trade. Synced with localStorage on t
 ```sql
 CREATE TABLE public.trade_journal (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id               UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   trade_id              TEXT NOT NULL,              -- matches Trade.getTradeId()
   risk_amount           NUMERIC,
   profit_target_entry   NUMERIC,
@@ -145,8 +161,8 @@ CREATE TABLE public.trade_journal (
   updated_at            TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE UNIQUE INDEX idx_trade_journal_trade_id ON public.trade_journal(trade_id);
--- Upsert key: trade_id (unique constraint via index)
+CREATE UNIQUE INDEX idx_trade_journal_user_trade_id ON public.trade_journal(user_id, trade_id);
+-- Upsert key: user_id,trade_id
 ```
 
 **Emotions enum (stored as CSV):**
@@ -160,7 +176,8 @@ Pre-market plan. One row per date.
 ```sql
 CREATE TABLE public.daily_journal (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  date              TEXT NOT NULL UNIQUE,           -- "YYYY-MM-DD"
+  user_id           UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  date              TEXT NOT NULL,                  -- "YYYY-MM-DD"
   market_outlook    TEXT DEFAULT '',
   outlook_bias      TEXT DEFAULT '',                -- "Bullish"|"Bearish"|"Neutral"|"Choppy"|"Wait & Watch"
   capital_to_deploy NUMERIC,
@@ -171,8 +188,9 @@ CREATE TABLE public.daily_journal (
   created_at        TIMESTAMPTZ DEFAULT NOW(),
   updated_at        TIMESTAMPTZ DEFAULT NOW()
 );
--- Unique constraint on date enforces one plan per day
--- Upsert key: date
+CREATE UNIQUE INDEX idx_daily_journal_user_date ON public.daily_journal(user_id, date);
+-- Unique constraint on user_id,date enforces one plan per user per day
+-- Upsert key: user_id,date
 ```
 
 ---
@@ -181,6 +199,7 @@ CREATE TABLE public.daily_journal (
 
 | Source | Target | Type |
 |--------|--------|------|
+| `*.user_id` | `auth.users.id` | Hard FK with cascade delete |
 | `trade_journal.playbook_id` | `playbooks.id` | Soft (TEXT, not enforced at DB level) |
 | `trade_journal.trade_id` | (derived from `trades`) | Logical only — no DB FK |
 
@@ -188,17 +207,27 @@ CREATE TABLE public.daily_journal (
 
 ## Row Level Security
 
-All tables have RLS enabled with permissive "Allow all" policies:
+All app tables have RLS enabled with user-owned policies:
 ```sql
-ALTER TABLE public.playbooks ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all" ON public.playbooks FOR ALL USING (true) WITH CHECK (true);
--- Same pattern for trade_journal, daily_journal
+USING (auth.uid() = user_id)
+WITH CHECK (auth.uid() = user_id)
 ```
 
-Authentication happens at the API layer via service role key or anon key. No user-level RLS needed (single-tenant dashboard).
+Authentication happens through Supabase Auth. API handlers still filter by `user_id` explicitly, even when server credentials can bypass RLS.
 
 ---
 
 ## Pagination Note
 
-Supabase REST API returns max 1,000 rows per query. Functions that can exceed this (`fetchAllOrders`, `fetchAllTrades`) must paginate with `.range(from, to)`. Functions with `.single()`, `.maybeSingle()`, or small tables (playbooks) are exempt.
+Supabase REST API returns max 1,000 rows per query. Functions that can exceed this (`fetchAllOrders`, `fetchAllTrades`, `fetchAllTradeJournals`) must paginate with `.range(from, to)` and `.eq('user_id', userId)`. Functions with `.single()`, `.maybeSingle()`, or small tables (playbooks) are exempt.
+
+## Migration Order
+
+Run in Supabase SQL Editor:
+1. `sql/setup-journal.sql`
+2. `sql/playbooks-migration.sql`
+3. `sql/multi-user-auth.sql`
+
+When old data is not needed, run `multi-user-auth.sql` as-is. Its commented `UPDATE ... user_id = ...` block is only for preserving existing rows by assigning them to a first Supabase Auth user.
+
+After migration, old rows with `user_id IS NULL` are intentionally invisible to signed-in users under RLS. New imports create user-owned rows.

@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getUnderlying, toYahooSymbol, istToUnix } from '@/lib/engine/symbols';
+import { requireAuthUser } from '@/lib/auth/session';
 
 export async function GET(request: Request) {
+  const { response } = await requireAuthUser();
+  if (response) return response;
+
   const { searchParams } = new URL(request.url);
   const symbol = searchParams.get('symbol') || '';
   const fromStr = searchParams.get('from') || '';

@@ -1,23 +1,39 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Lazy-loaded client — returns null on preview deploys where Supabase env vars are
-// production-scoped. Every function below guards against null with a silent fallback.
+// Server-side data client. Route handlers still filter by user_id explicitly,
+// even when a service/secret key is present and would bypass RLS.
 function getSupabase(): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+    || process.env.SUPABASE_SECRET_KEY
+    || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+    || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return null;
   return createClient(url, key);
 }
 
 const _supabase = getSupabase();
 
-export async function storeOrders(orders: any[]) {
+function withUserId<T extends Record<string, any>>(row: T, userId: string): T & { user_id: string } {
+  return { ...row, user_id: userId };
+}
+
+function scopedOrderUid(uid: string, userId: string) {
+  return uid.startsWith(`${userId}_`) ? uid : `${userId}_${uid}`;
+}
+
+export async function storeOrders(orders: any[], userId: string) {
   if (!_supabase || !orders || orders.length === 0) return;
-  const { error } = await _supabase.from('trade_orders').upsert(orders, { onConflict: 'uid' });
+  const scopedOrders = orders.map(order => ({
+    ...order,
+    uid: scopedOrderUid(order.uid, userId),
+    user_id: userId,
+  }));
+  const { error } = await _supabase.from('trade_orders').upsert(scopedOrders, { onConflict: 'uid' });
   if (error) throw error;
 }
 
-export async function fetchAllOrders() {
+export async function fetchAllOrders(userId: string) {
   if (!_supabase) return [];
   let allData: any[] = [];
   let from = 0;
@@ -27,6 +43,7 @@ export async function fetchAllOrders() {
     const { data, error } = await _supabase
       .from('trade_orders')
       .select('*')
+      .eq('user_id', userId)
       .order('trade_time', { ascending: true })
       .range(from, from + pageSize - 1);
 
@@ -41,16 +58,17 @@ export async function fetchAllOrders() {
   return allData;
 }
 
-export async function replaceTrades(trades: any[]) {
+export async function replaceTrades(trades: any[], userId: string) {
   if (!_supabase) return;
-  await _supabase.from('trades').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  await _supabase.from('trades').delete().eq('user_id', userId);
   if (trades && trades.length > 0) {
-    const { error } = await _supabase.from('trades').insert(trades);
+    const scopedTrades = trades.map(trade => withUserId(trade, userId));
+    const { error } = await _supabase.from('trades').insert(scopedTrades);
     if (error) throw error;
   }
 }
 
-export async function fetchAllTrades() {
+export async function fetchAllTrades(userId: string) {
   if (!_supabase) return [];
   let allData: any[] = [];
   let from = 0;
@@ -60,6 +78,7 @@ export async function fetchAllTrades() {
     const { data, error } = await _supabase
       .from('trades')
       .select('*')
+      .eq('user_id', userId)
       .order('exit_time', { ascending: true })
       .range(from, from + pageSize - 1);
 
@@ -74,39 +93,77 @@ export async function fetchAllTrades() {
   return allData;
 }
 
-export async function clearAllData() {
+export async function clearAllData(userId: string) {
   if (!_supabase) return;
-  await _supabase.from('trade_orders').delete().neq('uid', 'INVALID_UID_XYZ');
-  await _supabase.from('trades').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  await _supabase.from('trade_orders').delete().eq('user_id', userId);
+  await _supabase.from('trades').delete().eq('user_id', userId);
+  await _supabase.from('trade_journal').delete().eq('user_id', userId);
+  await _supabase.from('daily_journal').delete().eq('user_id', userId);
 }
 
 // ── Playbooks ──
-export async function fetchPlaybooks() {
+async function ensureUserPlaybooks(userId: string) {
+  if (!_supabase) return;
+
+  const { count, error: countError } = await _supabase
+    .from('playbooks')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId);
+
+  if (countError) throw countError;
+  if ((count || 0) > 0) return;
+
+  const { data: defaults, error: defaultsError } = await _supabase
+    .from('playbooks')
+    .select('name, data, is_default')
+    .is('user_id', null)
+    .eq('is_default', true)
+    .order('name');
+
+  if (defaultsError) throw defaultsError;
+  if (!defaults || defaults.length === 0) return;
+
+  const clones = defaults.map((playbook: any) => ({
+    user_id: userId,
+    name: playbook.name,
+    data: playbook.data || {},
+    is_default: true,
+  }));
+
+  const { error: insertError } = await _supabase.from('playbooks').insert(clones);
+  if (insertError) throw insertError;
+}
+
+export async function fetchPlaybooks(userId: string) {
   if (!_supabase) return [];
+  await ensureUserPlaybooks(userId);
   const { data, error } = await _supabase
     .from('playbooks')
     .select('*')
+    .eq('user_id', userId)
     .order('name');
   if (error) throw error;
   return data || [];
 }
 
-export async function fetchPlaybook(id: string) {
+export async function fetchPlaybook(id: string, userId: string) {
   if (!_supabase) return null;
   const { data, error } = await _supabase
     .from('playbooks')
     .select('*')
     .eq('id', id)
+    .eq('user_id', userId)
     .single();
   if (error) throw error;
   return data;
 }
 
-export async function createPlaybook(playbook: { name: string; data?: Record<string, any> }) {
+export async function createPlaybook(playbook: { name: string; data?: Record<string, any> }, userId: string) {
   if (!_supabase) throw new Error('Supabase not available');
   const { data, error } = await _supabase
     .from('playbooks')
     .insert({
+      user_id: userId,
       name: playbook.name,
       data: playbook.data || {},
       is_default: false,
@@ -117,7 +174,7 @@ export async function createPlaybook(playbook: { name: string; data?: Record<str
   return data;
 }
 
-export async function updatePlaybook(id: string, updates: { name?: string; data?: Record<string, any> }) {
+export async function updatePlaybook(id: string, updates: { name?: string; data?: Record<string, any> }, userId: string) {
   if (!_supabase) throw new Error('Supabase not available');
   const payload: any = { updated_at: new Date().toISOString() };
   if (updates.name !== undefined) payload.name = updates.name;
@@ -126,27 +183,30 @@ export async function updatePlaybook(id: string, updates: { name?: string; data?
     .from('playbooks')
     .update(payload)
     .eq('id', id)
+    .eq('user_id', userId)
     .select()
     .single();
   if (error) throw error;
   return data;
 }
 
-export async function deletePlaybook(id: string) {
+export async function deletePlaybook(id: string, userId: string) {
   if (!_supabase) throw new Error('Supabase not available');
   const { error } = await _supabase
     .from('playbooks')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .eq('user_id', userId);
   if (error) throw error;
 }
 
 // ── Daily Journal (pre-market plan) ──
-export async function fetchDailyJournal(date: string) {
+export async function fetchDailyJournal(date: string, userId: string) {
   if (!_supabase) return null;
   const { data, error } = await _supabase
     .from('daily_journal')
     .select('*')
+    .eq('user_id', userId)
     .eq('date', date)
     .maybeSingle();
   if (error) throw error;
@@ -157,18 +217,18 @@ export async function saveDailyJournal(entry: {
   date: string;
   market_outlook?: string;
   outlook_bias?: string;
-  capital_to_deploy?: number;
+  capital_to_deploy?: number | null;
   playbooks_planned?: string;
   key_levels?: string;
   news_events?: string;
   pre_market_notes?: string;
-}) {
+}, userId: string) {
   if (!_supabase) throw new Error('Supabase not available');
   const { data, error } = await _supabase
     .from('daily_journal')
     .upsert(
-      { ...entry, updated_at: new Date().toISOString() },
-      { onConflict: 'date' },
+      { ...entry, user_id: userId, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id,date' },
     )
     .select()
     .single();
@@ -177,18 +237,19 @@ export async function saveDailyJournal(entry: {
 }
 
 // ── Trade Journal (per-trade post-market analysis) ──
-export async function fetchTradeJournal(tradeId: string) {
+export async function fetchTradeJournal(tradeId: string, userId: string) {
   if (!_supabase) return null;
   const { data, error } = await _supabase
     .from('trade_journal')
     .select('*')
+    .eq('user_id', userId)
     .eq('trade_id', tradeId)
     .maybeSingle();
   if (error) throw error;
   return data;
 }
 
-export async function fetchAllTradeJournals() {
+export async function fetchAllTradeJournals(userId: string) {
   if (!_supabase) return [];
   let allData: any[] = [];
   let from = 0;
@@ -197,6 +258,7 @@ export async function fetchAllTradeJournals() {
     const { data, error } = await _supabase
       .from('trade_journal')
       .select('*')
+      .eq('user_id', userId)
       .range(from, from + pageSize - 1);
     if (error) throw error;
     if (!data || data.length === 0) break;
@@ -209,9 +271,9 @@ export async function fetchAllTradeJournals() {
 
 export async function saveTradeJournal(entry: {
   trade_id: string;
-  risk_amount?: number;
-  profit_target_entry?: number;
-  profit_target_exit?: number;
+  risk_amount?: number | null;
+  profit_target_entry?: number | null;
+  profit_target_exit?: number | null;
   position_sizing?: string;
   playbook_id?: string;
   what_worked?: string;
@@ -219,13 +281,13 @@ export async function saveTradeJournal(entry: {
   lessons_learned?: string;
   emotions?: string;
   important_notes?: string;
-}) {
+}, userId: string) {
   if (!_supabase) throw new Error('Supabase not available');
   const { data, error } = await _supabase
     .from('trade_journal')
     .upsert(
-      { ...entry, updated_at: new Date().toISOString() },
-      { onConflict: 'trade_id' },
+      { ...entry, user_id: userId, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id,trade_id' },
     )
     .select()
     .single();

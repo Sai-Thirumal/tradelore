@@ -10,27 +10,30 @@ A trading journal and analytics dashboard for Indian markets. Import broker CSV 
 
 | Section | What it does |
 |---|---|
-| **Dashboard** | Net P&L, win rate, profit factor, day win %. Cumulative P&L curve, daily P&L bars, monthly calendar with weekly totals |
+| **Dashboard** | Commission-aware net P&L, win rate, profit factor, day win %. Cumulative P&L curve, daily P&L bars, monthly calendar with weekly totals |
 | **Journal** | Pre-market plan (outlook, bias, levels, news) + per-trade post-market analysis with emotion tagging and playbook linking |
 | **Trade Log** | Every trade grouped by month → day → trade. Expand orders to see every fill. Click any trade for full detail |
-| **Trade Detail** | Dedicated page with stats, TradingView chart with entry/exit markers, synced journal form |
+| **Trade Detail** | Dedicated page with gross/net stats, TradingView chart with entry/exit markers, same-day trade switcher, synced journal form |
 | **Playbooks** | Create up to 8 trading setups with full detail across 9 categories. Win rate and avg R:R computed automatically from tagged trades |
+| **Reports** | Overview metrics plus grouped reports by day, month, trade time, trade duration, and instrument |
 | **Date Filter** | Dual-calendar date range picker — filter the entire dashboard by any date range |
 | **Charts** | TradingView `lightweight-charts` with entry/exit markers, auto-detects intraday vs daily candles |
+| **Costs** | Indian exchange commission calculator for equity, F&O, options, and MCX; legacy trades are backfilled on read |
+| **Authentication** | Supabase Auth sign-up/login, protected app routes, per-user imports and journals |
 
 ---
 
 ## How it works
 
 ### 1. Import your broker CSV
-Upload a CSV from your broker (Zerodha, Upstox, etc.). TradeLore parses every row, collapses partial exchange fills by order ID, runs a position tracker, and builds completed trades.
+Sign in, then upload a CSV from your broker (Zerodha, Upstox, etc.). TradeLore parses every row, collapses partial exchange fills by order ID, runs a position tracker, and builds completed trades scoped to your account.
 
 ```
 Broker CSV → Parse rows → Collapse fills → Position tracker → Completed trades
 ```
 
 ### 2. Dashboard
-Real-time stats and charts that update when you filter by date range. Cumulative P&L curve, daily bar chart, monthly calendar heatmap with weekly P&L totals.
+Real-time stats and charts that update when you filter by date range. Cumulative net P&L curve, daily net bar chart, monthly calendar heatmap with weekly P&L totals.
 
 ### 3. Journal
 Synced via localStorage + Supabase:
@@ -45,7 +48,9 @@ All trades grouped by month → day. Each month shows trade count, W/L ratio, wi
 Click any trade row to open a dedicated page with:
 - Full trade stats, order legs
 - TradingView chart of the underlying asset with entry/exit markers and price lines
-- Journal form synced with the Journal tab
+- Same-day trade switcher
+- Pre-market plan viewer for the trade date
+- Post-market journal form synced with the Journal tab
 
 ### 6. Playbooks
 Build your trading setup library. Each playbook covers 9 categories:
@@ -53,6 +58,14 @@ Build your trading setup library. Each playbook covers 9 categories:
 Identity → Market Conditions → Entry Rules → Stop Loss → Targets & Exit → Position Sizing → Grading → Notes
 
 Win rate and average R:R are **computed automatically** from trades you tag with each playbook — no manual data entry. Max 8 setups enforced. Ships with 3 example playbooks (Opening Range Breakout, VWAP Mean Reversion, Trend Continuation Pullback) that you can edit or remove.
+
+### 7. Reports
+Reports add a second analytics layer:
+
+- **Overview** — trade counts, largest win/loss, profit factor, hold times, trading day stats, drawdown, R-multiples, total commissions
+- **Day & Time** — grouped performance by weekday, month, entry hour, and holding duration
+- **Instruments** — grouped performance by extracted underlying/instrument
+- Risk, playbook, and options report categories are present in the UI as placeholders for future expansion
 
 ---
 
@@ -65,9 +78,11 @@ Win rate and average R:R are **computed automatically** from trades you tag with
 | Styling | Tailwind CSS + CSS custom properties |
 | Charts | Chart.js (dashboard) + lightweight-charts v5 (trade detail) |
 | Database | Supabase (PostgreSQL) |
+| Auth | Supabase Auth + `@supabase/ssr` cookies via Next.js Proxy |
 | Deployment | Vercel |
 | Price data | Yahoo Finance (server-side proxy, IST timezone-aware) |
 | CSV parsing | PapaParse |
+| Costs | Custom Indian exchange commission calculator |
 
 ---
 
@@ -76,15 +91,19 @@ Win rate and average R:R are **computed automatically** from trades you tag with
 ```
 src/
 ├── app/
-│   ├── page.tsx                  # Dashboard + Journal + Trade Log + Playbooks
-│   ├── globals.css               # All styles (~950 lines, CSS custom properties)
+│   ├── page.tsx                  # Dashboard + Journal + Trade Log + Playbooks + Reports
+│   ├── globals.css               # All styles (~1500 lines, CSS custom properties)
+│   ├── login/                    # Sign-up/login landing page
+│   ├── auth/callback/            # Supabase email/OAuth callback
 │   ├── trade/
 │   │   ├── layout.tsx            # force-dynamic for useSearchParams
 │   │   └── page.tsx              # Trade detail page (/trade?idx=N)
 │   ├── api/
+│   │   ├── auth/                 # Current user + logout
 │   │   ├── chart/                # Yahoo Finance proxy (period1/period2, IST-aware)
 │   │   ├── import/               # CSV upload → parse → match → store
 │   │   ├── trades/               # All completed trades (paginated)
+│   │   ├── reports/              # Overview and grouped report analytics
 │   │   ├── daily-journal/        # Pre-market plan CRUD
 │   │   ├── trade-journal/        # Per-trade journal CRUD
 │   │   ├── playbooks/            # Playbook CRUD (GET/POST/PUT/DELETE)
@@ -93,19 +112,23 @@ src/
 │   └── components/
 │       ├── journal/              # PreMarket, PostTrade
 │       ├── chart/                # TradeChart (lightweight-charts v5)
+│       ├── reports/              # ReportsOverview, ReportsList, DayTimeReport
 │       ├── Playbooks.tsx         # Card grid + 9-tab create/edit form
 │       └── DateRangePicker.tsx   # Dual-month calendar date range filter
 ├── lib/
 │   ├── db/supabase.ts            # Supabase client (lazy-loaded) + all data access
-│   ├── engine/                   # CSV parser, trade matcher (collapse + position tracker)
+│   ├── auth/session.ts           # Route-handler auth helper
+│   ├── supabase/                 # Browser/server/proxy Supabase clients
+│   ├── engine/                   # CSV parser, trade matcher, symbols, commission
 │   ├── compute/stats.ts          # P&L stats, date range filtering
 │   └── ui/format.ts              # INR, price, date formatters
 ├── sql/
 │   ├── setup-journal.sql         # Base Supabase table migrations
-│   └── playbooks-migration.sql   # Playbooks expanded schema + seed data
+│   ├── playbooks-migration.sql   # Playbooks expanded schema + seed data
+│   └── multi-user-auth.sql       # Supabase Auth user_id + RLS migration
 └── agents/                       # AI navigation docs
     ├── main.md                   # Coding standards, design tokens, deploy
-    ├── api.md                    # Full API reference (8 routes)
+    ├── api.md                    # Full API reference
     ├── ui.md                     # Component tree + state patterns
     └── db.md                     # Database schema (5 tables)
 ```
@@ -129,6 +152,12 @@ npm install
 Create `.env.local`:
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+SUPABASE_SECRET_KEY=your-secret-key
+```
+
+Legacy projects can continue using:
+```
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
@@ -137,6 +166,19 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 Run these SQL files in your Supabase SQL Editor (in order):
 1. `sql/setup-journal.sql` — creates all tables
 2. `sql/playbooks-migration.sql` — expands playbooks schema + seeds 3 examples
+3. `sql/multi-user-auth.sql` — adds `user_id`, per-user unique indexes, commission columns, and RLS policies
+
+If old imported data does not need to be preserved, run `multi-user-auth.sql` as-is. The commented backfill block is only for assigning old rows to a first user.
+
+### Supabase Auth
+Production Auth URL configuration:
+
+```
+Site URL:     https://web-phi-one-12.vercel.app
+Redirect URL: https://web-phi-one-12.vercel.app/auth/callback
+```
+
+Email auth must be enabled in Supabase Authentication Providers.
 
 ### Run
 ```bash
@@ -144,15 +186,17 @@ npm run dev      # http://localhost:3000
 ```
 
 ### Deploy
+Production changes are deployed directly to Vercel from the local working tree. Do not push to GitHub unless explicitly requested.
+
 ```bash
-npx vercel --prod
+npx vercel deploy --prod --yes
 ```
 
 ---
 
 ## Database
 
-5 tables in Supabase (PostgreSQL):
+5 app tables in Supabase (PostgreSQL), all owned by `auth.users.id` via `user_id`:
 
 | Table | Purpose |
 |---|---|
@@ -162,7 +206,7 @@ npx vercel --prod
 | `trade_journal` | Per-trade post-market analysis, linked to playbooks |
 | `daily_journal` | Pre-market plans by date |
 
-Full schema: [`agents/db.md`](agents/db.md)
+Full schema: [`web/agents/db.md`](web/agents/db.md)
 
 ---
 

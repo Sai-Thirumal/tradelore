@@ -12,6 +12,7 @@ import DateRangePicker from './components/DateRangePicker';
 import JournalPreMarket from './components/journal/PreMarket';
 import JournalPostTrade from './components/journal/PostTrade';
 import Playbooks from './components/Playbooks';
+import ReportsPage from './components/reports/ReportsPage';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Filler, Legend);
 
@@ -34,6 +35,7 @@ export default function Home() {
   const [importStatus, setImportStatus] = useState('');
   const [toast, setToast] = useState<{ msg: string, type: string } | null>(null);
   const [journaledTradeIds, setJournaledTradeIds] = useState<Set<string>>(new Set());
+  const [currentUser, setCurrentUser] = useState<{ email?: string } | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cumChartRef = useRef<any>(null);
@@ -217,6 +219,30 @@ export default function Home() {
       showToast('Could not reach API: ' + err.message, 'error');
     }
   };
+
+  const loadCurrentUser = async () => {
+    try {
+      const res = await fetch('/api/auth/me');
+      if (!res.ok) {
+        setCurrentUser(null);
+        return;
+      }
+      const data = await res.json();
+      setCurrentUser(data.user || null);
+    } catch {
+      setCurrentUser(null);
+    }
+  };
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/login');
+    router.refresh();
+  };
+
+  useEffect(() => {
+    loadCurrentUser();
+  }, []);
 
   const showToast = (msg: string, type = 'info') => {
     setToast({ msg, type });
@@ -405,12 +431,25 @@ export default function Home() {
           }
         }}>🗑 Clear</button>
         <button className="import-btn" style={{padding:'6px 12px', fontSize:'12px'}} onClick={() => fileInputRef.current?.click()}>↑ Import CSV</button>
+        {currentUser ? (
+          <button
+            className="auth-header-btn"
+            title={currentUser.email || 'Signed in'}
+            onClick={handleLogout}
+          >
+            Logout
+          </button>
+        ) : (
+          <button className="auth-header-btn" onClick={() => router.push('/login')}>
+            Login
+          </button>
+        )}
       </header>
 
       <nav className="nav">
-        {['dashboard', 'journal', 'tradelog', 'playbooks'].map(v => (
+        {['dashboard', 'journal', 'tradelog', 'playbooks', 'reports'].map(v => (
           <div key={v} className={`nav-tab ${view === v ? 'active' : ''}`} onClick={() => setView(v)}>
-            {v === 'dashboard' ? 'Dashboard' : v === 'journal' ? 'Journal' : v === 'tradelog' ? 'Trade Log' : 'Playbooks'}
+            {v === 'dashboard' ? 'Dashboard' : v === 'journal' ? 'Journal' : v === 'tradelog' ? 'Trade Log' : v === 'playbooks' ? 'Playbooks' : 'Reports'}
           </div>
         ))}
       </nav>
@@ -766,7 +805,7 @@ export default function Home() {
                                           <td>{t.qty}</td>
                                           <td>{fmtPrice(t.avg_entry || t.avgEntry)}</td>
                                           <td>{fmtPrice(t.avg_exit || t.avgExit)}</td>
-                                          <td style={{fontWeight:700,color:t.pnl >= 0 ? 'var(--green)' : 'var(--red)'}}>{fmtINR(t.pnl)}</td>
+                                          <td style={{fontWeight:700,color:(t.pnl - (t.commission || 0)) >= 0 ? 'var(--green)' : 'var(--red)'}}>{fmtINR(t.pnl - (t.commission || 0))}</td>
                                           <td>
                                             <span style={{display:'inline-flex', alignItems:'center', gap:'4px'}}>
                                               <span style={{width:'6px', height:'6px', borderRadius:'50%', background: journaledTradeIds.has(t.id || `${t.symbol}_${t.entry_time || t.entryTime}`) ? '#16a34a' : '#d1d5db', display:'inline-block'}}></span>
@@ -831,6 +870,11 @@ export default function Home() {
         <div className={`view ${view === 'playbooks' ? 'active' : ''}`} id="view-playbooks">
           <div className="fade-in-up"><Playbooks /></div>
         </div>
+
+        {/* REPORTS */}
+        <div className={`view ${view === 'reports' ? 'active' : ''}`} id="view-reports">
+          <ReportsPage />
+        </div>
       </div>
 
       {/* MODAL */}
@@ -852,7 +896,9 @@ export default function Home() {
                   <div className="stat-row"><span className="stat-label">Direction</span><span className="stat-value">{t.direction} · Qty {t.qty}</span></div>
                   <div className="stat-row"><span className="stat-label">Avg Entry</span><span className="stat-value">₹{fmtPrice(t.avg_entry || t.avgEntry)}</span></div>
                   <div className="stat-row"><span className="stat-label">Avg Exit</span><span className="stat-value">₹{fmtPrice(t.avg_exit || t.avgExit)}</span></div>
-                  <div className="stat-row"><span className="stat-label">Net P&amp;L</span><span className={`stat-value ${t.pnl >= 0 ? 'up' : 'down'}`}>{fmtINR(t.pnl)}</span></div>
+                  <div className="stat-row"><span className="stat-label">P&L</span><span className={`stat-value ${t.pnl >= 0 ? 'up' : 'down'}`}>{fmtINR(t.pnl)}</span></div>
+                  <div className="stat-row"><span className="stat-label">Commission</span><span className="stat-value" style={{color:'var(--red)'}}>{fmtINR(t.commission || 0)}</span></div>
+                  <div className="stat-row"><span className="stat-label">Net P&amp;L</span><span className={`stat-value ${(t.pnl - (t.commission || 0)) >= 0 ? 'up' : 'down'}`}>{fmtINR(t.pnl - (t.commission || 0))}</span></div>
                   <div className="stat-row"><span className="stat-label">Result</span><span className={`badge ${t.result}`} style={{fontSize:'13px'}}>{t.result.toUpperCase()}</span></div>
                   <div className="stat-row"><span className="stat-label">Entry time</span><span className="stat-value" style={{fontSize:'12px'}}>{(t.entry_time || t.entryTime).substring(0, 16)}</span></div>
                   <div className="stat-row"><span className="stat-label">Exit time</span><span className="stat-value" style={{fontSize:'12px'}}>{(t.exit_time || t.exitTime).substring(0, 16)}</span></div>

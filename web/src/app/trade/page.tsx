@@ -19,6 +19,7 @@ interface Trade {
   avg_entry: number;
   avg_exit: number;
   pnl: number;
+  commission?: number;
   result: string;
   entry_time: string;
   exit_time: string;
@@ -315,6 +316,9 @@ export default function TradeDetailPage() {
             <div className="td-detail"><span>Exit Time</span><span>{trade.exit_time?.substring(0, 16)}</span></div>
             <div className="td-detail"><span>Segment</span><span>{trade.segment || '—'}</span></div>
             <div className="td-detail"><span>Exchange</span><span>{trade.exchange || '—'}</span></div>
+            <div className="td-detail"><span>P&L</span><span style={{color: trade.pnl >= 0 ? 'var(--green)' : 'var(--red)'}}>{fmtINR(trade.pnl)}</span></div>
+            <div className="td-detail"><span>Commission</span><span style={{color: 'var(--red)'}}>{fmtINR(trade.commission || 0)}</span></div>
+            <div className="td-detail"><span>Net P&L</span><span style={{color: (trade.pnl - (trade.commission || 0)) >= 0 ? 'var(--green)' : 'var(--red)'}}>{fmtINR(trade.pnl - (trade.commission || 0))}</span></div>
           </div>
 
           {trade.orders && trade.orders.length > 0 && (

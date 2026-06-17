@@ -2,9 +2,13 @@ import { NextResponse } from 'next/server';
 import { parseCsv } from '@/lib/engine/csv-parser';
 import { storeOrders, fetchAllOrders, replaceTrades } from '@/lib/db/supabase';
 import { matchTrades } from '@/lib/engine/trade-matcher';
+import { requireAuthUser } from '@/lib/auth/session';
 
 export async function POST(request: Request) {
   try {
+    const { user, response } = await requireAuthUser();
+    if (response) return response;
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
     
@@ -19,12 +23,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No valid orders found' }, { status: 422 });
     }
 
-    await storeOrders(newOrders);
+    await storeOrders(newOrders, user.id);
 
-    const allOrders = await fetchAllOrders();
+    const allOrders = await fetchAllOrders(user.id);
     const allTrades = matchTrades(allOrders);
 
-    await replaceTrades(allTrades);
+    await replaceTrades(allTrades, user.id);
 
     // Observable metrics: raw fills vs collapsed fills vs final trades
     const fillsWithOrderId = allOrders.filter((o: any) => o.order_id).length;

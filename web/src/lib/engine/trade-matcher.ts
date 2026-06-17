@@ -1,3 +1,5 @@
+import { calculateTradeCommission } from './commission';
+
 // Step 1 — Collapse partial fills by order_id
 // Broker CSV has one row per exchange fill. A single order can be broken
 // into multiple fills. Collapse them BEFORE position tracking.
@@ -154,6 +156,19 @@ function buildTrade(
     a.trade_time.localeCompare(b.trade_time),
   );
 
+  // Calculate commission
+  const commission = calculateTradeCommission({
+    symbol,
+    exchange: entryFills[0].exchange || '',
+    segment: entryFills[0].segment || '',
+    direction,
+    qty,
+    avg_entry: Number(avgEntry.toFixed(4)),
+    avg_exit: Number(avgExit.toFixed(4)),
+    entry_time: entryTime,
+    exit_time: exitTime,
+  });
+
   return {
     symbol,
     exchange: entryFills[0].exchange || '',
@@ -164,6 +179,8 @@ function buildTrade(
     avg_entry: Number(avgEntry.toFixed(4)),
     avg_exit: Number(avgExit.toFixed(4)),
     pnl: Number(pnl.toFixed(2)),
+    commission: commission.total,
+    commission_breakdown: commission,
     entry_time: entryTime,
     exit_time: exitTime,
     trade_date: tradeDate,

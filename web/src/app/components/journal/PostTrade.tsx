@@ -22,6 +22,7 @@ interface Trade {
   avg_exit?: number;
   avgEntry?: number;
   pnl: number;
+  commission?: number;
   result: string;
   entry_time?: string;
   exit_time?: string;
@@ -239,7 +240,7 @@ export default function JournalPostTrade({ trades, date }: { trades: Trade[]; da
                     <td>{t.qty}</td>
                     <td>{fmtPrice(entryPrice(t))}</td>
                     <td>{fmtPrice(exitPrice(t))}</td>
-                    <td style={{fontWeight:700,color:t.pnl >= 0 ? 'var(--green)' : 'var(--red)'}}>{fmtINR(t.pnl)}</td>
+                    <td style={{fontWeight:700,color:(t.pnl - (t.commission || 0)) >= 0 ? 'var(--green)' : 'var(--red)'}}>{fmtINR(t.pnl - (t.commission || 0))}</td>
                     <td>
                       <span style={{display:'inline-flex', alignItems:'center', gap:'4px'}}>
                         <span style={{width:'6px', height:'6px', borderRadius:'50%', background: journaledTradeIds.has(tid) ? '#16a34a' : '#d1d5db', display:'inline-block'}}></span>
