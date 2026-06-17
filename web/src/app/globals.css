@@ -925,10 +925,6 @@ body::before {
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
 }
-.premarket-readonly:empty::after,
-.premarket-readonly[style] {
-  /* handled inline */
-}
 .premarket-chip-count {
   font-size: 11px;
   font-weight: 500;
