@@ -59,6 +59,12 @@ DROP POLICY IF EXISTS "Allow all" ON public.playbooks;
 DROP POLICY IF EXISTS "Allow all" ON public.trade_journal;
 DROP POLICY IF EXISTS "Allow all" ON public.daily_journal;
 
+DROP POLICY IF EXISTS "public_access" ON public.trade_orders;
+DROP POLICY IF EXISTS "public_access" ON public.trades;
+DROP POLICY IF EXISTS "public_access" ON public.playbooks;
+DROP POLICY IF EXISTS "public_access" ON public.trade_journal;
+DROP POLICY IF EXISTS "public_access" ON public.daily_journal;
+
 DROP POLICY IF EXISTS "Users can read own trade orders" ON public.trade_orders;
 DROP POLICY IF EXISTS "Users can insert own trade orders" ON public.trade_orders;
 DROP POLICY IF EXISTS "Users can update own trade orders" ON public.trade_orders;

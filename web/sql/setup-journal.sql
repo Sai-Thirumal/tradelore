@@ -32,12 +32,11 @@ CREATE TABLE IF NOT EXISTS public.trade_journal (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-CREATE UNIQUE INDEX IF NOT EXISTS idx_trade_journal_trade_id ON public.trade_journal(trade_id);
 
 -- Daily journal table (pre-market plan)
 CREATE TABLE IF NOT EXISTS public.daily_journal (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  date TEXT NOT NULL UNIQUE,
+  date TEXT NOT NULL,
   market_outlook TEXT DEFAULT '',
   outlook_bias TEXT DEFAULT '',
   capital_to_deploy NUMERIC,
@@ -49,15 +48,90 @@ CREATE TABLE IF NOT EXISTS public.daily_journal (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Owner columns for per-user data isolation.
+ALTER TABLE public.playbooks ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.trade_journal ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.daily_journal ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
+
+-- Per-user uniqueness and query indexes.
+ALTER TABLE public.daily_journal DROP CONSTRAINT IF EXISTS daily_journal_date_key;
+DROP INDEX IF EXISTS idx_trade_journal_trade_id;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_trade_journal_user_trade_id
+  ON public.trade_journal(user_id, trade_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_journal_user_date
+  ON public.daily_journal(user_id, date);
+
+CREATE INDEX IF NOT EXISTS idx_playbooks_user_name ON public.playbooks(user_id, name);
+CREATE INDEX IF NOT EXISTS idx_trade_journal_user_playbook ON public.trade_journal(user_id, playbook_id);
+
 -- Enable RLS
 ALTER TABLE public.playbooks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.trade_journal ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.daily_journal ENABLE ROW LEVEL SECURITY;
 
--- Allow all operations (authenticated via service role / anon key)
-CREATE POLICY IF NOT EXISTS "Allow all" ON public.playbooks FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS "Allow all" ON public.trade_journal FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS "Allow all" ON public.daily_journal FOR ALL USING (true) WITH CHECK (true);
+-- User-owned RLS. Never create broad Allow all/public policies.
+DROP POLICY IF EXISTS "Allow all" ON public.playbooks;
+DROP POLICY IF EXISTS "Allow all" ON public.trade_journal;
+DROP POLICY IF EXISTS "Allow all" ON public.daily_journal;
+
+DROP POLICY IF EXISTS "Users can read own playbooks" ON public.playbooks;
+DROP POLICY IF EXISTS "Users can insert own playbooks" ON public.playbooks;
+DROP POLICY IF EXISTS "Users can update own playbooks" ON public.playbooks;
+DROP POLICY IF EXISTS "Users can delete own playbooks" ON public.playbooks;
+
+DROP POLICY IF EXISTS "Users can read own trade journals" ON public.trade_journal;
+DROP POLICY IF EXISTS "Users can insert own trade journals" ON public.trade_journal;
+DROP POLICY IF EXISTS "Users can update own trade journals" ON public.trade_journal;
+DROP POLICY IF EXISTS "Users can delete own trade journals" ON public.trade_journal;
+
+DROP POLICY IF EXISTS "Users can read own daily journals" ON public.daily_journal;
+DROP POLICY IF EXISTS "Users can insert own daily journals" ON public.daily_journal;
+DROP POLICY IF EXISTS "Users can update own daily journals" ON public.daily_journal;
+DROP POLICY IF EXISTS "Users can delete own daily journals" ON public.daily_journal;
+
+CREATE POLICY "Users can read own playbooks"
+  ON public.playbooks FOR SELECT
+  USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own playbooks"
+  ON public.playbooks FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own playbooks"
+  ON public.playbooks FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete own playbooks"
+  ON public.playbooks FOR DELETE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can read own trade journals"
+  ON public.trade_journal FOR SELECT
+  USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own trade journals"
+  ON public.trade_journal FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own trade journals"
+  ON public.trade_journal FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete own trade journals"
+  ON public.trade_journal FOR DELETE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can read own daily journals"
+  ON public.daily_journal FOR SELECT
+  USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own daily journals"
+  ON public.daily_journal FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own daily journals"
+  ON public.daily_journal FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete own daily journals"
+  ON public.daily_journal FOR DELETE
+  USING (auth.uid() = user_id);
 
 -- Seed default playbooks
 INSERT INTO public.playbooks (name, description, entry_rules, exit_rules, rating) VALUES

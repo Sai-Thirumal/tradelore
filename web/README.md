@@ -168,7 +168,7 @@ Run these SQL files in your Supabase SQL Editor (in order):
 2. `sql/playbooks-migration.sql` — expands playbooks schema + seeds 3 examples
 3. `sql/multi-user-auth.sql` — adds `user_id`, per-user unique indexes, commission columns, and RLS policies
 
-If old imported data does not need to be preserved, run `multi-user-auth.sql` as-is. The commented backfill block is only for assigning old rows to a first user.
+If old imported data does not need to be preserved, run `multi-user-auth.sql` as-is. The commented backfill block is only for assigning old rows to a first user. Existing projects should rerun the latest `multi-user-auth.sql` once to remove any legacy `Allow all` or `public_access` RLS policies.
 
 ### Supabase Auth
 Production Auth URL configuration:
