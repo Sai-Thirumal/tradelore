@@ -62,7 +62,7 @@ src/
 ### Current Product Surface
 
 - Main tabs: Dashboard, Journal, Trade Log, Playbooks, Reports.
-- Authentication is Supabase Auth via `@supabase/ssr`; `proxy.ts` refreshes sessions and redirects logged-out page requests to `/login`.
+- Authentication is Supabase Auth via `@supabase/ssr`; `src/proxy.ts` refreshes sessions and redirects logged-out page requests to `/login`.
 - API route handlers must call `requireAuthUser()` and pass `user.id` into `lib/db/supabase.ts` functions.
 - Supabase production Auth config should use Site URL `https://web-phi-one-12.vercel.app` and Redirect URL `https://web-phi-one-12.vercel.app/auth/callback`.
 - If old data is not needed, run `sql/multi-user-auth.sql` as-is; its commented backfill section is optional.

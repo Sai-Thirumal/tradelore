@@ -268,7 +268,7 @@ Broker CSV
 
 ```
 Auth
-  → proxy.ts refreshes Supabase cookies and redirects protected page routes
+  → src/proxy.ts refreshes Supabase cookies and redirects protected page routes
   → /login creates/signs in users with Supabase Auth
   → /auth/callback exchanges email/OAuth code for a session
   → /api/auth/me powers the header Login/Logout state

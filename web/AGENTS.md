@@ -15,7 +15,7 @@ Quick links:
 
 Current surface area:
 - Main tabs: Dashboard, Journal, Trade Log, Playbooks, Reports
-- Auth: `/login`, `/auth/callback`, `proxy.ts`, and `/api/auth/*`
+- Auth: `/login`, `/auth/callback`, `src/proxy.ts`, and `/api/auth/*`
 - Supabase setup: production Site URL is `https://web-phi-one-12.vercel.app`; redirect URL is `/auth/callback`; run `sql/multi-user-auth.sql` as-is when old data is not needed
 - Trade detail: `/trade?idx=N`, chart + pre-market + post-market tabs
 - Analytics: dashboard stats in `lib/compute/stats.ts`, reports in `/api/reports/*`
