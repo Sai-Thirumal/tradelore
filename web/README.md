@@ -116,7 +116,7 @@ src/
 │       ├── Playbooks.tsx         # Card grid + 9-tab create/edit form
 │       └── DateRangePicker.tsx   # Dual-month calendar date range filter
 ├── lib/
-│   ├── db/supabase.ts            # Supabase client (lazy-loaded) + all data access
+│   ├── db/supabase.ts            # Request-scoped Supabase data access under RLS
 │   ├── auth/session.ts           # Route-handler auth helper
 │   ├── supabase/                 # Browser/server/proxy Supabase clients
 │   ├── engine/                   # CSV parser, trade matcher, symbols, commission
@@ -153,14 +153,14 @@ Create `.env.local`:
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
-SUPABASE_SECRET_KEY=your-secret-key
 ```
 
 Legacy projects can continue using:
 ```
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
+
+`SUPABASE_SERVICE_ROLE_KEY` is not required for normal app runtime. Keep it out of Vercel unless you are running a one-off admin script that explicitly needs it.
 
 ### Database
 Run these SQL files in your Supabase SQL Editor (in order):

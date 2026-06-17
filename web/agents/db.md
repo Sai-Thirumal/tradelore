@@ -213,7 +213,7 @@ USING (auth.uid() = user_id)
 WITH CHECK (auth.uid() = user_id)
 ```
 
-Authentication happens through Supabase Auth. API handlers still filter by `user_id` explicitly, even when server credentials can bypass RLS.
+Authentication happens through Supabase Auth. API handlers filter by `user_id` explicitly and `lib/db/supabase.ts` uses the signed-in user's request-scoped Supabase session, so RLS policies remain active for normal app reads and writes.
 
 ---
 
