@@ -218,7 +218,7 @@ Notes:
 Returns grouped performance statistics for report tables/charts.
 
 **Params:**
-- `group` — one of `days`, `months`, `trade-time`, `trade-duration`, `instruments`; defaults to `days`
+- `group` — one of `days`, `months`, `trade-time`, `trade-duration`, `instruments`, `deployed-capital`, `playbooks`, `options-expiry`; defaults to `days`
 
 **Response:**
 ```json
@@ -247,6 +247,9 @@ Group behavior:
 - `trade-time`: entry hour bucket
 - `trade-duration`: holding duration bucket
 - `instruments`: extracted base instrument plus market type
+- `deployed-capital`: dynamic ranges from each imported trade's `avg_entry * qty`; buckets use rounded uniform steps and boundary values belong to one range only
+- `playbooks`: journal-tagged trades grouped by `trade_journal.playbook_id`; untagged trades are excluded
+- `options-expiry`: option trades grouped by market-session time from entry to expiry close; expiry uses `expiry_date` first, then weekly/monthly option symbol parsing; buckets use 10-minute, 1-hour, 1-day, 1-week, or 1-month steps depending on distance
 
 ### GET /api/trade-journal
 Get journal entry for a specific trade. If `trade_id` is omitted, returns the set of journaled trade IDs that have at least one filled field.

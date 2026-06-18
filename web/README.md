@@ -65,7 +65,9 @@ Reports add a second analytics layer:
 - **Overview** — trade counts, largest win/loss, profit factor, hold times, trading day stats, drawdown, R-multiples, total commissions
 - **Day & Time** — grouped performance by weekday, month, entry hour, and holding duration
 - **Instruments** — grouped performance by extracted underlying/instrument
-- Risk, playbook, and options report categories are present in the UI as placeholders for future expansion
+- **Risk** — grouped performance by dynamic deployed-capital ranges from imported entry price and quantity
+- **Playbooks** — grouped performance by playbook tags entered in each trade journal
+- **Options** — grouped performance by market-session time to expiry, using imported expiry data or option-symbol expiry parsing
 
 ---
 

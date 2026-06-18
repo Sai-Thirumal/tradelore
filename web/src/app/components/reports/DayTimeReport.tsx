@@ -12,7 +12,7 @@ import { fmtINR } from '@/lib/ui/format';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Filler, Legend);
 
-type Group = 'days' | 'months' | 'trade-time' | 'trade-duration' | 'instruments';
+type Group = 'days' | 'months' | 'trade-time' | 'trade-duration' | 'instruments' | 'deployed-capital' | 'playbooks' | 'options-expiry';
 
 interface GroupRow {
   label: string;
@@ -38,6 +38,9 @@ const GROUP_LABELS: Record<Group, string> = {
   'trade-time': 'hour',
   'trade-duration': 'duration',
   instruments: 'instrument',
+  'deployed-capital': 'capital range',
+  playbooks: 'playbook',
+  'options-expiry': 'expiry bucket',
 };
 
 const ROWS_PER_PAGE = 15;
@@ -280,8 +283,8 @@ export default function DayTimeReport({ group }: Props) {
   const renderCharts = () => {
     if (!data || !data.groups.length) return null;
 
-    // ── Instruments: horizontal bar chart with Top N ──
-    if (group === 'instruments') {
+    // ── Category reports: horizontal bar chart with Top N ──
+    if (group === 'instruments' || group === 'playbooks') {
       const sorted = [...data.groups].sort((a, b) =>
         chartMode === 'pnl' ? a.netPnl - b.netPnl : a.winPct - b.winPct
       );
@@ -344,7 +347,11 @@ export default function DayTimeReport({ group }: Props) {
       return (
         <div className="section">
           <div className="section-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span className="section-title">{isWin ? 'Win % by Instrument' : 'Net P&L by Instrument'}</span>
+            <span className="section-title">
+              {isWin
+                ? `Win % by ${group === 'playbooks' ? 'Playbook' : 'Instrument'}`
+                : `Net P&L by ${group === 'playbooks' ? 'Playbook' : 'Instrument'}`}
+            </span>
             <div style={{ display: 'flex', gap: '4px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '3px' }}>
               <button
                 onClick={() => setChartMode('pnl')}
@@ -530,7 +537,21 @@ export default function DayTimeReport({ group }: Props) {
   const renderTable = () => {
     if (!data || !data.groups.length) return null;
 
-    const labelCol = group === 'trade-time' ? 'Hour' : group === 'trade-duration' ? 'Duration' : group === 'months' ? 'Month' : group === 'instruments' ? 'Instrument' : 'Day';
+    const labelCol = group === 'trade-time'
+      ? 'Hour'
+      : group === 'trade-duration'
+        ? 'Duration'
+        : group === 'months'
+          ? 'Month'
+          : group === 'instruments'
+            ? 'Instrument'
+            : group === 'playbooks'
+              ? 'Playbook'
+              : group === 'options-expiry'
+                ? 'Time to expiry'
+                : group === 'deployed-capital'
+                  ? 'Deployed capital'
+                  : 'Day';
 
     const inputStyle: React.CSSProperties = {
       width: '90px',
@@ -825,7 +846,15 @@ export default function DayTimeReport({ group }: Props) {
     return (
       <div className="section" style={{ textAlign: 'center', padding: '40px' }}>
         <div className="chart-empty-icon">📊</div>
-        <div className="chart-empty-text">Import trades to see your reports</div>
+        <div className="chart-empty-text">
+          {group === 'deployed-capital'
+            ? 'Import trades with entry price and quantity to see this report'
+            : group === 'playbooks'
+              ? 'Tag trades with playbooks to see this report'
+              : group === 'options-expiry'
+                ? 'Import option trades with expiry data to see this report'
+                : 'Import trades to see your reports'}
+        </div>
       </div>
     );
   }

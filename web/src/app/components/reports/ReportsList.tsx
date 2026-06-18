@@ -61,6 +61,12 @@ export default function ReportsList() {
         return <DayTimeReport group={dayTimeGroup} />;
       case 'instruments':
         return <DayTimeReport group="instruments" />;
+      case 'risk':
+        return <DayTimeReport group="deployed-capital" />;
+      case 'playbooks':
+        return <DayTimeReport group="playbooks" />;
+      case 'options':
+        return <DayTimeReport group="options-expiry" />;
       default:
         return (
           <div className="section" style={{ textAlign: 'center', padding: '40px' }}>

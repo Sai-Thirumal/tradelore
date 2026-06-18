@@ -70,13 +70,13 @@
 - **Props:** None
 - **State:** report category dropdown, day/time subtab, dropdown open state
 - **Categories:** Day & Time, Instruments, Risk, Playbooks, Options
-- **Implemented:** Day & Time and Instruments
-- **Placeholders:** Risk, Playbooks, Options
+- **Implemented:** Day & Time, Instruments, Risk, Playbooks, and Options
+- **Placeholders:** None
 
 ### `components/reports/DayTimeReport.tsx`
 `src/app/components/reports/DayTimeReport.tsx`
 
-- **Props:** `{ group: 'days' | 'months' | 'trade-time' | 'trade-duration' | 'instruments' }`
+- **Props:** `{ group: 'days' | 'months' | 'trade-time' | 'trade-duration' | 'instruments' | 'deployed-capital' | 'playbooks' | 'options-expiry' }`
 - **Data source:** GET `/api/reports/day-time?group=...`
 - **Features:** stat cards, Chart.js line/bar charts, table pagination, P&L sorting, min-trades filter, W/L ratio filter
 - **Chart modes:** P&L and win % for instruments; combo P&L/count/avg-win plus win % for day/time groups
