@@ -62,19 +62,21 @@ Signs out the current Supabase session and clears auth cookies.
 ```
 
 ### POST /api/import
-Upload a broker CSV file. Full pipeline: parse → store orders → fetch all orders → match trades → replace trades.
+Upload a Zerodha/Kite tradebook CSV file. Full pipeline: parse → store orders → fetch all orders → match trades → replace trades.
 
-**Request:** `multipart/form-data` with `file` field (CSV)
+**Request:** `multipart/form-data` with `broker=zerodha` and `file` field (CSV)
 
 **Validation:**
+- Supported broker: Zerodha only (`broker=zerodha`)
 - Max file size: 10 MB (`413`)
 - Max data rows: 50,000 (`413`)
-- Required mapped columns: symbol, side/type, quantity, price, and trade time/date (`400`)
+- Required Zerodha columns: symbol, trade_date, trade_type, quantity, price, trade_id, order_id, and order_execution_time (`400`)
 - Invalid individual rows are skipped by the parser; if no valid orders remain, returns `422`
 
 **Response:**
 ```json
 {
+  "broker": "zerodha",
   "imported_orders": 250, "total_orders": 2285, "total_trades": 408,
   "raw_fills": 2285, "fills_with_order_id": 2150, "unique_order_ids": 1800,
   "collapsed_fills": 1890

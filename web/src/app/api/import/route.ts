@@ -4,7 +4,7 @@ import { storeOrders, fetchAllOrders, replaceTrades } from '@/lib/db/supabase';
 import { matchTrades } from '@/lib/engine/trade-matcher';
 import { requireAuthUser } from '@/lib/auth/session';
 import { getErrorMessage } from '@/lib/errors';
-import { validateCsvUpload } from '@/lib/validation/csv';
+import { parseSupportedBroker, validateCsvUpload } from '@/lib/validation/csv';
 import { validationErrorResponse } from '@/lib/validation/request';
 
 export async function POST(request: Request) {
@@ -13,6 +13,7 @@ export async function POST(request: Request) {
     if (response) return response;
 
     const formData = await request.formData();
+    const broker = parseSupportedBroker(formData.get('broker'));
     const file = formData.get('file');
     
     if (!(file instanceof File)) {
@@ -20,7 +21,7 @@ export async function POST(request: Request) {
     }
 
     const text = await file.text();
-    validateCsvUpload(file, text);
+    validateCsvUpload(file, text, broker);
 
     const newOrders = await parseCsv(text);
 
@@ -40,6 +41,7 @@ export async function POST(request: Request) {
     const uniqueOrderIds = new Set(allOrders.filter(o => o.order_id).map(o => o.order_id)).size;
 
     return NextResponse.json({
+      broker,
       imported_orders: newOrders.length,
       total_orders: allOrders.length,
       total_trades: allTrades.length,

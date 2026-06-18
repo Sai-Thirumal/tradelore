@@ -3,6 +3,9 @@ import { RequestValidationError } from './request';
 
 export const MAX_CSV_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const MAX_CSV_ROWS = 50_000;
+export const SUPPORTED_BROKERS = ['zerodha'] as const;
+
+export type SupportedBroker = (typeof SUPPORTED_BROKERS)[number];
 
 const HEADER_MAP: Record<string, string> = {
   symbol: 'symbol',
@@ -42,6 +45,16 @@ const HEADER_MAP: Record<string, string> = {
 };
 
 const REQUIRED_FIELDS = ['symbol', 'type', 'qty', 'price'] as const;
+const ZERODHA_REQUIRED_HEADERS = [
+  'symbol',
+  'trade_date',
+  'trade_type',
+  'quantity',
+  'price',
+  'trade_id',
+  'order_id',
+  'order_execution_time',
+] as const;
 
 interface CsvPreview {
   data?: unknown[];
@@ -51,7 +64,14 @@ interface CsvPreview {
   errors?: Papa.ParseError[];
 }
 
-export function validateCsvUpload(file: File, text: string) {
+export function parseSupportedBroker(rawBroker: FormDataEntryValue | null): SupportedBroker {
+  if (rawBroker !== 'zerodha') {
+    throw new RequestValidationError('Only Zerodha imports are supported');
+  }
+  return rawBroker;
+}
+
+export function validateCsvUpload(file: File, text: string, broker: SupportedBroker) {
   if (file.size > MAX_CSV_UPLOAD_BYTES) {
     throw new RequestValidationError('CSV file must be 10 MB or smaller', 413);
   }
@@ -71,7 +91,16 @@ export function validateCsvUpload(file: File, text: string) {
     throw new RequestValidationError('CSV header row is required');
   }
 
-  const mappedFields = new Set(fields.map(field => HEADER_MAP[field.trim().toLowerCase()] || field.trim().toLowerCase()));
+  const normalisedFields = new Set(fields.map(field => field.trim().toLowerCase()));
+
+  if (broker === 'zerodha') {
+    const missingZerodhaHeader = ZERODHA_REQUIRED_HEADERS.find(field => !normalisedFields.has(field));
+    if (missingZerodhaHeader) {
+      throw new RequestValidationError(`Zerodha CSV is missing required ${missingZerodhaHeader} column`);
+    }
+  }
+
+  const mappedFields = new Set([...normalisedFields].map(field => HEADER_MAP[field] || field));
   const missing = REQUIRED_FIELDS.find(field => !mappedFields.has(field));
   if (missing) {
     throw new RequestValidationError(`CSV is missing required ${missing} column`);

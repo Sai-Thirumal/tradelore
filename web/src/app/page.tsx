@@ -275,6 +275,7 @@ export default function Home() {
     setImportStatus('Uploading…');
     try {
       const body = new FormData();
+      body.append('broker', 'zerodha');
       body.append('file', file);
       const res = await fetch('/api/import', { method: 'POST', body });
       if (!res.ok) throw new Error(await res.text());

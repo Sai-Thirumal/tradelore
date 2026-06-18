@@ -26,7 +26,7 @@ A trading journal and analytics dashboard for Indian markets. Import broker CSV 
 ## How it works
 
 ### 1. Import your broker CSV
-Sign in, then upload a CSV from your broker (Zerodha, Upstox, etc.). TradeLore parses every row, collapses partial exchange fills by order ID, runs a position tracker, and builds completed trades scoped to your account.
+Sign in, then upload a Zerodha/Kite tradebook CSV. TradeLore parses every row, collapses partial exchange fills by order ID, runs a position tracker, and builds completed trades scoped to your account.
 
 ```
 Broker CSV → Parse rows → Collapse fills → Position tracker → Completed trades
