@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CandlestickSeries, createSeriesMarkers } from 'lightweight-charts';
+import type { IChartApi, SeriesMarker, UTCTimestamp } from 'lightweight-charts';
+import { getErrorMessage } from '@/lib/errors';
 import { istToUnix } from '@/lib/engine/symbols';
 
 interface Props {
@@ -14,9 +16,25 @@ interface Props {
   orders?: { type: string; trade_time: string; price: number | string; qty: number | string }[];
 }
 
+interface ChartCandle {
+  time: UTCTimestamp;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+interface ChartResponse {
+  error?: string;
+  underlying: string;
+  interval: string;
+  candles?: ChartCandle[];
+}
+
 export default function TradeChart({ symbol, direction, avgEntry, avgExit, entryTime, exitTime, orders }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<any>(null);
+  const chartRef = useRef<IChartApi | null>(null);
   const [status, setStatus] = useState<'loading' | 'error' | 'ok'>('loading');
   const [errMsg, setErrMsg] = useState('');
   const [meta, setMeta] = useState<{ underlying: string; interval: string } | null>(null);
@@ -30,7 +48,7 @@ export default function TradeChart({ symbol, direction, avgEntry, avgExit, entry
 
       try {
         const res = await fetch(`/api/chart?symbol=${encodeURIComponent(symbol)}&from=${encodeURIComponent(entryTime)}&to=${encodeURIComponent(exitTime)}`);
-        const data = await res.json();
+        const data = await res.json() as ChartResponse;
         if (cancelled) return;
 
         if (data.error) { setErrMsg(data.error); setStatus('error'); return; }
@@ -110,7 +128,7 @@ export default function TradeChart({ symbol, direction, avgEntry, avgExit, entry
         const exitUnix = istToUnix(exitTime);
         const isLong = direction === 'LONG';
 
-        const markers: any[] = [];
+        const markers: SeriesMarker<UTCTimestamp>[] = [];
 
         if (orders && orders.length > 0) {
           // Dedupe: collapse legs that fall into the same candle bucket
@@ -127,7 +145,7 @@ export default function TradeChart({ symbol, direction, avgEntry, avgExit, entry
             return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
           };
 
-          const seen = new Map<string, any>();
+          const seen = new Map<string, NonNullable<Props['orders']>[number]>();
           for (const o of orders) {
             const key = `${bucket(o.trade_time)}|${Number(o.price).toFixed(2)}|${o.type}`;
             if (!seen.has(key)) seen.set(key, o);
@@ -141,30 +159,28 @@ export default function TradeChart({ symbol, direction, avgEntry, avgExit, entry
 
             if (isEntry) {
               markers.push({
-                time: orderUnix,
+                time: orderUnix as UTCTimestamp,
                 position: isLong ? 'belowBar' : 'aboveBar',
                 color: '#1a1a1a',
                 shape: isLong ? 'arrowUp' : 'arrowDown',
                 text: `ENTRY ₹${Number(o.price).toFixed(2)}`,
                 size: 2,
-                font: 'bold 11px sans-serif',
               });
             } else {
               markers.push({
-                time: orderUnix,
+                time: orderUnix as UTCTimestamp,
                 position: isLong ? 'aboveBar' : 'belowBar',
                 color: '#1a1a1a',
                 shape: isLong ? 'arrowDown' : 'arrowUp',
                 text: `EXIT ₹${Number(o.price).toFixed(2)}`,
                 size: 2,
-                font: 'bold 11px sans-serif',
               });
             }
           }
         } else {
           // Fallback: single markers from aggregated times/prices
-          if (entryUnix > 0) markers.push({ time: entryUnix, position: isLong ? 'belowBar' : 'aboveBar', color: '#1a1a1a', shape: isLong ? 'arrowUp' : 'arrowDown', text: `ENTRY ₹${avgEntry.toFixed(2)}`, size: 2, font: 'bold 11px sans-serif' });
-          if (exitUnix > 0) markers.push({ time: exitUnix, position: isLong ? 'aboveBar' : 'belowBar', color: '#1a1a1a', shape: isLong ? 'arrowDown' : 'arrowUp', text: `EXIT ₹${avgExit.toFixed(2)}`, size: 2, font: 'bold 11px sans-serif' });
+          if (entryUnix > 0) markers.push({ time: entryUnix as UTCTimestamp, position: isLong ? 'belowBar' : 'aboveBar', color: '#1a1a1a', shape: isLong ? 'arrowUp' : 'arrowDown', text: `ENTRY ₹${avgEntry.toFixed(2)}`, size: 2 });
+          if (exitUnix > 0) markers.push({ time: exitUnix as UTCTimestamp, position: isLong ? 'aboveBar' : 'belowBar', color: '#1a1a1a', shape: isLong ? 'arrowDown' : 'arrowUp', text: `EXIT ₹${avgExit.toFixed(2)}`, size: 2 });
         }
 
         createSeriesMarkers(series, markers);
@@ -172,8 +188,8 @@ export default function TradeChart({ symbol, direction, avgEntry, avgExit, entry
         chart.timeScale().fitContent();
         if (!cancelled) setStatus('ok');
 
-      } catch (e: any) {
-        if (!cancelled) { setErrMsg(e.message || String(e)); setStatus('error'); }
+      } catch (e: unknown) {
+        if (!cancelled) { setErrMsg(getErrorMessage(e, String(e))); setStatus('error'); }
       }
     }
 
@@ -191,7 +207,7 @@ export default function TradeChart({ symbol, direction, avgEntry, avgExit, entry
       window.removeEventListener('resize', onResize);
       if (chartRef.current) { try { chartRef.current.remove(); } catch {} }
     };
-  }, [symbol, entryTime, exitTime, orders]);
+  }, [symbol, direction, avgEntry, avgExit, entryTime, exitTime, orders]);
 
   return (
     <>

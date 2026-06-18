@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient as createServerSupabaseClient } from '@/lib/supabase/server';
+import type { JsonRecord, PlaybookRecord, TradeJournalRecord, TradeOrder, TradeRecord } from '@/lib/types/trading';
 
 async function getSupabase(): Promise<SupabaseClient | null> {
   try {
@@ -9,7 +10,7 @@ async function getSupabase(): Promise<SupabaseClient | null> {
   }
 }
 
-function withUserId<T extends Record<string, any>>(row: T, userId: string): T & { user_id: string } {
+function withUserId<T extends object>(row: T, userId: string): T & { user_id: string } {
   return { ...row, user_id: userId };
 }
 
@@ -17,7 +18,7 @@ function scopedOrderUid(uid: string, userId: string) {
   return uid.startsWith(`${userId}_`) ? uid : `${userId}_${uid}`;
 }
 
-export async function storeOrders(orders: any[], userId: string) {
+export async function storeOrders(orders: TradeOrder[], userId: string) {
   const supabase = await getSupabase();
   if (!supabase || !orders || orders.length === 0) return;
   const scopedOrders = orders.map(order => ({
@@ -29,10 +30,10 @@ export async function storeOrders(orders: any[], userId: string) {
   if (error) throw error;
 }
 
-export async function fetchAllOrders(userId: string) {
+export async function fetchAllOrders(userId: string): Promise<TradeOrder[]> {
   const supabase = await getSupabase();
   if (!supabase) return [];
-  let allData: any[] = [];
+  let allData: TradeOrder[] = [];
   let from = 0;
   const pageSize = 1000;
 
@@ -47,7 +48,7 @@ export async function fetchAllOrders(userId: string) {
     if (error) throw error;
     if (!data || data.length === 0) break;
 
-    allData = allData.concat(data);
+    allData = allData.concat(data as TradeOrder[]);
     if (data.length < pageSize) break;
     from += pageSize;
   }
@@ -55,7 +56,7 @@ export async function fetchAllOrders(userId: string) {
   return allData;
 }
 
-export async function replaceTrades(trades: any[], userId: string) {
+export async function replaceTrades(trades: TradeRecord[], userId: string) {
   const supabase = await getSupabase();
   if (!supabase) return;
   await supabase.from('trades').delete().eq('user_id', userId);
@@ -66,10 +67,10 @@ export async function replaceTrades(trades: any[], userId: string) {
   }
 }
 
-export async function fetchAllTrades(userId: string) {
+export async function fetchAllTrades(userId: string): Promise<TradeRecord[]> {
   const supabase = await getSupabase();
   if (!supabase) return [];
-  let allData: any[] = [];
+  let allData: TradeRecord[] = [];
   let from = 0;
   const pageSize = 1000;
 
@@ -84,7 +85,7 @@ export async function fetchAllTrades(userId: string) {
     if (error) throw error;
     if (!data || data.length === 0) break;
 
-    allData = allData.concat(data);
+    allData = allData.concat(data as TradeRecord[]);
     if (data.length < pageSize) break;
     from += pageSize;
   }
@@ -124,7 +125,7 @@ async function ensureUserPlaybooks(userId: string) {
   if (defaultsError) throw defaultsError;
   if (!defaults || defaults.length === 0) return;
 
-  const clones = defaults.map((playbook: any) => ({
+  const clones = (defaults as PlaybookRecord[]).map((playbook) => ({
     user_id: userId,
     name: playbook.name,
     data: playbook.data || {},
@@ -135,7 +136,7 @@ async function ensureUserPlaybooks(userId: string) {
   if (insertError) throw insertError;
 }
 
-export async function fetchPlaybooks(userId: string) {
+export async function fetchPlaybooks(userId: string): Promise<PlaybookRecord[]> {
   const supabase = await getSupabase();
   if (!supabase) return [];
   await ensureUserPlaybooks(userId);
@@ -145,10 +146,10 @@ export async function fetchPlaybooks(userId: string) {
     .eq('user_id', userId)
     .order('name');
   if (error) throw error;
-  return data || [];
+  return (data || []) as PlaybookRecord[];
 }
 
-export async function fetchPlaybook(id: string, userId: string) {
+export async function fetchPlaybook(id: string, userId: string): Promise<PlaybookRecord | null> {
   const supabase = await getSupabase();
   if (!supabase) return null;
   const { data, error } = await supabase
@@ -158,10 +159,10 @@ export async function fetchPlaybook(id: string, userId: string) {
     .eq('user_id', userId)
     .single();
   if (error) throw error;
-  return data;
+  return data as PlaybookRecord;
 }
 
-export async function createPlaybook(playbook: { name: string; data?: Record<string, any> }, userId: string) {
+export async function createPlaybook(playbook: { name: string; data?: JsonRecord }, userId: string) {
   const supabase = await getSupabase();
   if (!supabase) throw new Error('Supabase not available');
   const { data, error } = await supabase
@@ -178,10 +179,10 @@ export async function createPlaybook(playbook: { name: string; data?: Record<str
   return data;
 }
 
-export async function updatePlaybook(id: string, updates: { name?: string; data?: Record<string, any> }, userId: string) {
+export async function updatePlaybook(id: string, updates: { name?: string; data?: JsonRecord }, userId: string) {
   const supabase = await getSupabase();
   if (!supabase) throw new Error('Supabase not available');
-  const payload: any = { updated_at: new Date().toISOString() };
+  const payload: { updated_at: string; name?: string; data?: JsonRecord } = { updated_at: new Date().toISOString() };
   if (updates.name !== undefined) payload.name = updates.name;
   if (updates.data !== undefined) payload.data = updates.data;
   const { data, error } = await supabase
@@ -258,10 +259,10 @@ export async function fetchTradeJournal(tradeId: string, userId: string) {
   return data;
 }
 
-export async function fetchAllTradeJournals(userId: string) {
+export async function fetchAllTradeJournals(userId: string): Promise<TradeJournalRecord[]> {
   const supabase = await getSupabase();
   if (!supabase) return [];
-  let allData: any[] = [];
+  let allData: TradeJournalRecord[] = [];
   let from = 0;
   const pageSize = 1000;
   while (true) {
@@ -272,26 +273,14 @@ export async function fetchAllTradeJournals(userId: string) {
       .range(from, from + pageSize - 1);
     if (error) throw error;
     if (!data || data.length === 0) break;
-    allData = allData.concat(data);
+    allData = allData.concat(data as TradeJournalRecord[]);
     if (data.length < pageSize) break;
     from += pageSize;
   }
   return allData;
 }
 
-export async function saveTradeJournal(entry: {
-  trade_id: string;
-  risk_amount?: number | null;
-  profit_target_entry?: number | null;
-  profit_target_exit?: number | null;
-  position_sizing?: string;
-  playbook_id?: string;
-  what_worked?: string;
-  what_didnt?: string;
-  lessons_learned?: string;
-  emotions?: string;
-  important_notes?: string;
-}, userId: string) {
+export async function saveTradeJournal(entry: TradeJournalRecord, userId: string) {
   const supabase = await getSupabase();
   if (!supabase) throw new Error('Supabase not available');
   const { data, error } = await supabase

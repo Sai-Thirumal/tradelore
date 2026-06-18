@@ -44,7 +44,7 @@
 
 - **Type:** Client page, dynamic layout
 - **Data source:** Supabase Auth via `lib/supabase/client.ts`
-- **Features:** Sign up / Log in segmented control, email/password form, email confirmation message, redirect to `next` path
+- **Features:** Sign up / Log in segmented control, email/password form, email confirmation message, redirect to sanitized internal `next` path
 - **Callback:** `/auth/callback` exchanges email/OAuth codes for a server session
 - **Production Auth URL:** Supabase redirect must include `https://web-phi-one-12.vercel.app/auth/callback`
 

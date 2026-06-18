@@ -1,13 +1,16 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Line, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Filler, Legend
 } from 'chart.js';
-import { fmtINR, fmtPrice, fmtDateLabel, fmtDateShort, fmtDateChart } from '@/lib/ui/format';
+import type { Chart, Plugin, ScriptableLineSegmentContext } from 'chart.js';
+import { getErrorMessage } from '@/lib/errors';
+import { fmtINR, fmtPrice, fmtDateLabel, fmtDateChart } from '@/lib/ui/format';
 import { computeStats, filterTradesByDateRange } from '@/lib/compute/stats';
+import type { TradeOrder, TradeRecord } from '@/lib/types/trading';
 import DateRangePicker from './components/DateRangePicker';
 import JournalPreMarket from './components/journal/PreMarket';
 import JournalPostTrade from './components/journal/PostTrade';
@@ -16,11 +19,25 @@ import ReportsPage from './components/reports/ReportsPage';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Filler, Legend);
 
+type Stats = ReturnType<typeof computeStats>;
+type CalendarDay = number | null;
+type TradeWithIndex = TradeRecord & { originalIdx: number };
+
+interface ChartPoint {
+  x: number;
+  y: number;
+}
+
+interface ImportResult {
+  imported_orders: number;
+  total_trades: number;
+}
+
 export default function Home() {
   const router = useRouter();
-  const [allTrades, setAllTrades] = useState<any[]>([]);
-  const [trades, setTrades] = useState<any[]>([]);
-  const [stats, setStats] = useState<any>(null);
+  const [allTrades, setAllTrades] = useState<TradeRecord[]>([]);
+  const [trades, setTrades] = useState<TradeRecord[]>([]);
+  const [stats, setStats] = useState<Stats | null>(null);
   
   const [view, setView] = useState('dashboard');
   const [journalTab, setJournalTab] = useState('premarket');
@@ -38,13 +55,13 @@ export default function Home() {
   const [currentUser, setCurrentUser] = useState<{ email?: string } | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cumChartRef = useRef<any>(null);
-  const dailyChartRef = useRef<any>(null);
+  const cumChartRef = useRef<Chart<'line'> | null>(null);
+  const dailyChartRef = useRef<Chart<'bar'> | null>(null);
 
   /* Chart.js split-area plugin: green fill above zero, red fill below zero */
-  const splitAreaPlugin = {
+  const splitAreaPlugin: Plugin<'line'> = {
     id: 'splitArea',
-    beforeDatasetDraw(chart: any, args: any) {
+    beforeDatasetDraw(chart, args) {
       const datasetIndex = args.index;
       if (datasetIndex !== 0) return;
       const meta = chart.getDatasetMeta(datasetIndex);
@@ -52,7 +69,7 @@ export default function Home() {
       const { ctx, chartArea, scales } = chart;
       const yScale = scales.y;
       const zeroY = yScale.getPixelForValue(0);
-      const points = meta.data;
+      const points = meta.data as ChartPoint[];
       if (!points || points.length < 2) return;
 
       const drawArea = (polyline: {x:number,y:number}[], above: boolean) => {
@@ -148,26 +165,29 @@ export default function Home() {
     }
   };
 
-  useEffect(() => {
-    loadTrades();
+  const showToast = useCallback((msg: string, type = 'info') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3500);
   }, []);
 
   useEffect(() => {
-    const filtered = filterTradesByDateRange(allTrades, customStart, customEnd);
-    setTrades(filtered);
-    setStats(computeStats(filtered));
-    setExpandedTradeRow(null);
+    queueMicrotask(() => {
+      const filtered = filterTradesByDateRange(allTrades, customStart, customEnd);
+      setTrades(filtered);
+      setStats(computeStats(filtered));
+      setExpandedTradeRow(null);
 
-    // Auto-expand the latest month
-    if (filtered.length > 0) {
-      const dates = filtered.map((t: any) => t.trade_date || t.date || '');
-      const latest = dates.reduce((a: string, b: string) => b > a ? b : a, '');
-      if (latest) {
-        const d = new Date(latest.replace(/-/g, '/'));
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        setExpandedMonths(new Set([key]));
+      // Auto-expand the latest month
+      if (filtered.length > 0) {
+        const dates = filtered.map((t) => t.trade_date || t.date || '');
+        const latest = dates.reduce((a, b) => b > a ? b : a, '');
+        if (latest) {
+          const d = new Date(latest.replace(/-/g, '/'));
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          setExpandedMonths(new Set([key]));
+        }
       }
-    }
+    });
   }, [allTrades, customStart, customEnd]);
 
   /* Apply gradient fills after chart renders */
@@ -179,7 +199,7 @@ export default function Home() {
         const area = chart.chartArea;
         if (area) {
           const ctx = chart.ctx;
-          const colors = stats.dailyArr.map((v: any) => {
+          const colors = stats.dailyArr.map((v) => {
             const grad = ctx.createLinearGradient(0, area.bottom, 0, area.top);
             if (v.pnl >= 0) {
               grad.addColorStop(0, 'rgba(22,163,74,0.55)');
@@ -190,16 +210,16 @@ export default function Home() {
             }
             return grad;
           });
-          chart.data.datasets[0].backgroundColor = colors;
-          chart.data.datasets[0].borderRadius = 5;
-          chart.data.datasets[0].borderSkipped = false;
+          chart.data.datasets = chart.data.datasets.map((dataset, index) => index === 0
+            ? { ...dataset, backgroundColor: colors, borderRadius: 5, borderSkipped: false }
+            : dataset);
           chart.update('none');
         }
       }
     });
   }, [stats]);
 
-  const loadTrades = async () => {
+  const loadTrades = useCallback(async () => {
     try {
       const res = await fetch('/api/trades');
       if (!res.ok) throw new Error(await res.text());
@@ -215,12 +235,12 @@ export default function Home() {
           }
         }
       } catch {}
-    } catch (err: any) {
-      showToast('Could not reach API: ' + err.message, 'error');
+    } catch (err: unknown) {
+      showToast('Could not reach API: ' + getErrorMessage(err), 'error');
     }
-  };
+  }, [showToast]);
 
-  const loadCurrentUser = async () => {
+  const loadCurrentUser = useCallback(async () => {
     try {
       const res = await fetch('/api/auth/me');
       if (!res.ok) {
@@ -232,7 +252,7 @@ export default function Home() {
     } catch {
       setCurrentUser(null);
     }
-  };
+  }, []);
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -241,13 +261,12 @@ export default function Home() {
   };
 
   useEffect(() => {
-    loadCurrentUser();
-  }, []);
+    void Promise.resolve().then(() => loadTrades());
+  }, [loadTrades]);
 
-  const showToast = (msg: string, type = 'info') => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3500);
-  };
+  useEffect(() => {
+    void Promise.resolve().then(() => loadCurrentUser());
+  }, [loadCurrentUser]);
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -259,14 +278,14 @@ export default function Home() {
       body.append('file', file);
       const res = await fetch('/api/import', { method: 'POST', body });
       if (!res.ok) throw new Error(await res.text());
-      const result = await res.json();
+      const result = await res.json() as ImportResult;
       
       await loadTrades();
       setImportStatus(`${result.imported_orders} orders → ${result.total_trades} trades`);
       showToast(`Imported ${result.imported_orders} orders, matched ${result.total_trades} trades`, 'success');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setImportStatus('');
-      showToast('Import failed: ' + err.message, 'error');
+      showToast('Import failed: ' + getErrorMessage(err), 'error');
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
@@ -290,8 +309,8 @@ export default function Home() {
     
     const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const weeks: any[][] = [];
-    let week: any[] = Array(firstDay).fill(null);
+    const weeks: CalendarDay[][] = [];
+    let week: CalendarDay[] = Array(firstDay).fill(null);
     
     for (let d = 1; d <= daysInMonth; d++) {
       week.push(d);
@@ -324,9 +343,9 @@ export default function Home() {
               const tradesText = tradeCount !== null ? `${tradeCount} trade${tradeCount !== 1 ? 's' : ''}` : '';
 
               const dayTrades = allTrades
-                .map((t: any, i: number) => ({ ...t, originalIdx: i }))
-                .filter((t: any) => t.trade_date === key)
-                .sort((a: any, b: any) => (a.entry_time || '').localeCompare(b.entry_time || ''));
+                .map((t, i): TradeWithIndex => ({ ...t, originalIdx: i }))
+                .filter((t) => t.trade_date === key)
+                .sort((a, b) => (a.entry_time || '').localeCompare(b.entry_time || ''));
               const firstIdx = dayTrades.length > 0 ? dayTrades[0].originalIdx : null;
 
               return (
@@ -372,7 +391,7 @@ export default function Home() {
     // Find the latest trading day from the data
     const latestDate = trades.length > 0
       ? trades.reduce((latest, t) => {
-          const d = t.trade_date || t.date;
+          const d = t.trade_date || t.date || '';
           return d > latest ? d : latest;
         }, '')
       : todayStr;
@@ -396,6 +415,8 @@ export default function Home() {
       </div>
     );
   };
+
+  const modalTrade = modalTradeIdx !== null ? trades[modalTradeIdx] : null;
 
   return (
     <>
@@ -426,7 +447,7 @@ export default function Home() {
             setAllTrades([]);
             setStats(null);
             showToast("All data cleared successfully.", "success");
-          } catch(err) {
+          } catch {
             showToast("Failed to clear data.", "error");
           }
         }}>🗑 Clear</button>
@@ -462,7 +483,7 @@ export default function Home() {
             <div className="stat-pill fade-in-up">
               <div className="sp-text">
                 <span className="label">Net P&amp;L</span>
-                <span className={`value ${stats?.netPnl >= 0 ? 'green' : 'red'}`}>{stats ? fmtINR(stats.netPnl) : '—'}</span>
+                <span className={`value ${(stats?.netPnl ?? 0) >= 0 ? 'green' : 'red'}`}>{stats ? fmtINR(stats.netPnl) : '—'}</span>
               </div>
               {stats && (
                 <div className="sp-viz">
@@ -471,7 +492,7 @@ export default function Home() {
                     {(() => {
                       const arr = stats.cumulativeArr.slice(-20);
                       if (arr.length < 2) return null;
-                      const vals = arr.map((d: any) => d.pnl);
+                      const vals = arr.map((d) => d.pnl);
                       const min = Math.min(...vals), max = Math.max(...vals);
                       const range = max - min || 1;
                       const pts = vals.map((v: number, i: number) => `${(i / (vals.length - 1)) * 48},${28 - ((v - min) / range) * 26}`).join(' ');
@@ -636,8 +657,8 @@ export default function Home() {
               <div className="chart-wrap">
                 {!stats || !stats.dailyArr.length ? <div className="chart-empty"><div className="chart-empty-icon">📈</div><div className="chart-empty-text">Import trades to see P&amp;L curve</div></div> :
                   <Line ref={cumChartRef} plugins={[splitAreaPlugin]} data={{
-                    labels: stats.dailyArr.map((d: any) => fmtDateChart(d.date)),
-                    datasets: [{ data: stats.cumulativeArr.map((d: any) => d.pnl), borderColor: '#16a34a', backgroundColor: 'transparent', fill: false, borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: '#16a34a', pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2, tension: 0.35, segment: { borderColor: (ctx: any) => ctx.p1.parsed.y >= 0 ? '#16a34a' : '#dc2626' } }]
+                    labels: stats.dailyArr.map((d) => fmtDateChart(d.date)),
+                    datasets: [{ data: stats.cumulativeArr.map((d) => d.pnl), borderColor: '#16a34a', backgroundColor: 'transparent', fill: false, borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: '#16a34a', pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2, tension: 0.35, segment: { borderColor: (ctx: ScriptableLineSegmentContext) => Number(ctx.p1.parsed.y) >= 0 ? '#16a34a' : '#dc2626' } }]
                   }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { display: false } }, y: { grid: { color: '#f0efec' }, border: { display: false } } } }} />
                 }
               </div>
@@ -649,8 +670,8 @@ export default function Home() {
               <div className="chart-wrap">
                 {!stats || !stats.dailyArr.length ? <div className="chart-empty"><div className="chart-empty-icon">📊</div><div className="chart-empty-text">Import trades to see daily P&amp;L</div></div> :
                   <Bar ref={dailyChartRef} data={{
-                    labels: stats.dailyArr.map((d: any) => fmtDateChart(d.date)),
-                    datasets: [{ data: stats.dailyArr.map((d: any) => d.pnl), backgroundColor: stats.dailyArr.map((v: any) => v.pnl >= 0 ? '#16a34a' : '#dc2626'), borderRadius: 4 }]
+                    labels: stats.dailyArr.map((d) => fmtDateChart(d.date)),
+                    datasets: [{ data: stats.dailyArr.map((d) => d.pnl), backgroundColor: stats.dailyArr.map((v) => v.pnl >= 0 ? '#16a34a' : '#dc2626'), borderRadius: 4 }]
                   }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { display: false } }, y: { grid: { color: '#f5f5f5' } } } }} />
                 }
               </div>
@@ -708,7 +729,7 @@ export default function Home() {
             <div className="empty-state"><div className="empty-icon">📂</div><div className="empty-title">No trades yet</div><div className="empty-sub">Import a CSV file from your broker to get started</div></div>
           ) : (() => {
             // Group trades by month/year
-            const grouped: Record<string, any[]> = {};
+            const grouped: Record<string, TradeRecord[]> = {};
             for (const t of trades) {
               const d = new Date((t.trade_date || t.date || '').replace(/-/g, '/'));
               const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -725,9 +746,9 @@ export default function Home() {
               const [y, m] = key.split('-');
               const label = `${MONTH_NAMES[parseInt(m) - 1]} ${y}`;
               const isOpen = expandedMonths.has(key);
-              const monthPnl = monthTrades.reduce((s: number, t: any) => s + t.pnl, 0);
-              const wins = monthTrades.filter((t: any) => t.result === 'win').length;
-              const losses = monthTrades.filter((t: any) => t.result === 'loss').length;
+              const monthPnl = monthTrades.reduce((s, t) => s + t.pnl, 0);
+              const wins = monthTrades.filter((t) => t.result === 'win').length;
+              const losses = monthTrades.filter((t) => t.result === 'loss').length;
               const wr = monthTrades.length > 0 ? Math.round(wins / monthTrades.length * 100) : 0;
 
               const toggleMonth = () => {
@@ -757,7 +778,7 @@ export default function Home() {
                     <div className="month-body">
                       {(() => {
                         // Group month trades by day
-                        const byDay: Record<string, any[]> = {};
+                        const byDay: Record<string, TradeRecord[]> = {};
                         for (const t of monthTrades) {
                           const dt = t.trade_date || t.date || '';
                           if (!byDay[dt]) byDay[dt] = [];
@@ -774,9 +795,9 @@ export default function Home() {
                               </tr>
                             </thead>
                             {days.map(([dayDate, dayTrades]) => {
-                              const dayPnl = dayTrades.reduce((s: number, t: any) => s + t.pnl, 0);
-                              const dayWins = dayTrades.filter((t: any) => t.result === 'win').length;
-                              const dayLosses = dayTrades.filter((t: any) => t.result === 'loss').length;
+                              const dayPnl = dayTrades.reduce((s, t) => s + t.pnl, 0);
+                              const dayWins = dayTrades.filter((t) => t.result === 'win').length;
+                              const dayLosses = dayTrades.filter((t) => t.result === 'loss').length;
 
                               return (
                                 <tbody key={dayDate} className="day-group">
@@ -791,10 +812,10 @@ export default function Home() {
                                       </div>
                                     </td>
                                   </tr>
-                                  {dayTrades.sort((a: any, b: any) => (b.exit_time || b.exitTime || '').localeCompare(a.exit_time || a.exitTime || '')).map((t: any, i: number) => {
+                                  {dayTrades.sort((a, b) => (b.exit_time || b.exitTime || '').localeCompare(a.exit_time || a.exitTime || '')).map((t, i) => {
                                     const rowKey = `${key}_${dayDate}_${i}`;
                                     const isRowOpen = expandedTradeRow === rowKey;
-                                    const allIdx = allTrades.findIndex((at: any) => (at.id || `${at.symbol}_${at.entry_time || at.entryTime}`) === (t.id || `${t.symbol}_${t.entry_time || t.entryTime}`));
+                                    const allIdx = allTrades.findIndex((at) => (at.id || `${at.symbol}_${at.entry_time || at.entryTime}`) === (t.id || `${t.symbol}_${t.entry_time || t.entryTime}`));
                                     const tradeIdx = allIdx >= 0 ? allIdx : trades.indexOf(t);
                                     const tradeUrl = `/trade?idx=${tradeIdx}`;
                                     return (
@@ -803,8 +824,8 @@ export default function Home() {
                                           <td style={{fontWeight:600}}>{t.symbol}{t.exchange && <span style={{fontSize:'10px',color:'var(--text-secondary)'}}> {t.exchange}</span>}</td>
                                           <td>{t.direction === 'LONG' ? 'L' : 'S'}</td>
                                           <td>{t.qty}</td>
-                                          <td>{fmtPrice(t.avg_entry || t.avgEntry)}</td>
-                                          <td>{fmtPrice(t.avg_exit || t.avgExit)}</td>
+                                          <td>{fmtPrice(t.avg_entry || t.avgEntry || 0)}</td>
+                                          <td>{fmtPrice(t.avg_exit || t.avgExit || 0)}</td>
                                           <td style={{fontWeight:700,color:(t.pnl - (t.commission || 0)) >= 0 ? 'var(--green)' : 'var(--red)'}}>{fmtINR(t.pnl - (t.commission || 0))}</td>
                                           <td>
                                             <span style={{display:'inline-flex', alignItems:'center', gap:'4px'}}>
@@ -835,7 +856,7 @@ export default function Home() {
                                               <table className="orders-table">
                                                 <thead><tr><th>Time</th><th>Type</th><th>Qty</th><th>Price</th><th>Order ID</th></tr></thead>
                                                 <tbody>
-                                                  {t.orders?.map((o: any, oi: number) => (
+                                                  {t.orders?.map((o: TradeOrder, oi) => (
                                                     <tr key={oi}>
                                                       <td style={{color:'var(--text-secondary)'}}>{o.trade_time.substring(0, 16)}</td>
                                                       <td><span className={`badge-${o.type.toLowerCase()}`}>{o.type}</span></td>
@@ -878,8 +899,8 @@ export default function Home() {
       </div>
 
       {/* MODAL */}
-      {modalTradeIdx !== null && trades[modalTradeIdx] && (() => {
-        const t = trades[modalTradeIdx];
+      {modalTrade && (() => {
+        const t = modalTrade;
         const cleanSymbol = t.symbol.split(' ')[0];
         const tvSymbol = `${t.exchange || 'NSE'}:${cleanSymbol}`;
         
@@ -887,21 +908,21 @@ export default function Home() {
           <div className="modal-overlay open" onClick={() => setModalTradeIdx(null)}>
             <div className="modal" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>{t.symbol} · {fmtDateLabel(t.trade_date || t.date)}</h2>
+                <h2>{t.symbol} · {fmtDateLabel(t.trade_date || t.date || '')}</h2>
                 <button className="modal-close" onClick={() => setModalTradeIdx(null)}>✕</button>
               </div>
               <div className="modal-body">
                 <div className="modal-left">
                   <div className="stat-row"><span className="stat-label">Symbol</span><span className="stat-value">{t.symbol}{t.exchange ? ' · ' + t.exchange : ''}</span></div>
                   <div className="stat-row"><span className="stat-label">Direction</span><span className="stat-value">{t.direction} · Qty {t.qty}</span></div>
-                  <div className="stat-row"><span className="stat-label">Avg Entry</span><span className="stat-value">₹{fmtPrice(t.avg_entry || t.avgEntry)}</span></div>
-                  <div className="stat-row"><span className="stat-label">Avg Exit</span><span className="stat-value">₹{fmtPrice(t.avg_exit || t.avgExit)}</span></div>
+                  <div className="stat-row"><span className="stat-label">Avg Entry</span><span className="stat-value">₹{fmtPrice(t.avg_entry || t.avgEntry || 0)}</span></div>
+                  <div className="stat-row"><span className="stat-label">Avg Exit</span><span className="stat-value">₹{fmtPrice(t.avg_exit || t.avgExit || 0)}</span></div>
                   <div className="stat-row"><span className="stat-label">P&L</span><span className={`stat-value ${t.pnl >= 0 ? 'up' : 'down'}`}>{fmtINR(t.pnl)}</span></div>
                   <div className="stat-row"><span className="stat-label">Commission</span><span className="stat-value" style={{color:'var(--red)'}}>{fmtINR(t.commission || 0)}</span></div>
                   <div className="stat-row"><span className="stat-label">Net P&amp;L</span><span className={`stat-value ${(t.pnl - (t.commission || 0)) >= 0 ? 'up' : 'down'}`}>{fmtINR(t.pnl - (t.commission || 0))}</span></div>
                   <div className="stat-row"><span className="stat-label">Result</span><span className={`badge ${t.result}`} style={{fontSize:'13px'}}>{t.result.toUpperCase()}</span></div>
-                  <div className="stat-row"><span className="stat-label">Entry time</span><span className="stat-value" style={{fontSize:'12px'}}>{(t.entry_time || t.entryTime).substring(0, 16)}</span></div>
-                  <div className="stat-row"><span className="stat-label">Exit time</span><span className="stat-value" style={{fontSize:'12px'}}>{(t.exit_time || t.exitTime).substring(0, 16)}</span></div>
+                  <div className="stat-row"><span className="stat-label">Entry time</span><span className="stat-value" style={{fontSize:'12px'}}>{(t.entry_time || t.entryTime || '').substring(0, 16)}</span></div>
+                  <div className="stat-row"><span className="stat-label">Exit time</span><span className="stat-value" style={{fontSize:'12px'}}>{(t.exit_time || t.exitTime || '').substring(0, 16)}</span></div>
                   <div className="stat-row"><span className="stat-label">Orders</span><span className="stat-value">{t.orders?.length} leg{t.orders?.length !== 1 ? 's' : ''}</span></div>
                 </div>
                 <div className="modal-right">
@@ -909,7 +930,7 @@ export default function Home() {
                   <div className="tradingview-placeholder">
                     <div className="tv-icon">📈</div>
                     <div style={{fontSize:'14px',fontWeight:600}}>{cleanSymbol}</div>
-                    <div style={{fontSize:'12px'}}>Avg Entry ₹{fmtPrice(t.avg_entry || t.avgEntry)} → Avg Exit ₹{fmtPrice(t.avg_exit || t.avgExit)}</div>
+                    <div style={{fontSize:'12px'}}>Avg Entry ₹{fmtPrice(t.avg_entry || t.avgEntry || 0)} → Avg Exit ₹{fmtPrice(t.avg_exit || t.avgExit || 0)}</div>
                     <a href={`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvSymbol)}`} target="_blank" rel="noreferrer"
                        style={{marginTop:'8px',padding:'8px 16px',background:'var(--brand)',color:'white',borderRadius:'6px',textDecoration:'none',fontSize:'12px',fontWeight:600}}>
                       Open in TradingView ↗

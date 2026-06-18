@@ -1,9 +1,37 @@
-export function computeStats(trades: any[]) {
+import type { TradeRecord } from '@/lib/types/trading';
+
+interface DailyPnlPoint {
+  date: string;
+  pnl: number;
+}
+
+export interface StatsResult {
+  netPnl: number;
+  tradeWinPct: number;
+  profitFactor: number;
+  dayWinPct: number;
+  avgWinLoss: number;
+  totalWins: number;
+  totalLosses: number;
+  avgWin: number;
+  avgLoss: number;
+  winCount: number;
+  lossCount: number;
+  greenDays: number;
+  redDays: number;
+  dayPnl: Record<string, number>;
+  dayTrades: Record<string, number>;
+  dailyArr: DailyPnlPoint[];
+  cumulativeArr: DailyPnlPoint[];
+}
+
+export function computeStats(trades: TradeRecord[]): StatsResult {
   const zero = {
     netPnl: 0, tradeWinPct: 0, profitFactor: 0, dayWinPct: 0,
     avgWinLoss: 0, totalWins: 0, totalLosses: 0, avgWin: 0, avgLoss: 0,
     winCount: 0, lossCount: 0, greenDays: 0, redDays: 0,
-    dayPnl: {} as Record<string, number>, dailyArr: [] as any[], cumulativeArr: [] as any[],
+    dayPnl: {} as Record<string, number>, dayTrades: {} as Record<string, number>,
+    dailyArr: [] as DailyPnlPoint[], cumulativeArr: [] as DailyPnlPoint[],
   };
   if (!trades.length) return zero;
 
@@ -26,7 +54,8 @@ export function computeStats(trades: any[]) {
   const dayPnl: Record<string, number> = {};
   const dayTrades: Record<string, number> = {};
   for (const t of trades) {
-    const date = t.trade_date || t.date;
+    const date = t.trade_date || t.date || '';
+    if (!date) continue;
     const tradeNet = (t.pnl || 0) - (t.commission || 0);
     dayPnl[date] = (dayPnl[date] || 0) + tradeNet;
     dayTrades[date] = (dayTrades[date] || 0) + 1;
@@ -49,14 +78,14 @@ export function computeStats(trades: any[]) {
   };
 }
 
-export function filterTradesByDateRange(trades: any[], start: string, end: string) {
+export function filterTradesByDateRange(trades: TradeRecord[], start: string, end: string) {
   if (!start && !end) return trades;
   const s = start ? new Date(start + 'T00:00:00') : null;
   const e = end ? new Date(end + 'T23:59:59') : null;
 
   return trades.filter(t => {
-    const timeStr = t.entry_time || t.entryTime;
-    const dateStr = t.trade_date || t.date;
+    const timeStr = t.entry_time || t.entryTime || '';
+    if (!timeStr) return false;
     const d = new Date(timeStr.replace(' ', 'T'));
     if (s && d < s) return false;
     if (e && d > e) return false;

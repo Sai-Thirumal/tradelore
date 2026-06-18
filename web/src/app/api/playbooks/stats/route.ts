@@ -2,6 +2,24 @@ import { NextResponse } from 'next/server';
 import { fetchAllTrades, fetchAllTradeJournals } from '@/lib/db/supabase';
 import { calculateTradeCommission } from '@/lib/engine/commission';
 import { requireAuthUser } from '@/lib/auth/session';
+import { errorMessageIncludes, getErrorMessage, hasErrorCode } from '@/lib/errors';
+import type { TradeDirection, TradeRecord } from '@/lib/types/trading';
+
+interface PlaybookStats {
+  total_trades: number;
+  wins: number;
+  losses: number;
+  win_rate: number;
+  avg_rr: number;
+  total_pnl: number;
+  net_pnl: number;
+  total_commission: number;
+  max_consecutive_losses: number;
+}
+
+function getDirection(direction: string | undefined): TradeDirection {
+  return direction === 'SHORT' ? 'SHORT' : 'LONG';
+}
 
 export async function GET() {
   try {
@@ -14,13 +32,13 @@ export async function GET() {
     ]);
 
     // Backfill commission for legacy trades
-    const enrichedTrades = trades.map((t: any) => {
+    const enrichedTrades = trades.map((t): TradeRecord => {
       if (t.commission !== undefined && t.commission !== null) return t;
       const commission = calculateTradeCommission({
         symbol: t.symbol || '',
         exchange: t.exchange || '',
         segment: t.segment || '',
-        direction: t.direction || 'LONG',
+        direction: getDirection(t.direction),
         qty: t.qty || 0,
         avg_entry: t.avg_entry || 0,
         avg_exit: t.avg_exit || 0,
@@ -31,8 +49,8 @@ export async function GET() {
     });
 
     // Build lookup maps for trades by both UUID id and computed id
-    const tradeById = new Map<string, any>();
-    const tradeByComputed = new Map<string, any>();
+    const tradeById = new Map<string, TradeRecord>();
+    const tradeByComputed = new Map<string, TradeRecord>();
     for (const t of enrichedTrades) {
       if (t.id) tradeById.set(t.id, t);
       const computed = `${t.symbol}_${t.entry_time}`;
@@ -47,7 +65,7 @@ export async function GET() {
       if (!pbId) continue;
 
       // Match journal to trade
-      let trade = tradeById.get(j.trade_id) || tradeByComputed.get(j.trade_id);
+      const trade = tradeById.get(j.trade_id) || tradeByComputed.get(j.trade_id);
       if (!trade) continue;
 
       if (!playbookTrades[pbId]) playbookTrades[pbId] = [];
@@ -55,12 +73,12 @@ export async function GET() {
         pnl: trade.pnl || 0,
         commission: trade.commission || 0,
         result: trade.result || 'breakeven',
-        risk: parseFloat(j.risk_amount) || 0,
+        risk: Number(j.risk_amount || 0),
       });
     }
 
     // Compute stats per playbook
-    const stats: Record<string, any> = {};
+    const stats: Record<string, PlaybookStats> = {};
     for (const [pbId, entries] of Object.entries(playbookTrades)) {
       const wins = entries.filter(e => e.result === 'win').length;
       const losses = entries.filter(e => e.result === 'loss').length;
@@ -104,11 +122,11 @@ export async function GET() {
     }
 
     return NextResponse.json(stats);
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Handle missing tables gracefully for preview deploys
-    if (error?.message?.includes('relation') || error?.code === '42P01') {
+    if (errorMessageIncludes(error, 'relation') || hasErrorCode(error, '42P01')) {
       return NextResponse.json({});
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }

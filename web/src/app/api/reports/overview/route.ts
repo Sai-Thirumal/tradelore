@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { fetchAllTrades, fetchAllTradeJournals } from '@/lib/db/supabase';
 import { calculateTradeCommission } from '@/lib/engine/commission';
 import { requireAuthUser } from '@/lib/auth/session';
+import { getErrorMessage } from '@/lib/errors';
+import type { TradeDirection, TradeRecord } from '@/lib/types/trading';
 
 interface OverviewStats {
   // Trade counts
@@ -77,6 +79,10 @@ function maxConsecutive(arr: boolean[], target: boolean): number {
   return max;
 }
 
+function getDirection(direction: string | undefined): TradeDirection {
+  return direction === 'SHORT' ? 'SHORT' : 'LONG';
+}
+
 export async function GET() {
   try {
     const { user, response } = await requireAuthUser();
@@ -86,13 +92,13 @@ export async function GET() {
     const journals = await fetchAllTradeJournals(user.id);
 
     // Backfill commission for legacy trades
-    trades = trades.map((t: any) => {
+    trades = trades.map((t): TradeRecord => {
       if (t.commission !== undefined && t.commission !== null) return t;
       const commission = calculateTradeCommission({
         symbol: t.symbol || '',
         exchange: t.exchange || '',
         segment: t.segment || '',
-        direction: t.direction || 'LONG',
+        direction: getDirection(t.direction),
         qty: t.qty || 0,
         avg_entry: t.avg_entry || 0,
         avg_exit: t.avg_exit || 0,
@@ -134,9 +140,9 @@ export async function GET() {
     const largestLoss = sorted.reduce((min, t) => t.pnl < min ? t.pnl : min, 0);
 
     // Hold times
-    const holdTimes = sorted.map(t => getHoldMinutes(t.entry_time || t.entryTime, t.exit_time || t.exitTime));
-    const holdTimesWins = wins.map(t => getHoldMinutes(t.entry_time || t.entryTime, t.exit_time || t.exitTime));
-    const holdTimesLosses = losses.map(t => getHoldMinutes(t.entry_time || t.entryTime, t.exit_time || t.exitTime));
+    const holdTimes = sorted.map(t => getHoldMinutes(t.entry_time || t.entryTime || '', t.exit_time || t.exitTime || ''));
+    const holdTimesWins = wins.map(t => getHoldMinutes(t.entry_time || t.entryTime || '', t.exit_time || t.exitTime || ''));
+    const holdTimesLosses = losses.map(t => getHoldMinutes(t.entry_time || t.entryTime || '', t.exit_time || t.exitTime || ''));
     const avgHoldTimeAll = holdTimes.reduce((s, m) => s + m, 0) / holdTimes.length;
     const avgHoldTimeWins = holdTimesWins.length ? holdTimesWins.reduce((s, m) => s + m, 0) / holdTimesWins.length : 0;
     const avgHoldTimeLosses = holdTimesLosses.length ? holdTimesLosses.reduce((s, m) => s + m, 0) / holdTimesLosses.length : 0;
@@ -148,7 +154,8 @@ export async function GET() {
     const dayPnl: Record<string, number> = {};
     const dayTrades: Record<string, number> = {};
     for (const t of sorted) {
-      const d = t.trade_date || t.date;
+      const d = t.trade_date || t.date || '';
+      if (!d) continue;
       dayPnl[d] = (dayPnl[d] || 0) + (t.pnl || 0);
       dayTrades[d] = (dayTrades[d] || 0) + 1;
     }
@@ -190,27 +197,28 @@ export async function GET() {
     const avgDrawdown = drawdowns.reduce((s, d) => s + d, 0) / drawdowns.length;
 
     // Logged days (from trade_journal)
-    const loggedDates = new Set(journals.map((j: any) => {
+    const loggedDates = new Set(journals.map((j) => {
       // Extract date from trade_id or journal date
       const tid = j.trade_id || '';
       // Match a trade to get its date
-      const trade = trades.find((t: any) => t.id === tid);
+      const trade = trades.find((t) => t.id === tid);
       return trade ? (trade.trade_date || trade.date) : '';
     }).filter(Boolean));
     const loggedDays = loggedDates.size;
 
     // R-multiple from journal entries
-    const journalEntries = journals.filter((j: any) => j.risk_amount && j.risk_amount > 0);
+    const journalEntries = journals.filter((j) => Number(j.risk_amount || 0) > 0);
     let avgPlannedR: number | null = null;
     let avgRealisedR: number | null = null;
 
     if (journalEntries.length > 0) {
       const rValues: number[] = [];
-      journalEntries.forEach((j: any) => {
-        const trade = trades.find((t: any) => t.id === j.trade_id);
-        if (trade && j.risk_amount > 0) {
+      journalEntries.forEach((j) => {
+        const trade = trades.find((t) => t.id === j.trade_id);
+        const riskAmount = Number(j.risk_amount || 0);
+        if (trade && riskAmount > 0) {
           // Realised R = pnl / risk_amount
-          const realisedR = (trade.pnl || 0) / j.risk_amount;
+          const realisedR = (trade.pnl || 0) / riskAmount;
           rValues.push(realisedR);
 
           // Planned R from profit_target fields if available
@@ -222,18 +230,18 @@ export async function GET() {
     }
 
     // Planned R — from profit_target fields
-    const plannedEntries = journals.filter((j: any) => {
-      const entry = j.profit_target_entry || 0;
-      const exit = j.profit_target_exit || 0;
-      const risk = j.risk_amount || 0;
+    const plannedEntries = journals.filter((j) => {
+      const entry = Number(j.profit_target_entry || 0);
+      const exit = Number(j.profit_target_exit || 0);
+      const risk = Number(j.risk_amount || 0);
       return entry && exit && risk > 0;
     });
 
     if (plannedEntries.length > 0) {
-      const plannedRValues = plannedEntries.map((j: any) => {
-        const entry = j.profit_target_entry || 0;
-        const exit = j.profit_target_exit || 0;
-        const risk = j.risk_amount || 1;
+      const plannedRValues = plannedEntries.map((j) => {
+        const entry = Number(j.profit_target_entry || 0);
+        const exit = Number(j.profit_target_exit || 0);
+        const risk = Number(j.risk_amount || 1);
         // Planned R = (target - entry) / risk? Simple: profit_target / risk
         return Math.abs(exit - entry) / risk;
       });
@@ -289,7 +297,7 @@ export async function GET() {
     };
 
     return NextResponse.json(stats);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }

@@ -2,8 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { fmtINR, fmtPrice, fmtDateLabel, fmtDateShort } from '@/lib/ui/format';
+import { getErrorMessage } from '@/lib/errors';
+import { fmtINR, fmtPrice, fmtDateLabel } from '@/lib/ui/format';
+import type { TradeJournalRecord, TradeOrder } from '@/lib/types/trading';
 
 const TradeChart = dynamic(() => import('../components/chart/TradeChart'), { ssr: false, loading: () => (
   <div className="trade-detail-section chart-placeholder">
@@ -27,8 +30,35 @@ interface Trade {
   exchange?: string;
   segment?: string;
   expiry_date?: string;
-  orders?: any[];
+  orders?: TradeOrder[];
   id?: string;
+}
+
+interface Playbook {
+  id: string;
+  name: string;
+}
+
+interface DailyJournal {
+  date?: string;
+  market_outlook?: string;
+  outlook_bias?: string;
+  capital_to_deploy?: number | string | null;
+  key_levels?: string;
+  news_events?: string;
+}
+
+interface TradeJournalDraft {
+  riskAmount?: string;
+  profitTargetEntry?: string;
+  profitTargetExit?: string;
+  positionSizing?: string;
+  playbookId?: string;
+  whatWorked?: string;
+  whatDidnt?: string;
+  lessonsLearned?: string;
+  emotions?: string[];
+  importantNotes?: string;
 }
 
 const EMOTIONS = [
@@ -67,20 +97,22 @@ export default function TradeDetailPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const [playbooks, setPlaybooks] = useState<any[]>([]);
+  const [playbooks, setPlaybooks] = useState<Playbook[]>([]);
 
   // Tab state: 'trade' | 'premarket' | 'postmarket'
   const [activeTab, setActiveTab] = useState<'trade' | 'premarket' | 'postmarket'>('trade');
 
   // Pre-market plan state (view-only, fetched from daily_journal)
-  const [preMarket, setPreMarket] = useState<any>(null);
+  const [preMarket, setPreMarket] = useState<DailyJournal | null>(null);
   const [preMarketLoading, setPreMarketLoading] = useState(false);
 
   // Fetch trade data
   useEffect(() => {
     if (idx === null || isNaN(idx)) {
-      setError('No trade specified');
-      setLoading(false);
+      queueMicrotask(() => {
+        setError('No trade specified');
+        setLoading(false);
+      });
       return;
     }
 
@@ -94,7 +126,7 @@ export default function TradeDetailPage() {
           setTrade(data[idx]);
         }
       })
-      .catch(e => setError(e.message))
+      .catch((e: unknown) => setError(getErrorMessage(e)))
       .finally(() => setLoading(false));
   }, [idx]);
 
@@ -126,7 +158,7 @@ export default function TradeDetailPage() {
   // Fetch pre-market plan for this trade's date
   useEffect(() => {
     if (!trade?.trade_date) return;
-    setPreMarketLoading(true);
+    queueMicrotask(() => setPreMarketLoading(true));
     fetch(`/api/daily-journal?date=${trade.trade_date}`)
       .then(r => r.json())
       .then(data => {
@@ -145,24 +177,26 @@ export default function TradeDetailPage() {
     const cached = localStorage.getItem(`trade_journal_${tid}`);
     if (cached) {
       try {
-        const j = JSON.parse(cached);
-        setRiskAmount(j.riskAmount || '');
-        setProfitTargetEntry(j.profitTargetEntry || '');
-        setProfitTargetExit(j.profitTargetExit || '');
-        setPositionSizing(j.positionSizing || '');
-        setPlaybookId(j.playbookId || '');
-        setWhatWorked(j.whatWorked || '');
-        setWhatDidnt(j.whatDidnt || '');
-        setLessonsLearned(j.lessonsLearned || '');
-        setEmotions(j.emotions || []);
-        setImportantNotes(j.importantNotes || '');
+        const j = JSON.parse(cached) as TradeJournalDraft;
+        queueMicrotask(() => {
+          setRiskAmount(j.riskAmount || '');
+          setProfitTargetEntry(j.profitTargetEntry || '');
+          setProfitTargetExit(j.profitTargetExit || '');
+          setPositionSizing(j.positionSizing || '');
+          setPlaybookId(j.playbookId || '');
+          setWhatWorked(j.whatWorked || '');
+          setWhatDidnt(j.whatDidnt || '');
+          setLessonsLearned(j.lessonsLearned || '');
+          setEmotions(j.emotions || []);
+          setImportantNotes(j.importantNotes || '');
+        });
       } catch {}
     }
 
     // Then API
     fetch(`/api/trade-journal?trade_id=${encodeURIComponent(tid)}`)
       .then(r => r.json())
-      .then(data => {
+      .then((data: TradeJournalRecord | null) => {
         if (data && data.trade_id) {
           setRiskAmount(data.risk_amount?.toString() || '');
           setProfitTargetEntry(data.profit_target_entry?.toString() || '');
@@ -229,7 +263,7 @@ export default function TradeDetailPage() {
     <div className="trade-detail-page">
       {/* Header — compact single row */}
       <div className="td-topbar">
-        <a href="/" className="td-back">← TradeLore</a>
+        <Link href="/" className="td-back">← TradeLore</Link>
 
         {/* Same-day trade switcher */}
         <div className="popup-wrap td-trade-switcher" ref={switcherRef}>
@@ -327,7 +361,7 @@ export default function TradeDetailPage() {
               <table className="td-orders-table">
                 <thead><tr><th>Time</th><th>Type</th><th>Qty</th><th>Price</th></tr></thead>
                 <tbody>
-                  {trade.orders.map((o: any, oi: number) => (
+                  {trade.orders.map((o, oi) => (
                     <tr key={oi}>
                       <td>{o.trade_time?.substring(11, 16)}</td>
                       <td><span className={`badge-${o.type?.toLowerCase()}`}>{o.type}</span></td>
@@ -431,7 +465,7 @@ export default function TradeDetailPage() {
           <label>Playbook</label>
           <select value={playbookId} onChange={e => setPlaybookId(e.target.value)}>
             <option value="">— Select —</option>
-            {playbooks.map((pb: any) => (<option key={pb.id} value={pb.id}>{pb.name}</option>))}
+            {playbooks.map((pb) => (<option key={pb.id} value={pb.id}>{pb.name}</option>))}
           </select>
         </div>
 

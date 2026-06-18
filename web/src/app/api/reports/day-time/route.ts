@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { fetchAllTrades } from '@/lib/db/supabase';
 import { calculateTradeCommission } from '@/lib/engine/commission';
 import { requireAuthUser } from '@/lib/auth/session';
+import { getErrorMessage } from '@/lib/errors';
+import type { TradeDirection, TradeRecord } from '@/lib/types/trading';
 
 type Group = 'days' | 'months' | 'trade-time' | 'trade-duration' | 'instruments';
 
@@ -10,7 +12,7 @@ const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
 
 // Extract base instrument: "NIFTY25N1324150PE" → "NIFTY (Options)"
-function getInstrument(t: any): string {
+function getInstrument(t: TradeRecord): string {
   const sym: string = t.symbol || '';
   const segment: string = t.segment || '';
 
@@ -59,8 +61,12 @@ interface GroupStats {
   avgVolume: number;
 }
 
-function computeGroupStats(trades: any[], getKey: (t: any) => string): GroupStats[] {
-  const groups: Record<string, any[]> = {};
+function getDirection(direction: string | undefined): TradeDirection {
+  return direction === 'SHORT' ? 'SHORT' : 'LONG';
+}
+
+function computeGroupStats(trades: TradeRecord[], getKey: (t: TradeRecord) => string): GroupStats[] {
+  const groups: Record<string, TradeRecord[]> = {};
   for (const t of trades) {
     const key = getKey(t);
     if (!groups[key]) groups[key] = [];
@@ -122,13 +128,13 @@ export async function GET(request: NextRequest) {
     let trades = await fetchAllTrades(user.id);
 
     // Backfill commission for legacy trades
-    trades = trades.map((t: any) => {
+    trades = trades.map((t): TradeRecord => {
       if (t.commission !== undefined && t.commission !== null) return t;
       const commission = calculateTradeCommission({
         symbol: t.symbol || '',
         exchange: t.exchange || '',
         segment: t.segment || '',
-        direction: t.direction || 'LONG',
+        direction: getDirection(t.direction),
         qty: t.qty || 0,
         avg_entry: t.avg_entry || 0,
         avg_exit: t.avg_exit || 0,
@@ -148,13 +154,13 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    let getKey: (t: any) => string;
+    let getKey: (t: TradeRecord) => string;
     let labelFormatter: (key: string) => string;
 
     switch (group) {
       case 'days':
         getKey = (t) => {
-          const ts = t.entry_time || t.entryTime;
+          const ts = t.entry_time || t.entryTime || '';
           const d = new Date(ts.replace(' ', 'T'));
           return DAY_NAMES[d.getDay()];
         };
@@ -163,7 +169,7 @@ export async function GET(request: NextRequest) {
 
       case 'months':
         getKey = (t) => {
-          const ts = t.entry_time || t.entryTime;
+          const ts = t.entry_time || t.entryTime || '';
           const d = new Date(ts.replace(' ', 'T'));
           return MONTH_NAMES[d.getMonth()];
         };
@@ -172,7 +178,7 @@ export async function GET(request: NextRequest) {
 
       case 'trade-time':
         getKey = (t) => {
-          const ts = t.entry_time || t.entryTime;
+          const ts = t.entry_time || t.entryTime || '';
           const d = new Date(ts.replace(' ', 'T'));
           return String(d.getHours());
         };
@@ -184,8 +190,8 @@ export async function GET(request: NextRequest) {
 
       case 'trade-duration':
         getKey = (t) => {
-          const entryStr = t.entry_time || t.entryTime;
-          const exitStr = t.exit_time || t.exitTime;
+          const entryStr = t.entry_time || t.entryTime || '';
+          const exitStr = t.exit_time || t.exitTime || '';
           const entry = new Date(entryStr.replace(' ', 'T'));
           const exit = new Date(exitStr.replace(' ', 'T'));
           const minutes = (exit.getTime() - entry.getTime()) / 60000;
@@ -234,7 +240,7 @@ export async function GET(request: NextRequest) {
       mostActive: mostActive ? { ...mostActive } : null,
       bestWinRate: bestWinRate ? { ...bestWinRate } : null,
     });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }

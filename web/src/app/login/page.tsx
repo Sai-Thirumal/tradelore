@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { getInternalRedirectPath } from '@/lib/auth/redirect';
 import { createClient } from '@/lib/supabase/client';
 
 type Mode = 'signin' | 'signup';
@@ -9,7 +10,7 @@ type Mode = 'signin' | 'signup';
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get('next') || '/';
+  const next = getInternalRedirectPath(searchParams.get('next'));
   const [mode, setMode] = useState<Mode>('signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -46,8 +47,8 @@ export default function LoginPage() {
         router.replace(next);
         router.refresh();
       }
-    } catch (err: any) {
-      setError(err.message || 'Authentication failed');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Authentication failed');
     } finally {
       setLoading(false);
     }

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { fmtINR, fmtPrice } from '@/lib/ui/format';
+import type { TradeOrder } from '@/lib/types/trading';
 
 const EMOTIONS = [
   'Confident', 'Anxious', 'Frustrated', 'Calm',
@@ -22,7 +23,7 @@ interface Trade {
   avg_exit?: number;
   avgEntry?: number;
   pnl: number;
-  commission?: number;
+  commission?: number | null;
   result: string;
   entry_time?: string;
   exit_time?: string;
@@ -31,7 +32,20 @@ interface Trade {
   trade_date?: string;
   date?: string;
   id?: string;
-  orders?: any[];
+  orders?: TradeOrder[];
+}
+
+interface JournalDraft {
+  riskAmount?: string;
+  profitTargetEntry?: string;
+  profitTargetExit?: string;
+  positionSizing?: string;
+  playbookId?: string;
+  whatWorked?: string;
+  whatDidnt?: string;
+  lessonsLearned?: string;
+  emotions?: string[];
+  importantNotes?: string;
 }
 
 function getTradeId(t: Trade): string {
@@ -70,6 +84,19 @@ export default function JournalPostTrade({ trades, date }: { trades: Trade[]; da
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [journaledTradeIds, setJournaledTradeIds] = useState<Set<string>>(new Set());
 
+  const applyJournal = useCallback((tid: string, j: JournalDraft) => {
+    if (j.riskAmount !== undefined) setRiskAmounts(p => ({ ...p, [tid]: j.riskAmount || '' }));
+    if (j.profitTargetEntry !== undefined) setProfitTargetEntries(p => ({ ...p, [tid]: j.profitTargetEntry || '' }));
+    if (j.profitTargetExit !== undefined) setProfitTargetExits(p => ({ ...p, [tid]: j.profitTargetExit || '' }));
+    if (j.positionSizing !== undefined) setPositionSizings(p => ({ ...p, [tid]: j.positionSizing || '' }));
+    if (j.playbookId !== undefined) setPlaybookIds(p => ({ ...p, [tid]: j.playbookId || '' }));
+    if (j.whatWorked !== undefined) setWhatWorked(p => ({ ...p, [tid]: j.whatWorked || '' }));
+    if (j.whatDidnt !== undefined) setWhatDidnt(p => ({ ...p, [tid]: j.whatDidnt || '' }));
+    if (j.lessonsLearned !== undefined) setLessonsLearned(p => ({ ...p, [tid]: j.lessonsLearned || '' }));
+    if (j.emotions !== undefined) setEmotions(p => ({ ...p, [tid]: j.emotions || [] }));
+    if (j.importantNotes !== undefined) setImportantNotes(p => ({ ...p, [tid]: j.importantNotes || '' }));
+  }, []);
+
   useEffect(() => {
     fetch('/api/playbooks')
       .then(r => r.json())
@@ -94,7 +121,10 @@ export default function JournalPostTrade({ trades, date }: { trades: Trade[]; da
       const tid = getTradeId(t);
       const cached = localStorage.getItem(lsKey(tid));
       if (cached) {
-        try { applyJournal(tid, JSON.parse(cached)); } catch {}
+        try {
+          const draft = JSON.parse(cached) as JournalDraft;
+          queueMicrotask(() => applyJournal(tid, draft));
+        } catch {}
       }
       fetch(`/api/trade-journal?trade_id=${encodeURIComponent(tid)}`)
         .then(r => r.json())
@@ -114,20 +144,7 @@ export default function JournalPostTrade({ trades, date }: { trades: Trade[]; da
         })
         .catch(() => {});
     }
-  }, [trades]);
-
-  const applyJournal = (tid: string, j: any) => {
-    if (j.riskAmount !== undefined) setRiskAmounts(p => ({ ...p, [tid]: j.riskAmount }));
-    if (j.profitTargetEntry !== undefined) setProfitTargetEntries(p => ({ ...p, [tid]: j.profitTargetEntry }));
-    if (j.profitTargetExit !== undefined) setProfitTargetExits(p => ({ ...p, [tid]: j.profitTargetExit }));
-    if (j.positionSizing !== undefined) setPositionSizings(p => ({ ...p, [tid]: j.positionSizing }));
-    if (j.playbookId !== undefined) setPlaybookIds(p => ({ ...p, [tid]: j.playbookId }));
-    if (j.whatWorked !== undefined) setWhatWorked(p => ({ ...p, [tid]: j.whatWorked }));
-    if (j.whatDidnt !== undefined) setWhatDidnt(p => ({ ...p, [tid]: j.whatDidnt }));
-    if (j.lessonsLearned !== undefined) setLessonsLearned(p => ({ ...p, [tid]: j.lessonsLearned }));
-    if (j.emotions !== undefined) setEmotions(p => ({ ...p, [tid]: j.emotions }));
-    if (j.importantNotes !== undefined) setImportantNotes(p => ({ ...p, [tid]: j.importantNotes }));
-  };
+  }, [trades, applyJournal]);
 
   const persistLocal = useCallback((tid: string) => {
     localStorage.setItem(lsKey(tid), JSON.stringify({
@@ -162,7 +179,11 @@ export default function JournalPostTrade({ trades, date }: { trades: Trade[]; da
   };
 
   const handleSave = async (tid: string) => {
-    setSavingIds(p => new Set(p).add(tid));
+    setSavingIds(p => {
+      const next = new Set(p);
+      next.add(tid);
+      return next;
+    });
     try {
       await fetch('/api/trade-journal', {
         method: 'POST',

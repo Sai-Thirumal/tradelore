@@ -239,7 +239,6 @@ export function calculateTradeCommission(trade: {
 
   const upperSymbol = (symbol || '').toUpperCase();
   const isOptions = upperSymbol.endsWith('CE') || upperSymbol.endsWith('PE');
-  const isFutures = upperSymbol.endsWith('FUT') || upperSymbol.includes('FUT');
   const seg = (segment || '').toUpperCase();
   const isMCX = (exchange || '').toUpperCase() === 'MCX' || seg === 'MCX';
 

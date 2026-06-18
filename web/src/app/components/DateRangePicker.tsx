@@ -66,16 +66,18 @@ export default function DateRangePicker({ start, end, onChange, onClear }: Props
 
   // Sync from props
   useEffect(() => {
-    setS(start || null);
-    setE(end || null);
-    if (start) {
-      const d = new Date(start + 'T00:00:00');
-      setLeft(prev => ({ ...prev, year: d.getFullYear(), month: d.getMonth() }));
-    }
-    if (end) {
-      const d = new Date(end + 'T00:00:00');
-      setRight(prev => ({ ...prev, year: d.getFullYear(), month: d.getMonth() }));
-    }
+    queueMicrotask(() => {
+      setS(start || null);
+      setE(end || null);
+      if (start) {
+        const d = new Date(start + 'T00:00:00');
+        setLeft(prev => ({ ...prev, year: d.getFullYear(), month: d.getMonth() }));
+      }
+      if (end) {
+        const d = new Date(end + 'T00:00:00');
+        setRight(prev => ({ ...prev, year: d.getFullYear(), month: d.getMonth() }));
+      }
+    });
   }, [start, end]);
 
   // Click outside
@@ -169,7 +171,6 @@ export default function DateRangePicker({ start, end, onChange, onClear }: Props
   function renderMonthDropdown(isLeft: boolean) {
     const cal = isLeft ? left : right;
     if (!cal.monthOpen) return null;
-    const upd = isLeft ? updateLeft : updateRight;
     return (
       <div className="drp-my-drop" onClick={e => e.stopPropagation()}>
         <div className="drp-my-grid">

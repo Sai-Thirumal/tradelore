@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { getErrorMessage } from '@/lib/errors';
 
 // ── Types ──
 interface PlaybookData {
@@ -41,6 +42,20 @@ interface Playbook {
   created_at: string;
   updated_at: string;
 }
+
+interface PlaybookStats {
+  total_trades: number;
+  wins: number;
+  losses: number;
+  win_rate: number;
+  avg_rr: number;
+  total_pnl: number;
+  net_pnl: number;
+  total_commission: number;
+  max_consecutive_losses: number;
+}
+
+type PlaybookDataField = keyof PlaybookData;
 
 // ── Constants ──
 const MAX_PLAYBOOKS = 8;
@@ -148,7 +163,7 @@ const SELECT_FIELDS: Record<string, string[]> = {
 // ── Component ──
 export default function Playbooks() {
   const [playbooks, setPlaybooks] = useState<Playbook[]>([]);
-  const [stats, setStats] = useState<Record<string, any>>({});
+  const [stats, setStats] = useState<Record<string, PlaybookStats>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState<{ msg: string; type: string } | null>(null);
@@ -174,8 +189,8 @@ export default function Playbooks() {
       const data = await res.json();
       if (Array.isArray(data)) setPlaybooks(data);
       else setPlaybooks([]);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load playbooks');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to load playbooks'));
     } finally {
       setLoading(false);
     }
@@ -194,7 +209,10 @@ export default function Playbooks() {
   };
 
   useEffect(() => {
-    fetchPlaybooks().then(() => fetchStats());
+    void Promise.resolve().then(async () => {
+      await fetchPlaybooks();
+      await fetchStats();
+    });
   }, []);
 
   const showToast = (msg: string, type = 'info') => {
@@ -227,13 +245,13 @@ export default function Playbooks() {
     setFormData({ ...EMPTY_DATA });
   };
 
-  const updateFormField = (field: string, value: any) => {
+  const updateFormField = (field: PlaybookDataField, value: PlaybookData[PlaybookDataField]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const toggleTag = (field: string, tag: string) => {
     setFormData(prev => {
-      const current = (prev as any)[field] as string[];
+      const current = prev[field as 'markets' | 'timeframes'];
       const next = current.includes(tag)
         ? current.filter((t: string) => t !== tag)
         : [...current, tag];
@@ -250,7 +268,7 @@ export default function Playbooks() {
 
     setSaving(true);
     try {
-      const body: any = { name: formName.trim(), data: formData };
+      const body: { id?: string; name: string; data: PlaybookData } = { name: formName.trim(), data: formData };
 
       if (editingId) {
         body.id = editingId;
@@ -273,8 +291,8 @@ export default function Playbooks() {
 
       await fetchPlaybooks();
       closeForm();
-    } catch (err: any) {
-      showToast(err.message || 'Failed to save playbook', 'error');
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err, 'Failed to save playbook'), 'error');
     } finally {
       setSaving(false);
     }
@@ -293,8 +311,8 @@ export default function Playbooks() {
       showToast(`"${deleteTarget.name}" deleted`, 'success');
       setPlaybooks(prev => prev.filter(p => p.id !== deleteTarget.id));
       if (editingId === deleteTarget.id) closeForm();
-    } catch (err: any) {
-      showToast(err.message || 'Failed to delete playbook', 'error');
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err, 'Failed to delete playbook'), 'error');
     } finally {
       setDeleteTarget(null);
     }
@@ -305,7 +323,7 @@ export default function Playbooks() {
   // ── Render form field ──
   const renderField = (field: string) => {
     const label = LABELS[field] || field;
-    const value = (formData as any)[field];
+    const value = formData[field as PlaybookDataField];
 
     // Tag multi-select
     if (TAG_FIELDS[field]) {
@@ -340,7 +358,7 @@ export default function Playbooks() {
           <select
             className="pb-input pb-select"
             value={value}
-            onChange={e => updateFormField(field, e.target.value)}
+            onChange={e => updateFormField(field as PlaybookDataField, e.target.value)}
           >
             <option value="">— Select —</option>
             {options.map(opt => (
@@ -360,7 +378,7 @@ export default function Playbooks() {
             type="number"
             className="pb-input"
             value={value || ''}
-            onChange={e => updateFormField(field, e.target.value === '' ? '' : Number(e.target.value))}
+            onChange={e => updateFormField(field as PlaybookDataField, e.target.value === '' ? '' : Number(e.target.value))}
             placeholder={`Enter ${label.toLowerCase()}`}
             step="any"
           />
@@ -376,7 +394,7 @@ export default function Playbooks() {
           <textarea
             className="pb-input pb-textarea"
             value={value || ''}
-            onChange={e => updateFormField(field, e.target.value)}
+            onChange={e => updateFormField(field as PlaybookDataField, e.target.value)}
             placeholder={`Enter ${label.toLowerCase()}`}
             rows={3}
           />
@@ -392,7 +410,7 @@ export default function Playbooks() {
           type="text"
           className="pb-input"
           value={value || ''}
-          onChange={e => updateFormField(field, e.target.value)}
+          onChange={e => updateFormField(field as PlaybookDataField, e.target.value)}
           placeholder={`Enter ${label.toLowerCase()}`}
         />
       </div>

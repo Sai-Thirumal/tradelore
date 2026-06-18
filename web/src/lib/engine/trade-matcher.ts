@@ -1,11 +1,12 @@
 import { calculateTradeCommission } from './commission';
+import type { TradeDirection, TradeOrder, TradeRecord } from '@/lib/types/trading';
 
 // Step 1 — Collapse partial fills by order_id
 // Broker CSV has one row per exchange fill. A single order can be broken
 // into multiple fills. Collapse them BEFORE position tracking.
-function collapseFills(orders: any[]): any[] {
-  const groups: Record<string, any[]> = {};
-  const orphans: any[] = [];
+function collapseFills(orders: TradeOrder[]): TradeOrder[] {
+  const groups: Record<string, TradeOrder[]> = {};
+  const orphans: TradeOrder[] = [];
 
   for (const o of orders) {
     const oid = o.order_id;
@@ -17,7 +18,7 @@ function collapseFills(orders: any[]): any[] {
     }
   }
 
-  const collapsed: any[] = [];
+  const collapsed: TradeOrder[] = [];
 
   for (const [, fills] of Object.entries(groups)) {
     if (fills.length === 1) {
@@ -55,12 +56,12 @@ function collapseFills(orders: any[]): any[] {
 // Step 2 — Position tracker on collapsed fills
 // Group by symbol + trade_date, sort by time, track running position.
 // Emit complete trades when position returns to 0.
-export function matchTrades(orders: any[]): any[] {
+export function matchTrades(orders: TradeOrder[]): TradeRecord[] {
   // Step 1: Collapse partial fills
   const fills = collapseFills(orders);
 
   // Group by symbol + trade_date
-  const bySymbolDate: Record<string, any[]> = {};
+  const bySymbolDate: Record<string, TradeOrder[]> = {};
   for (const f of fills) {
     const date = (f.trade_time || '').substring(0, 10);
     const key = `${f.symbol}|||${date}`;
@@ -68,16 +69,16 @@ export function matchTrades(orders: any[]): any[] {
     bySymbolDate[key].push(f);
   }
 
-  const trades: any[] = [];
+  const trades: TradeRecord[] = [];
 
   for (const [, group] of Object.entries(bySymbolDate)) {
     // Sort by trade_time ascending
     group.sort((a, b) => a.trade_time.localeCompare(b.trade_time));
 
     let netQty = 0;
-    let direction: 'LONG' | 'SHORT' | null = null;
-    let entryFills: any[] = [];
-    let exitFills: any[] = [];
+    let direction: TradeDirection | null = null;
+    let entryFills: TradeOrder[] = [];
+    let exitFills: TradeOrder[] = [];
 
     for (const fill of group) {
       const signedQty = fill.type === 'BUY' ? Number(fill.qty) : -Number(fill.qty);
@@ -102,7 +103,9 @@ export function matchTrades(orders: any[]): any[] {
 
         if (Math.abs(netQty) < 0.001) {
           // Position fully closed — emit completed trade
-          trades.push(buildTrade(fill.symbol, direction!, entryFills, exitFills));
+          if (direction) {
+            trades.push(buildTrade(fill.symbol, direction, entryFills, exitFills));
+          }
           entryFills = [];
           exitFills = [];
           direction = null;
@@ -121,10 +124,10 @@ export function matchTrades(orders: any[]): any[] {
 
 function buildTrade(
   symbol: string,
-  direction: 'LONG' | 'SHORT',
-  entryFills: any[],
-  exitFills: any[],
-) {
+  direction: TradeDirection,
+  entryFills: TradeOrder[],
+  exitFills: TradeOrder[],
+): TradeRecord {
   // Weighted average entry price
   const totalEntryQty = entryFills.reduce((s, f) => s + Number(f.qty), 0);
   const avgEntry =

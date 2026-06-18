@@ -2,6 +2,12 @@ import { NextResponse } from 'next/server';
 import { fetchAllTrades } from '@/lib/db/supabase';
 import { calculateTradeCommission } from '@/lib/engine/commission';
 import { requireAuthUser } from '@/lib/auth/session';
+import { getErrorMessage } from '@/lib/errors';
+import type { TradeDirection, TradeRecord } from '@/lib/types/trading';
+
+function getDirection(direction: string | undefined): TradeDirection {
+  return direction === 'SHORT' ? 'SHORT' : 'LONG';
+}
 
 export async function GET() {
   try {
@@ -11,7 +17,7 @@ export async function GET() {
     const trades = await fetchAllTrades(user.id);
 
     // Backfill commission for trades that don't have it stored
-    const enrichedTrades = trades.map((t: any) => {
+    const enrichedTrades = trades.map((t): TradeRecord => {
       if (t.commission !== undefined && t.commission !== null) {
         return t;
       }
@@ -20,7 +26,7 @@ export async function GET() {
         symbol: t.symbol || '',
         exchange: t.exchange || '',
         segment: t.segment || '',
-        direction: t.direction || 'LONG',
+        direction: getDirection(t.direction),
         qty: t.qty || 0,
         avg_entry: t.avg_entry || 0,
         avg_exit: t.avg_exit || 0,
@@ -35,7 +41,7 @@ export async function GET() {
     });
 
     return NextResponse.json(enrichedTrades);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }

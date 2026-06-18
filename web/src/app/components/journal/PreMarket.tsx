@@ -36,11 +36,13 @@ export default function JournalPreMarket({ latestTradeDate }: { latestTradeDate:
     if (cached) {
       try {
         const plan = JSON.parse(cached);
-        setMarketOutlook(plan.marketOutlook || '');
-        setOutlookBias(plan.outlookBias || '');
-        setCapitalToDeploy(plan.capitalToDeploy || '');
-        setKeyLevels(plan.keyLevels || '');
-        setNewsEvents(plan.newsEvents || '');
+        queueMicrotask(() => {
+          setMarketOutlook(plan.marketOutlook || '');
+          setOutlookBias(plan.outlookBias || '');
+          setCapitalToDeploy(plan.capitalToDeploy || '');
+          setKeyLevels(plan.keyLevels || '');
+          setNewsEvents(plan.newsEvents || '');
+        });
       } catch {}
     }
 

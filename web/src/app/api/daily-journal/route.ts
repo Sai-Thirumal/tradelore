@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { fetchDailyJournal, saveDailyJournal } from '@/lib/db/supabase';
 import { requireAuthUser } from '@/lib/auth/session';
+import { getErrorMessage } from '@/lib/errors';
 
 export async function GET(request: Request) {
   try {
@@ -11,8 +12,8 @@ export async function GET(request: Request) {
     const date = searchParams.get('date') || new Date().toISOString().split('T')[0];
     const entry = await fetchDailyJournal(date, user.id);
     return NextResponse.json(entry || null);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }
 
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const entry = await saveDailyJournal(body, user.id);
     return NextResponse.json(entry);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }

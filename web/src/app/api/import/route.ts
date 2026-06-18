@@ -3,6 +3,7 @@ import { parseCsv } from '@/lib/engine/csv-parser';
 import { storeOrders, fetchAllOrders, replaceTrades } from '@/lib/db/supabase';
 import { matchTrades } from '@/lib/engine/trade-matcher';
 import { requireAuthUser } from '@/lib/auth/session';
+import { getErrorMessage } from '@/lib/errors';
 
 export async function POST(request: Request) {
   try {
@@ -31,8 +32,8 @@ export async function POST(request: Request) {
     await replaceTrades(allTrades, user.id);
 
     // Observable metrics: raw fills vs collapsed fills vs final trades
-    const fillsWithOrderId = allOrders.filter((o: any) => o.order_id).length;
-    const uniqueOrderIds = new Set(allOrders.filter((o: any) => o.order_id).map((o: any) => o.order_id)).size;
+    const fillsWithOrderId = allOrders.filter(o => o.order_id).length;
+    const uniqueOrderIds = new Set(allOrders.filter(o => o.order_id).map(o => o.order_id)).size;
 
     return NextResponse.json({
       imported_orders: newOrders.length,
@@ -41,10 +42,10 @@ export async function POST(request: Request) {
       raw_fills: allOrders.length,
       fills_with_order_id: fillsWithOrderId,
       unique_order_ids: uniqueOrderIds,
-      collapsed_fills: uniqueOrderIds + allOrders.filter((o: any) => !o.order_id).length,
+      collapsed_fills: uniqueOrderIds + allOrders.filter(o => !o.order_id).length,
     });
 
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }

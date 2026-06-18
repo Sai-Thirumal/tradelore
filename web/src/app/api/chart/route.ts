@@ -1,6 +1,26 @@
 import { NextResponse } from 'next/server';
 import { getUnderlying, toYahooSymbol, istToUnix } from '@/lib/engine/symbols';
 import { requireAuthUser } from '@/lib/auth/session';
+import { getErrorMessage } from '@/lib/errors';
+
+interface YahooChartResult {
+  timestamp?: number[];
+  indicators?: {
+    quote?: Array<{
+      open?: number[];
+      high?: number[];
+      low?: number[];
+      close?: number[];
+      volume?: number[];
+    }>;
+  };
+}
+
+interface YahooChartResponse {
+  chart?: {
+    result?: YahooChartResult[];
+  };
+}
 
 export async function GET(request: Request) {
   const { response } = await requireAuthUser();
@@ -46,7 +66,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: `Yahoo returned ${res.status}` }, { status: 502 });
     }
 
-    const json = await res.json();
+    const json = await res.json() as YahooChartResponse;
     const result = json.chart?.result?.[0];
 
     if (!result) {
@@ -65,7 +85,7 @@ export async function GET(request: Request) {
     for (let i = 0; i < timestamps.length; i++) {
       if (opens[i] == null || closes[i] == null) continue;
       candles.push({
-        time: timestamps[i] as any,
+        time: timestamps[i],
         open: opens[i],
         high: highs[i] || opens[i],
         low: lows[i] || opens[i],
@@ -83,7 +103,7 @@ export async function GET(request: Request) {
       to: toStr,
     });
 
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }

@@ -1,4 +1,5 @@
 import Papa from 'papaparse';
+import type { TradeOrder } from '@/lib/types/trading';
 
 const HEADER_MAP: Record<string, string> = {
   "symbol": "symbol", "scrip": "symbol", "stock": "symbol",
@@ -22,11 +23,11 @@ function normaliseDatetime(raw: string) {
   return raw.replace("T", " ").split(".")[0];
 }
 
-export async function parseCsv(fileContent: string): Promise<any[]> {
+export async function parseCsv(fileContent: string): Promise<TradeOrder[]> {
   const result = Papa.parse(fileContent, { header: true, skipEmptyLines: true });
   const rows = result.data as Record<string, string>[];
   
-  const orders: any[] = [];
+  const orders: TradeOrder[] = [];
 
   for (let i = 0; i < rows.length; i++) {
     const rawRow = rows[i];

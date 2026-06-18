@@ -6,6 +6,8 @@ import {
   Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement,
   Title, Tooltip, Filler, Legend, BarElement
 } from 'chart.js';
+import type { ChartOptions, Plugin, TooltipItem } from 'chart.js';
+import { getErrorMessage } from '@/lib/errors';
 import { fmtINR } from '@/lib/ui/format';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Filler, Legend);
@@ -41,9 +43,14 @@ const GROUP_LABELS: Record<Group, string> = {
 const ROWS_PER_PAGE = 15;
 
 // Split-area plugin for green/red P&L fill
-const splitAreaPlugin = {
+interface ChartPoint {
+  x: number;
+  y: number;
+}
+
+const splitAreaPlugin: Plugin<'line'> = {
   id: 'splitAreaReport',
-  beforeDatasetDraw(chart: any, args: any) {
+  beforeDatasetDraw(chart, args) {
     const datasetIndex = args.index;
     if (datasetIndex !== 0) return;
     const meta = chart.getDatasetMeta(datasetIndex);
@@ -51,7 +58,7 @@ const splitAreaPlugin = {
     const { ctx, chartArea, scales } = chart;
     const yScale = scales.y;
     const zeroY = yScale.getPixelForValue(0);
-    const points = meta.data;
+    const points = meta.data as ChartPoint[];
     if (!points || points.length < 2) return;
 
     const drawArea = (polyline: { x: number; y: number }[], above: boolean) => {
@@ -157,28 +164,34 @@ export default function DayTimeReport({ group }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError('');
+    queueMicrotask(() => {
+      if (!cancelled) {
+        setLoading(true);
+        setError('');
+      }
+    });
     fetch(`/api/reports/day-time?group=${group}`)
       .then(res => {
         if (!res.ok) throw new Error('Failed to load');
         return res.json();
       })
       .then(d => { if (!cancelled) setData(d); })
-      .catch(err => { if (!cancelled) setError(err.message); })
+      .catch((err: unknown) => { if (!cancelled) setError(getErrorMessage(err)); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [group]);
 
   // Reset page when group changes
   useEffect(() => {
-    setPage(1);
-    setSortBy('default');
-    setMinTrades('');
-    setWlRatioMode('any');
-    setWlRatioMin('');
-    setWlRatioMax('');
-    setShowFilters(false);
+    queueMicrotask(() => {
+      setPage(1);
+      setSortBy('default');
+      setMinTrades('');
+      setWlRatioMode('any');
+      setWlRatioMin('');
+      setWlRatioMax('');
+      setShowFilters(false);
+    });
   }, [group]);
 
   const filteredGroups = useMemo(() => {
@@ -294,7 +307,7 @@ export default function DayTimeReport({ group }: Props) {
         ],
       };
 
-      const barOptions: any = {
+      const barOptions: ChartOptions<'bar'> = {
         indexAxis: 'y' as const,
         responsive: true,
         maintainAspectRatio: false,
@@ -302,7 +315,7 @@ export default function DayTimeReport({ group }: Props) {
           legend: { display: false },
           tooltip: {
             callbacks: {
-              label: (ctx: any) => isWin ? ctx.raw.toFixed(1) + '%' : fmtINR(ctx.raw),
+              label: (ctx: TooltipItem<'bar'>) => isWin ? Number(ctx.raw).toFixed(1) + '%' : fmtINR(Number(ctx.raw)),
             },
           },
         },
@@ -311,7 +324,7 @@ export default function DayTimeReport({ group }: Props) {
             grid: { color: 'rgba(0,0,0,0.04)' },
             ticks: {
               font: { size: 10 },
-              callback: (v: number) => isWin ? v + '%' : fmtINR(v),
+              callback: (v) => isWin ? v + '%' : fmtINR(Number(v)),
             },
           },
           y: {
@@ -440,20 +453,20 @@ export default function DayTimeReport({ group }: Props) {
       ],
     };
 
-    const comboOptions: any = {
+    const comboOptions: ChartOptions<'line'> = {
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { display: true, position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, padding: 16, font: { size: 11 } } },
-        tooltip: { callbacks: { label: (ctx: any) => ctx.dataset.label === 'Net P&L' || ctx.dataset.label === 'Avg win' ? fmtINR(ctx.raw) : String(ctx.raw) } },
+        tooltip: { callbacks: { label: (ctx: TooltipItem<'line'>) => ctx.dataset.label === 'Net P&L' || ctx.dataset.label === 'Avg win' ? fmtINR(Number(ctx.raw)) : String(ctx.raw) } },
       },
       scales: {
         x: { grid: { display: false }, ticks: { font: { size: 11 } } },
         y: {
           type: 'linear', position: 'left',
           grid: { color: 'rgba(0,0,0,0.04)' },
-          ticks: { font: { size: 10 }, callback: (v: number) => fmtINR(v) },
+          ticks: { font: { size: 10 }, callback: (v) => fmtINR(Number(v)) },
         },
         y1: {
           type: 'linear', position: 'right',
@@ -480,20 +493,20 @@ export default function DayTimeReport({ group }: Props) {
       ],
     };
 
-    const winOptions: any = {
+    const winOptions: ChartOptions<'line'> = {
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { display: true, position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, padding: 16, font: { size: 11 } } },
-        tooltip: { callbacks: { label: (ctx: any) => ctx.raw.toFixed(1) + '%' } },
+        tooltip: { callbacks: { label: (ctx: TooltipItem<'line'>) => Number(ctx.raw).toFixed(1) + '%' } },
       },
       scales: {
         x: { grid: { display: false }, ticks: { font: { size: 11 } } },
         y: {
           min: 0, max: 100,
           grid: { color: 'rgba(0,0,0,0.04)' },
-          ticks: { font: { size: 10 }, callback: (v: number) => v + '%' },
+          ticks: { font: { size: 10 }, callback: (v) => v + '%' },
         },
       },
     };
