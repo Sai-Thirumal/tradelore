@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { fetchDailyJournal, saveDailyJournal } from '@/lib/db/supabase';
 import { requireAuthUser } from '@/lib/auth/session';
 import { getErrorMessage } from '@/lib/errors';
+import { validateDailyJournalPayload } from '@/lib/validation/journal';
+import { readJsonObject, validationErrorResponse } from '@/lib/validation/request';
 
 export async function GET(request: Request) {
   try {
@@ -22,10 +24,12 @@ export async function POST(request: Request) {
     const { user, response } = await requireAuthUser();
     if (response) return response;
 
-    const body = await request.json();
+    const body = validateDailyJournalPayload(await readJsonObject(request));
     const entry = await saveDailyJournal(body, user.id);
     return NextResponse.json(entry);
   } catch (error: unknown) {
+    const validationResponse = validationErrorResponse(error);
+    if (validationResponse) return validationResponse;
     return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }

@@ -2,13 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { fetchPlaybooks, fetchPlaybook, createPlaybook, updatePlaybook, deletePlaybook } from '@/lib/db/supabase';
 import { requireAuthUser } from '@/lib/auth/session';
 import { errorMessageIncludes, getErrorMessage, hasErrorCode } from '@/lib/errors';
-import type { JsonRecord } from '@/lib/types/trading';
-
-interface PlaybookPayload {
-  id?: string;
-  name: string;
-  data?: JsonRecord;
-}
+import { validateCreatePlaybookPayload, validateUpdatePlaybookPayload } from '@/lib/validation/playbooks';
+import { readJsonObject, validationErrorResponse } from '@/lib/validation/request';
 
 export async function GET(request: NextRequest) {
   try {
@@ -37,10 +32,12 @@ export async function POST(request: Request) {
     const { user, response } = await requireAuthUser();
     if (response) return response;
 
-    const body = await request.json() as PlaybookPayload;
+    const body = validateCreatePlaybookPayload(await readJsonObject(request));
     const playbook = await createPlaybook(body, user.id);
     return NextResponse.json(playbook, { status: 201 });
   } catch (error: unknown) {
+    const validationResponse = validationErrorResponse(error);
+    if (validationResponse) return validationResponse;
     return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }
@@ -50,12 +47,13 @@ export async function PUT(request: Request) {
     const { user, response } = await requireAuthUser();
     if (response) return response;
 
-    const body = await request.json() as PlaybookPayload;
+    const body = validateUpdatePlaybookPayload(await readJsonObject(request));
     const { id, ...updates } = body;
-    if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 });
     const playbook = await updatePlaybook(id, updates, user.id);
     return NextResponse.json(playbook);
   } catch (error: unknown) {
+    const validationResponse = validationErrorResponse(error);
+    if (validationResponse) return validationResponse;
     return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }

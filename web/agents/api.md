@@ -65,6 +65,13 @@ Signs out the current Supabase session and clears auth cookies.
 Upload a broker CSV file. Full pipeline: parse → store orders → fetch all orders → match trades → replace trades.
 
 **Request:** `multipart/form-data` with `file` field (CSV)
+
+**Validation:**
+- Max file size: 10 MB (`413`)
+- Max data rows: 50,000 (`413`)
+- Required mapped columns: symbol, side/type, quantity, price, and trade time/date (`400`)
+- Invalid individual rows are skipped by the parser; if no valid orders remain, returns `422`
+
 **Response:**
 ```json
 {
@@ -113,6 +120,8 @@ Get pre-market plan for a specific date.
 ### POST /api/daily-journal
 Save or update pre-market plan. Upserts on `date`.
 
+Unknown JSON fields return `400`. Text fields are limited to 500 words each. `capital_to_deploy` must be a finite number from 0 to 1,000,000,000.
+
 **Body:**
 ```json
 { "date": "2025-02-01", "market_outlook": "...", "outlook_bias": "Bullish",
@@ -133,11 +142,15 @@ On preview deploys without Supabase env vars, gracefully returns `[]`.
 ### POST /api/playbooks
 Create a new playbook.
 
+Unknown JSON fields return `400`. `name` is required and limited to 80 characters. Select/tag fields must use known UI values. `risk_percent` must be 0–100. Short select-like text fields are capped at 100 characters; long rule/note fields are limited to 500 words.
+
 **Body:** `{ "name": "My Setup", "data": { "markets": ["Stocks"], ... } }`
 **Response:** Created playbook (201)
 
 ### PUT /api/playbooks
 Update an existing playbook.
+
+Uses the same validation as create, plus required `id`. Unknown JSON fields return `400`.
 
 **Body:** `{ "id": "uuid", "name": "New Name", "data": { ... } }`
 Only `id` is required. Pass `name` and/or `data` to update those fields individually.
@@ -243,6 +256,8 @@ Get journal entry for a specific trade. If `trade_id` is omitted, returns the se
 
 ### POST /api/trade-journal
 Save or update per-trade journal. Upserts on `trade_id`.
+
+Unknown JSON fields return `400`. Free-text journal fields are limited to 500 words each. Numeric fields must be finite numbers from 0 to 1,000,000,000.
 
 **Body:**
 ```json

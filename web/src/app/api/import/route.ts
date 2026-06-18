@@ -4,6 +4,8 @@ import { storeOrders, fetchAllOrders, replaceTrades } from '@/lib/db/supabase';
 import { matchTrades } from '@/lib/engine/trade-matcher';
 import { requireAuthUser } from '@/lib/auth/session';
 import { getErrorMessage } from '@/lib/errors';
+import { validateCsvUpload } from '@/lib/validation/csv';
+import { validationErrorResponse } from '@/lib/validation/request';
 
 export async function POST(request: Request) {
   try {
@@ -11,13 +13,15 @@ export async function POST(request: Request) {
     if (response) return response;
 
     const formData = await request.formData();
-    const file = formData.get('file') as File;
+    const file = formData.get('file');
     
-    if (!file) {
+    if (!(file instanceof File)) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
     const text = await file.text();
+    validateCsvUpload(file, text);
+
     const newOrders = await parseCsv(text);
 
     if (newOrders.length === 0) {
@@ -46,6 +50,8 @@ export async function POST(request: Request) {
     });
 
   } catch (error: unknown) {
+    const validationResponse = validationErrorResponse(error);
+    if (validationResponse) return validationResponse;
     return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }
