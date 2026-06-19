@@ -33,6 +33,29 @@ interface ImportResult {
   total_trades: number;
 }
 
+interface ZerodhaStatus {
+  server_configured: boolean;
+  credentials_configured: boolean;
+  configured: boolean;
+  connected: boolean;
+  needs_reconnect: boolean;
+  api_key_masked: string;
+  api_secret_saved: boolean;
+  credentials_saved_at: string | null;
+  redirect_url: string;
+  token_expires_at: string | null;
+  last_sync_at: string | null;
+  last_sync_status: string;
+  last_sync_error: string;
+  broker_user_id: string;
+  broker_user_name: string;
+  today: string;
+}
+
+interface SyncResult extends ImportResult {
+  synced_at: string;
+}
+
 export default function Home() {
   const router = useRouter();
   const [allTrades, setAllTrades] = useState<TradeRecord[]>([]);
@@ -53,10 +76,15 @@ export default function Home() {
   const [toast, setToast] = useState<{ msg: string, type: string } | null>(null);
   const [journaledTradeIds, setJournaledTradeIds] = useState<Set<string>>(new Set());
   const [currentUser, setCurrentUser] = useState<{ email?: string } | null>(null);
+  const [zerodhaStatus, setZerodhaStatus] = useState<ZerodhaStatus | null>(null);
+  const [zerodhaSyncing, setZerodhaSyncing] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
   const cumChartRef = useRef<Chart<'line'> | null>(null);
   const dailyChartRef = useRef<Chart<'bar'> | null>(null);
+  const autoZerodhaSyncRef = useRef(false);
 
   /* Chart.js split-area plugin: green fill above zero, red fill below zero */
   const splitAreaPlugin: Plugin<'line'> = {
@@ -254,10 +282,69 @@ export default function Home() {
     }
   }, []);
 
+  const loadZerodhaStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/broker/zerodha/status');
+      if (!res.ok) {
+        setZerodhaStatus(null);
+        return null;
+      }
+      const data = await res.json() as ZerodhaStatus;
+      setZerodhaStatus(data);
+      return data;
+    } catch {
+      setZerodhaStatus(null);
+      return null;
+    }
+  }, []);
+
+  const syncZerodha = useCallback(async (silent = false) => {
+    if (zerodhaSyncing) return;
+    setZerodhaSyncing(true);
+    try {
+      const res = await fetch('/api/broker/zerodha/sync', { method: 'POST' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({})) as { error?: string; needs_reconnect?: boolean };
+        if (data.needs_reconnect) {
+          await loadZerodhaStatus();
+          if (!silent) showToast('Reconnect Zerodha to sync today.', 'info');
+          return;
+        }
+        throw new Error(data.error || await res.text());
+      }
+
+      const result = await res.json() as SyncResult;
+      await loadTrades();
+      await loadZerodhaStatus();
+      if (!silent) {
+        showToast(`Zerodha synced ${result.imported_orders} orders, matched ${result.total_trades} trades`, 'success');
+      }
+    } catch (err: unknown) {
+      await loadZerodhaStatus();
+      if (!silent) showToast('Zerodha sync failed: ' + getErrorMessage(err), 'error');
+    } finally {
+      setZerodhaSyncing(false);
+    }
+  }, [loadTrades, loadZerodhaStatus, showToast, zerodhaSyncing]);
+
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     router.push('/login');
     router.refresh();
+  };
+
+  const handleClearData = async () => {
+    if (!confirm("Are you sure you want to clear all data? This cannot be undone.")) return;
+    try {
+      const res = await fetch('/api/clear', { method: 'DELETE' });
+      if (!res.ok) throw new Error("Failed");
+      setTrades([]);
+      setAllTrades([]);
+      setStats(null);
+      showToast("All data cleared successfully.", "success");
+    } catch {
+      showToast("Failed to clear data.", "error");
+    }
   };
 
   useEffect(() => {
@@ -267,6 +354,52 @@ export default function Home() {
   useEffect(() => {
     void Promise.resolve().then(() => loadCurrentUser());
   }, [loadCurrentUser]);
+
+  useEffect(() => {
+    const handler = (event: MouseEvent) => {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
+        setMobileMenuOpen(false);
+      }
+    };
+    if (mobileMenuOpen) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    void Promise.resolve().then(async () => {
+      const status = await loadZerodhaStatus();
+      if (!status || autoZerodhaSyncRef.current || !status.configured || !status.connected || status.needs_reconnect) return;
+      autoZerodhaSyncRef.current = true;
+      await syncZerodha(true);
+    });
+  }, [loadZerodhaStatus, syncZerodha]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const zerodha = params.get('zerodha');
+    if (!zerodha) return;
+
+    params.delete('zerodha');
+    const nextUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}${window.location.hash}`;
+    window.history.replaceState({}, '', nextUrl);
+
+    queueMicrotask(() => {
+      if (zerodha === 'connected') {
+        showToast('Zerodha connected. Syncing today’s trades…', 'success');
+        void syncZerodha(true);
+      } else if (zerodha === 'not_configured') {
+        showToast('Zerodha API credentials are not configured on the server.', 'error');
+      } else if (zerodha === 'state_error') {
+        showToast('Zerodha connection security check failed. Please try again.', 'error');
+      } else if (zerodha === 'credentials_required') {
+        showToast('Add your Zerodha Personal API key and secret before connecting.', 'info');
+      } else if (zerodha === 'user_not_enabled') {
+        showToast('This Zerodha account is not enabled for that Kite app. Use the API key and secret from your own Personal app.', 'error');
+      } else if (zerodha === 'connect_failed') {
+        showToast('Zerodha connection failed. Please try again.', 'error');
+      }
+    });
+  }, [showToast, syncZerodha]);
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -290,6 +423,87 @@ export default function Home() {
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  const renderZerodhaButton = (className = 'auth-header-btn') => {
+    if (!zerodhaStatus?.server_configured) {
+      return (
+        <button className={className} title="Set BROKER_TOKEN_ENCRYPTION_KEY and SUPABASE_SERVICE_ROLE_KEY on the server" disabled>
+          Zerodha off
+        </button>
+      );
+    }
+
+    if (!zerodhaStatus.credentials_configured) {
+      return (
+        <button className={className} onClick={() => router.push('/settings/zerodha')}>
+          Setup Zerodha
+        </button>
+      );
+    }
+
+    if (!zerodhaStatus.connected || zerodhaStatus.needs_reconnect) {
+      return (
+        <button className={className} onClick={() => { window.location.href = '/api/broker/zerodha/login'; }}>
+          Connect Zerodha
+        </button>
+      );
+    }
+
+    if (zerodhaStatus.last_sync_at) {
+      return null;
+    }
+
+    return (
+      <button className={className} onClick={() => void syncZerodha(false)} disabled={zerodhaSyncing}>
+        {zerodhaSyncing ? 'Syncing…' : 'Sync Zerodha'}
+      </button>
+    );
+  };
+
+  const renderMobileZerodhaAction = () => {
+    if (!zerodhaStatus?.server_configured) return null;
+
+    if (!zerodhaStatus.credentials_configured) {
+      return (
+        <button className="mobile-menu-item" onClick={() => router.push('/settings/zerodha')}>
+          Setup Zerodha
+        </button>
+      );
+    }
+
+    if (zerodhaStatus.last_sync_at) return null;
+
+    if (!zerodhaStatus.connected || zerodhaStatus.needs_reconnect) {
+      return (
+        <button className="mobile-menu-item" onClick={() => { window.location.href = '/api/broker/zerodha/login'; }}>
+          Connect Zerodha
+        </button>
+      );
+    }
+
+    return (
+      <button
+        className="mobile-menu-item"
+        onClick={() => {
+          setMobileMenuOpen(false);
+          void syncZerodha(false);
+        }}
+        disabled={zerodhaSyncing}
+      >
+        {zerodhaSyncing ? 'Syncing…' : 'Sync Zerodha'}
+      </button>
+    );
+  };
+
+  const renderZerodhaStatus = () => {
+    if (!zerodhaStatus?.server_configured) return null;
+    const label = !zerodhaStatus.credentials_configured
+      ? 'Setup needed'
+      : zerodhaStatus.needs_reconnect
+      ? 'Needs reconnect'
+      : zerodhaStatus.last_sync_at ? 'Synced' : 'Connected';
+    return <span className={`broker-status ${!zerodhaStatus.credentials_configured || zerodhaStatus.needs_reconnect ? 'warn' : 'ok'}`}>{label}</span>;
   };
 
   // --- RENDER HELPERS ---
@@ -432,37 +646,81 @@ export default function Home() {
         </span>
         
         <div className="header-spacer"></div>
-        <DateRangePicker
-          start={customStart}
-          end={customEnd}
-          onChange={(s, e) => { setCustomStart(s); setCustomEnd(e); }}
-          onClear={() => { setCustomStart(''); setCustomEnd(''); }}
-        />
+        <div className="header-date-range">
+          <DateRangePicker
+            start={customStart}
+            end={customEnd}
+            onChange={(s, e) => { setCustomStart(s); setCustomEnd(e); }}
+            onClear={() => { setCustomStart(''); setCustomEnd(''); }}
+          />
+        </div>
         <input type="file" ref={fileInputRef} accept=".csv" style={{display:'none'}} onChange={handleImport} />
-        <button className="import-btn" style={{padding:'6px 12px', fontSize:'12px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text)', gap:'4px'}} onClick={async () => {
-          if (!confirm("Are you sure you want to clear all data? This cannot be undone.")) return;
-          try {
-            const res = await fetch('/api/clear', { method: 'DELETE' });
-            if (!res.ok) throw new Error("Failed");
-            setTrades([]);
-            setAllTrades([]);
-            setStats(null);
-            showToast("All data cleared successfully.", "success");
-          } catch {
-            showToast("Failed to clear data.", "error");
-          }
-        }}>🗑 Clear</button>
-        <button className="import-btn" style={{padding:'6px 12px', fontSize:'12px'}} onClick={() => fileInputRef.current?.click()}>↑ Import CSV</button>
+        <button className="import-btn desktop-header-action" style={{padding:'6px 12px', fontSize:'12px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text)', gap:'4px'}} onClick={handleClearData}>🗑 Clear</button>
+        <button className="import-btn desktop-header-action" style={{padding:'6px 12px', fontSize:'12px'}} onClick={() => fileInputRef.current?.click()}>↑ Import CSV</button>
+        {renderZerodhaStatus()}
+        {renderZerodhaButton('auth-header-btn desktop-header-action')}
+        <div className="mobile-header-menu" ref={mobileMenuRef}>
+          <button
+            className="mobile-menu-trigger"
+            aria-label="Open actions menu"
+            aria-expanded={mobileMenuOpen}
+            onClick={() => setMobileMenuOpen(open => !open)}
+          >
+            ⋮
+          </button>
+          <div className={`mobile-actions-menu ${mobileMenuOpen ? 'open' : ''}`}>
+            <button
+              className="mobile-menu-item"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                fileInputRef.current?.click();
+              }}
+            >
+              Import CSV
+            </button>
+            <button
+              className="mobile-menu-item"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                void handleClearData();
+              }}
+            >
+              Clear data
+            </button>
+            {renderMobileZerodhaAction()}
+            {currentUser ? (
+              <button
+                className="mobile-menu-item"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  void handleLogout();
+                }}
+              >
+                Logout
+              </button>
+            ) : (
+              <button
+                className="mobile-menu-item"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  router.push('/login');
+                }}
+              >
+                Login
+              </button>
+            )}
+          </div>
+        </div>
         {currentUser ? (
           <button
-            className="auth-header-btn"
+            className="auth-header-btn desktop-header-action"
             title={currentUser.email || 'Signed in'}
             onClick={handleLogout}
           >
             Logout
           </button>
         ) : (
-          <button className="auth-header-btn" onClick={() => router.push('/login')}>
+          <button className="auth-header-btn desktop-header-action" onClick={() => router.push('/login')}>
             Login
           </button>
         )}

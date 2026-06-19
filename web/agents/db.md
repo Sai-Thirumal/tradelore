@@ -58,7 +58,7 @@ CREATE TABLE public.trades (
   commission_breakdown JSONB,           -- Brokerage/STT/exchange/SEBI/stamp/DP/GST
   entry_time   TEXT NOT NULL,          -- First entry fill timestamp
   exit_time    TEXT NOT NULL,          -- Last exit fill timestamp
-  trade_date   TEXT NOT NULL,          -- entry_time date part (YYYY-MM-DD)
+  trade_date   TEXT NOT NULL,          -- exit_time date part (YYYY-MM-DD)
   result       TEXT NOT NULL,          -- "win" | "loss" | "breakeven"
   orders       JSONB,                  -- All fills for this trade (entry + exit)
   created_at   TIMESTAMPTZ DEFAULT NOW()
@@ -195,6 +195,38 @@ CREATE UNIQUE INDEX idx_daily_journal_user_date ON public.daily_journal(user_id,
 
 ---
 
+### `broker_connections`
+Per-user broker connection metadata. Zerodha Personal API secrets and daily access tokens are encrypted server-side; API responses return only masked/sanitized metadata.
+
+```sql
+CREATE TABLE public.broker_connections (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  broker text NOT NULL,
+  api_key text DEFAULT '',
+  encrypted_api_secret text,
+  credentials_saved_at timestamptz,
+  broker_user_id text DEFAULT '',
+  broker_user_name text DEFAULT '',
+  encrypted_access_token text,
+  token_expires_at timestamptz,
+  last_sync_at timestamptz,
+  last_sync_status text DEFAULT '',
+  last_sync_error text DEFAULT '',
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE(user_id, broker)
+);
+CREATE INDEX idx_broker_connections_user_broker ON public.broker_connections(user_id, broker);
+```
+
+**Security invariants:**
+- `encrypted_api_secret` and `encrypted_access_token` are encrypted server-side with `BROKER_TOKEN_ENCRYPTION_KEY` using AES-256-GCM.
+- Direct client access to `broker_connections` is revoked; server routes use the Supabase service role and filter by the authenticated user id.
+- API responses expose only masked API key, booleans, broker metadata, and sync state; never raw API secret or access token.
+
+---
+
 ## Foreign Keys
 
 | Source | Target | Type |
@@ -227,6 +259,7 @@ Run in Supabase SQL Editor:
 1. `sql/setup-journal.sql`
 2. `sql/playbooks-migration.sql`
 3. `sql/multi-user-auth.sql`
+4. `sql/broker-connections.sql`
 
 When old data is not needed, run `multi-user-auth.sql` as-is. Its commented `UPDATE ... user_id = ...` block is only for preserving existing rows by assigning them to a first Supabase Auth user.
 

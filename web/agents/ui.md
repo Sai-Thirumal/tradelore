@@ -5,6 +5,7 @@
 ```
 /                           Main dashboard (page.tsx)
 ├── Dashboard tab            Stat pills, P&L charts, monthly calendar
+│   └── Header broker sync   Zerodha status chip + connect/sync button
 ├── Journal tab              PreMarket plan + PostTrade analysis
 │   ├── PreMarket            Date header, market outlook, bias, capital, key levels, news
 │   └── PostTrade            Expandable per-trade journal forms
@@ -23,6 +24,8 @@
 ├── Pre Market tab           Read-only daily pre-market plan
 └── Post Market tab          Journal form synced via localStorage + API
 ```
+
+Mobile note: trade detail constrains the top header to the viewport, truncating long option symbols and shrinking P&L/result labels so the tab card below does not make the page move horizontally. Shared journal subtab rows scroll horizontally inside their own strip; the trade detail `View Trade / Pre Market / Post Market` row uses three equal-width tabs on mobile.
 
 ---
 
@@ -80,6 +83,7 @@
 - **Data source:** GET `/api/reports/day-time?group=...`
 - **Features:** stat cards, Chart.js line/bar charts, table pagination, P&L sorting, min-trades filter, W/L ratio filter
 - **Chart modes:** P&L and win % for instruments; combo P&L/count/avg-win plus win % for day/time groups
+- **Responsive:** Day & Time secondary tabs and report tables scroll horizontally inside their own containers on small screens so the page viewport stays fixed.
 
 ### `components/journal/PreMarket.tsx`
 `src/app/components/journal/PreMarket.tsx`
@@ -165,6 +169,29 @@ Logged-out visitor
   → /auth/callback creates session for email/OAuth redirects
   → header shows Logout next to Import CSV
 ```
+
+### Zerodha day-to-day sync flow
+```
+Dashboard mount
+  → GET /api/broker/zerodha/status
+  → if Personal API credentials are missing, header shows Setup Zerodha
+  → if configured + connected + token valid, POST /api/broker/zerodha/sync once quietly
+  → sync stores Kite fills as raw trade_orders and reloads /api/trades
+  → if token expired, header shows Connect Zerodha
+```
+
+Header states:
+- `Zerodha off`: server encryption/service-role env vars are missing; button disabled.
+- `Setup Zerodha`: user has not saved Personal API credentials.
+- `Connect Zerodha`: no stored token or token expired after Zerodha's daily 6 AM expiry.
+- `Sync Zerodha`: valid token exists but no successful sync is recorded yet.
+- After a successful sync, the action button is hidden and only the green `Synced` chip remains.
+- Status chip shows `Setup needed`, `Needs reconnect`, `Connected`, or `Synced` without a timestamp.
+
+Mobile header:
+- Below 768px, the header keeps the TradeLore logo, compact Date Range control, broker status chip, and overflow `...` menu on one row; below 430px, button/logo sizing tightens to avoid overlap on real phone browsers.
+- Mobile-only overflow menu contains Import CSV, Clear data, Zerodha connect/sync when needed, and Login/Logout. Desktop keeps the inline controls.
+- The Date Range calendar popover is viewport-centered on mobile, with a lower offset on narrow two-row headers.
 
 ### Trade ID generation
 ```ts

@@ -7,6 +7,12 @@
 ├── auth/
 │   ├── me/           GET   — Current authenticated user
 │   └── logout/       POST  — Sign out current user
+├── broker/
+│   └── zerodha/
+│       ├── login/    GET   — Start Kite Connect login flow
+│       ├── callback/ GET   — Exchange request_token and store encrypted daily token
+│       ├── status/   GET   — Zerodha connection metadata, no secrets
+│       └── sync/     POST  — Fetch today's Kite fills and rebuild completed trades
 ├── chart/            GET   — Fetch OHLC candles for underlying asset
 ├── clear/            DELETE — Wipe all trade data
 ├── daily-journal/    GET|POST — Pre-market plan by date
@@ -47,6 +53,76 @@ Returns the authenticated user claims used by the header control.
 Signs out the current Supabase session and clears auth cookies.
 
 **Response:** `{ "success": true }`
+
+### GET /api/broker/zerodha/login
+Starts the Kite Connect login flow for the signed-in TradeLore user.
+
+**Security behavior:**
+- Requires Supabase Auth.
+- Uses the signed-in user's saved Zerodha Personal API key.
+- Sets a short-lived HTTP-only `zerodha_oauth_state` cookie and sends the same state through Kite `redirect_params` for callback verification.
+
+**Redirects:** Kite login page, `/settings/zerodha?zerodha=credentials_required`, or `/?zerodha=not_configured` when server encryption/service-role env vars are missing.
+
+### GET /api/broker/zerodha/callback
+Receives Kite `request_token`, verifies the state cookie, decrypts the user's saved API secret server-side, exchanges the request token for a daily `access_token`, encrypts the token, and upserts `broker_connections`.
+
+**Redirects:** `/?zerodha=connected`, `/?zerodha=state_error`, `/?zerodha=missing_request_token`, `/?zerodha=credentials_required`, `/?zerodha=user_not_enabled`, or `/?zerodha=connect_failed`.
+
+### GET /api/broker/zerodha/status
+Returns Zerodha connection metadata only. Does not return raw API keys, API secrets, or access tokens.
+
+**Response:**
+```json
+{
+  "server_configured": true,
+  "credentials_configured": true,
+  "configured": true,
+  "connected": true,
+  "needs_reconnect": false,
+  "api_key_masked": "abcd****wxyz",
+  "api_secret_saved": true,
+  "credentials_saved_at": "2026-06-18T05:00:00.000Z",
+  "redirect_url": "https://web-phi-one-12.vercel.app/api/broker/zerodha/callback",
+  "token_expires_at": "2026-06-19T00:30:00.000Z",
+  "last_sync_at": "2026-06-18T05:01:00.000Z",
+  "last_sync_status": "success",
+  "last_sync_error": "",
+  "broker_user_id": "AB1234",
+  "broker_user_name": "Sai",
+  "today": "2026-06-18"
+}
+```
+
+### POST /api/broker/zerodha/sync
+Fetches today's executed order fills from Kite `GET /trades`, normalizes them into TradeLore `TradeOrder[]`, stores them idempotently, runs `matchTrades()`, and replaces completed trades for the user.
+
+**Response:**
+```json
+{
+  "imported_orders": 14,
+  "total_orders": 248,
+  "total_trades": 51,
+  "raw_fills": 248,
+  "fills_with_order_id": 248,
+  "unique_order_ids": 221,
+  "collapsed_fills": 221,
+  "synced_at": "2026-06-18T05:05:00.000Z"
+}
+```
+
+**Errors:**
+- `409 { "needs_reconnect": true }` when Kite returns a token/session error or the stored token has passed its 6 AM IST expiry window.
+- `503` when Zerodha server encryption/service-role env vars are not configured.
+
+### POST /api/broker/zerodha/credentials
+Saves a user's Zerodha Personal API key and encrypted API secret. Clears any existing access token because tokens are tied to the API key.
+
+### DELETE /api/broker/zerodha/credentials
+Deletes the saved API key, encrypted API secret, encrypted access token, and broker user metadata.
+
+### POST /api/broker/zerodha/disconnect
+Deletes only the encrypted access token and broker user metadata; keeps the saved API key and encrypted API secret.
 
 **Response:** `Trade[]`
 ```json

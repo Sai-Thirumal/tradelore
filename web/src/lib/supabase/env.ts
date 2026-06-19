@@ -8,6 +8,14 @@ export function getSupabasePublishableKey() {
     || '';
 }
 
+export function getSupabaseServiceRoleKey() {
+  return process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+}
+
 export function hasSupabaseBrowserEnv() {
   return Boolean(getSupabaseUrl() && getSupabasePublishableKey());
+}
+
+export function hasSupabaseServiceRoleEnv() {
+  return Boolean(getSupabaseUrl() && getSupabaseServiceRoleKey());
 }
