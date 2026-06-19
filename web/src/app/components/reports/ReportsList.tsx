@@ -78,6 +78,8 @@ export default function ReportsList() {
     }
   };
 
+  const categoryTabs = renderCategoryTabs();
+
   return (
     <div>
       {/* Dropdown + category tabs on same row */}
@@ -99,9 +101,7 @@ export default function ReportsList() {
             ))}
           </div>
         </div>
-        <div className="report-cat-tabs">
-          {renderCategoryTabs()}
-        </div>
+        {categoryTabs && <div className="report-cat-tabs">{categoryTabs}</div>}
       </div>
 
       {/* Content */}

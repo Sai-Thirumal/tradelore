@@ -309,7 +309,7 @@ export default function TradeDetailPage() {
       </div>
 
       {/* Tab switcher — same design as journal-subtabs */}
-      <div className="journal-subtabs">
+      <div className="journal-subtabs td-tabs">
         <div className={`journal-subtab ${activeTab === 'trade' ? 'active' : ''}`} onClick={() => setActiveTab('trade')}>
           View Trade
         </div>
