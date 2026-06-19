@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { fetchAllTrades, fetchAllTradeJournals } from '@/lib/db/supabase';
-import { calculateTradeCommission } from '@/lib/engine/commission';
+import { withCurrentCommission } from '@/lib/engine/commission';
 import { requireAuthUser } from '@/lib/auth/session';
 import { getErrorMessage } from '@/lib/errors';
-import type { TradeDirection, TradeRecord } from '@/lib/types/trading';
+import type { TradeRecord } from '@/lib/types/trading';
 
 interface OverviewStats {
   // Trade counts
@@ -79,10 +79,6 @@ function maxConsecutive(arr: boolean[], target: boolean): number {
   return max;
 }
 
-function getDirection(direction: string | undefined): TradeDirection {
-  return direction === 'SHORT' ? 'SHORT' : 'LONG';
-}
-
 export async function GET() {
   try {
     const { user, response } = await requireAuthUser();
@@ -91,22 +87,7 @@ export async function GET() {
     let trades = await fetchAllTrades(user.id);
     const journals = await fetchAllTradeJournals(user.id);
 
-    // Backfill commission for legacy trades
-    trades = trades.map((t): TradeRecord => {
-      if (t.commission !== undefined && t.commission !== null) return t;
-      const commission = calculateTradeCommission({
-        symbol: t.symbol || '',
-        exchange: t.exchange || '',
-        segment: t.segment || '',
-        direction: getDirection(t.direction),
-        qty: t.qty || 0,
-        avg_entry: t.avg_entry || 0,
-        avg_exit: t.avg_exit || 0,
-        entry_time: t.entry_time || t.entryTime || '',
-        exit_time: t.exit_time || t.exitTime || '',
-      });
-      return { ...t, commission: commission.total };
-    });
+    trades = trades.map((t): TradeRecord => withCurrentCommission(t));
 
     if (!trades.length) {
       return NextResponse.json(null);

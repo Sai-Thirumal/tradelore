@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchAllTrades, fetchAllTradeJournals, fetchPlaybooks } from '@/lib/db/supabase';
-import { calculateTradeCommission } from '@/lib/engine/commission';
+import { withCurrentCommission } from '@/lib/engine/commission';
 import { requireAuthUser } from '@/lib/auth/session';
 import { getErrorMessage } from '@/lib/errors';
-import type { TradeDirection, TradeRecord } from '@/lib/types/trading';
+import type { TradeRecord } from '@/lib/types/trading';
 
 type Group = 'days' | 'months' | 'trade-time' | 'trade-duration' | 'instruments' | 'deployed-capital' | 'playbooks' | 'options-expiry';
 
@@ -76,10 +76,6 @@ interface GroupStats {
   avgWin: number;
   avgLoss: number;
   avgVolume: number;
-}
-
-function getDirection(direction: string | undefined): TradeDirection {
-  return direction === 'SHORT' ? 'SHORT' : 'LONG';
 }
 
 function formatCompactCapital(value: number): string {
@@ -361,22 +357,7 @@ export async function GET(request: NextRequest) {
     const group = (request.nextUrl.searchParams.get('group') || 'days') as Group;
     let trades = await fetchAllTrades(user.id);
 
-    // Backfill commission for legacy trades
-    trades = trades.map((t): TradeRecord => {
-      if (t.commission !== undefined && t.commission !== null) return t;
-      const commission = calculateTradeCommission({
-        symbol: t.symbol || '',
-        exchange: t.exchange || '',
-        segment: t.segment || '',
-        direction: getDirection(t.direction),
-        qty: t.qty || 0,
-        avg_entry: t.avg_entry || 0,
-        avg_exit: t.avg_exit || 0,
-        entry_time: t.entry_time || t.entryTime || '',
-        exit_time: t.exit_time || t.exitTime || '',
-      });
-      return { ...t, commission: commission.total };
-    });
+    trades = trades.map((t): TradeRecord => withCurrentCommission(t));
 
     if (!trades.length) {
       return NextResponse.json({

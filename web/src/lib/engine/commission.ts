@@ -1,7 +1,11 @@
-// Indian exchange commission calculator
-// Formulas match the exact spec provided by the user (Apr 2026 rates)
+// Indian exchange commission calculator for Zerodha charges.
+
+import type { TradeDirection, TradeOrder, TradeRecord } from '@/lib/types/trading';
+
+export const COMMISSION_RATE_VERSION = 'zerodha_charges_2026_06_19';
 
 export interface CommissionBreakdown {
+  rateVersion: string;
   brokerage: number;       // Broker commission
   stt: number;             // Securities Transaction Tax (or CTT for commodities)
   exchangeCharge: number;  // Exchange transaction charge
@@ -14,13 +18,13 @@ export interface CommissionBreakdown {
 
 // ── Rate tables ──
 
-// STT / CTT rates (revised Apr 2026)
+// STT / CTT rates
 // Note: STT/CTT is always on TURNOVER VALUE, never on profit.
 const STT_RATES: Record<string, { rate: number; sellOnly: boolean }> = {
   'EQ_DELIVERY':   { rate: 0.001,   sellOnly: false }, // 0.1% both sides
   'EQ_INTRADAY':   { rate: 0.00025, sellOnly: true  }, // 0.025% sell only
-  'FO_FUTURES':    { rate: 0.0005,  sellOnly: true  }, // 0.05% sell only (Apr 2026)
-  'FO_OPTIONS':    { rate: 0.0015,  sellOnly: true  }, // 0.15% premium sell (Apr 2026)
+  'FO_FUTURES':    { rate: 0.0005,  sellOnly: true  }, // 0.05% sell only
+  'FO_OPTIONS':    { rate: 0.0015,  sellOnly: true  }, // 0.15% premium sell
   'FO_OPTIONS_EX': { rate: 0.0015,  sellOnly: true  }, // 0.15% intrinsic value at exercise
   'MCX_FUTURES':   { rate: 0.0001,  sellOnly: true  }, // CTT 0.01% sell only
   'MCX_OPTIONS':   { rate: 0.0005,  sellOnly: true  }, // CTT 0.05% sell premium
@@ -28,9 +32,12 @@ const STT_RATES: Record<string, { rate: number; sellOnly: boolean }> = {
 
 // Exchange transaction charges (₹ per lakh of turnover / premium)
 const EXCHANGE_RATES: Record<string, number> = {
-  'NSE_EQ':      2.97,  // ₹2.97 per lakh (each side)
-  'NSE_FUTURES': 1.73,  // ₹1.73 per lakh (each side)
-  'NSE_OPTIONS': 35.03, // ₹35.03 per lakh of premium (each side)
+  'NSE_EQ':      3.07,  // ₹3.07 per lakh (each side)
+  'BSE_EQ':      3.75,  // ₹3.75 per lakh (each side)
+  'NSE_FUTURES': 1.83,  // ₹1.83 per lakh (each side)
+  'BSE_FUTURES': 0,     // ₹0 per lakh (each side)
+  'NSE_OPTIONS': 35.53, // ₹35.53 per lakh of premium (each side)
+  'BSE_OPTIONS': 32.50, // ₹32.50 per lakh of premium (each side)
   'MCX_FUTURES': 2.10,  // ₹2.10 per lakh turnover
   'MCX_OPTIONS': 41.80, // ₹41.80 per lakh premium turnover
 };
@@ -51,8 +58,8 @@ const SEBI_RATE = 0.000001;
 // GST rate
 const GST_RATE = 0.18;
 
-// DP charges: flat per ISIN per day on sell (₹13.5 + 18% GST = ₹15.93)
-const DP_CHARGE_PER_ISIN = 15.93;
+// DP charges: flat per ISIN per day on delivery sell, inclusive of GST.
+const DP_CHARGE_PER_ISIN = 15.34;
 
 // ── Helpers ──
 
@@ -90,7 +97,10 @@ function getExchangeKey(exchange: string, segment: string, isOptions: boolean): 
     return isOptions ? 'MCX_OPTIONS' : 'MCX_FUTURES';
   }
 
-  if (seg === 'EQ') return 'NSE_EQ';
+  if (seg === 'EQ') return ex === 'BSE' ? 'BSE_EQ' : 'NSE_EQ';
+  if (ex === 'BFO' || seg === 'BFO' || ex === 'BSE') {
+    return isOptions ? 'BSE_OPTIONS' : 'BSE_FUTURES';
+  }
   if (isOptions) return 'NSE_OPTIONS';
   return 'NSE_FUTURES';
 }
@@ -146,13 +156,11 @@ function calculateLegCommission(params: CommissionParams): CommissionBreakdown {
     if (seg === 'EQ' && isDelivery) {
       brokerage = 0;
     } else if (seg === 'EQ' && !isDelivery) {
-      // Equity intraday: min(20, 0.03% of total trade turnover)
-      // Per-leg we can't know total turnover, so caller handles this.
-      // Default to 0 here; calculateTradeCommission sets the correct value.
-      brokerage = 0;
-    } else {
-      // F&O / MCX: ₹20 per executed order per leg
+      brokerage = Math.min(20, 0.0003 * turnover);
+    } else if (isOptions) {
       brokerage = 20;
+    } else {
+      brokerage = Math.min(20, 0.0003 * turnover);
     }
   }
 
@@ -207,6 +215,7 @@ function calculateLegCommission(params: CommissionParams): CommissionBreakdown {
   const total = brokerage + stt + exchangeCharge + sebiFee + stampDuty + dpCharge + gst;
 
   return {
+    rateVersion: COMMISSION_RATE_VERSION,
     brokerage: round(brokerage),
     stt: round(stt),
     exchangeCharge: round(exchangeCharge),
@@ -228,79 +237,48 @@ export function calculateTradeCommission(trade: {
   symbol: string;
   exchange: string;
   segment: string;
-  direction: 'LONG' | 'SHORT';
+  direction: TradeDirection;
   qty: number;
   avg_entry: number;
   avg_exit: number;
   entry_time: string;
   exit_time: string;
+  orders?: TradeOrder[];
 }): CommissionBreakdown {
   const { symbol, exchange, segment, direction, qty, avg_entry, avg_exit, entry_time, exit_time } = trade;
 
   const upperSymbol = (symbol || '').toUpperCase();
   const isOptions = upperSymbol.endsWith('CE') || upperSymbol.endsWith('PE');
   const seg = (segment || '').toUpperCase();
-  const isMCX = (exchange || '').toUpperCase() === 'MCX' || seg === 'MCX';
-
-  // Turnover values
-  const entryTurnover = qty * avg_entry;
-  const exitTurnover = qty * avg_exit;
-  const totalTurnover = entryTurnover + exitTurnover;
 
   // For equity delivery vs intraday: infer from hold time
   const entryDate = entry_time.substring(0, 10);
   const exitDate = exit_time.substring(0, 10);
-  const isDelivery = entryDate !== exitDate;
+  const isDelivery = seg === 'EQ' && entryDate !== exitDate;
+  const tradeOrders = trade.orders && trade.orders.length > 0
+    ? trade.orders
+    : buildFallbackOrders({ direction, qty, avg_entry, avg_exit, exchange, segment, entry_time, exit_time });
 
-  // ── Brokerage calculation per spec ──
-  let entryBrokerage = 0;
-  let exitBrokerage = 0;
-
-  if (seg === 'EQ' && !isDelivery && !isMCX) {
-    // Equity intraday: min(20, 0.03% of total turnover) for the WHOLE trade
-    const specBrokerage = Math.min(20, 0.0003 * totalTurnover);
-    entryBrokerage = specBrokerage;
-    exitBrokerage = 0; // all brokerage assigned to entry leg
-  } else if (seg === 'EQ' && isDelivery) {
-    // Equity delivery: ₹0
-    entryBrokerage = 0;
-    exitBrokerage = 0;
-  } else {
-    // F&O / MCX: ₹20 per executed order × 2 legs
-    entryBrokerage = 20;
-    exitBrokerage = 20;
-  }
-
-  // Entry leg: buy for LONG, sell for SHORT
-  const entryCommission = calculateLegCommission({
-    turnover: entryTurnover,
-    segment,
-    exchange,
-    isOptions,
-    isSell: direction === 'SHORT',
-    isBuy: direction === 'LONG',
-    isDelivery,
-    brokeragePerOrder: entryBrokerage,
-  });
-
-  // Exit leg: sell for LONG, buy for SHORT
-  const exitCommission = calculateLegCommission({
-    turnover: exitTurnover,
-    segment,
-    exchange,
-    isOptions,
-    isSell: direction === 'LONG',
-    isBuy: direction === 'SHORT',
-    isDelivery,
-    brokeragePerOrder: exitBrokerage,
-  });
-
-  // Sum both legs
-  return sumCommissions(entryCommission, exitCommission);
+  return tradeOrders.reduce((sum, order) => {
+    const orderSegment = order.segment || segment;
+    const orderExchange = order.exchange || exchange;
+    const turnover = Number(order.qty) * Number(order.price);
+    const commission = calculateLegCommission({
+      turnover,
+      segment: orderSegment,
+      exchange: orderExchange,
+      isOptions,
+      isSell: order.type === 'SELL',
+      isBuy: order.type === 'BUY',
+      isDelivery,
+    });
+    return sumCommissions(sum, commission);
+  }, emptyCommission());
 }
 
 function sumCommissions(a: CommissionBreakdown, b: CommissionBreakdown): CommissionBreakdown {
   return {
+    rateVersion: COMMISSION_RATE_VERSION,
     brokerage: round(a.brokerage + b.brokerage),
     stt: round(a.stt + b.stt),
     exchangeCharge: round(a.exchangeCharge + b.exchangeCharge),
@@ -309,6 +287,90 @@ function sumCommissions(a: CommissionBreakdown, b: CommissionBreakdown): Commiss
     dpCharge: round(a.dpCharge + b.dpCharge),
     gst: round(a.gst + b.gst),
     total: round(a.total + b.total),
+  };
+}
+
+function emptyCommission(): CommissionBreakdown {
+  return {
+    rateVersion: COMMISSION_RATE_VERSION,
+    brokerage: 0,
+    stt: 0,
+    exchangeCharge: 0,
+    sebiFee: 0,
+    stampDuty: 0,
+    dpCharge: 0,
+    gst: 0,
+    total: 0,
+  };
+}
+
+function buildFallbackOrders(params: {
+  direction: TradeDirection;
+  qty: number;
+  avg_entry: number;
+  avg_exit: number;
+  exchange: string;
+  segment: string;
+  entry_time: string;
+  exit_time: string;
+}): TradeOrder[] {
+  const { direction, qty, avg_entry, avg_exit, exchange, segment, entry_time, exit_time } = params;
+  const entryType = direction === 'LONG' ? 'BUY' : 'SELL';
+  const exitType = direction === 'LONG' ? 'SELL' : 'BUY';
+
+  return [
+    {
+      uid: 'commission-entry',
+      symbol: '',
+      exchange,
+      segment,
+      trade_time: entry_time,
+      type: entryType,
+      qty,
+      price: avg_entry,
+    },
+    {
+      uid: 'commission-exit',
+      symbol: '',
+      exchange,
+      segment,
+      trade_time: exit_time,
+      type: exitType,
+      qty,
+      price: avg_exit,
+    },
+  ];
+}
+
+export function isCurrentCommissionBreakdown(value: unknown): value is CommissionBreakdown {
+  return typeof value === 'object'
+    && value !== null
+    && 'rateVersion' in value
+    && value.rateVersion === COMMISSION_RATE_VERSION;
+}
+
+export function withCurrentCommission<T extends TradeRecord>(trade: T): T {
+  if (trade.commission !== undefined && trade.commission !== null && isCurrentCommissionBreakdown(trade.commission_breakdown)) {
+    return trade;
+  }
+
+  const commission = calculateTradeCommission({
+    symbol: trade.symbol || '',
+    exchange: trade.exchange || '',
+    segment: trade.segment || '',
+    direction: trade.direction === 'SHORT' ? 'SHORT' : 'LONG',
+    qty: trade.qty || 0,
+    avg_entry: trade.avg_entry || 0,
+    avg_exit: trade.avg_exit || 0,
+    entry_time: trade.entry_time || trade.entryTime || '',
+    exit_time: trade.exit_time || trade.exitTime || '',
+    orders: trade.orders,
+  });
+
+  return {
+    ...trade,
+    commission: commission.total,
+    commission_breakdown: commission,
   };
 }
 
@@ -376,6 +438,7 @@ export function calculateExercisedOptionCommission(params: {
   const total = brokerage + stt + exchangeCharge + sebiFee + stampDuty + gst;
 
   return {
+    rateVersion: COMMISSION_RATE_VERSION,
     brokerage: round(brokerage),
     stt: round(stt),
     exchangeCharge: round(exchangeCharge),

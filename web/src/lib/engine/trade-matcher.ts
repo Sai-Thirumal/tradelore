@@ -1,6 +1,15 @@
 import { calculateTradeCommission } from './commission';
 import type { TradeDirection, TradeOrder, TradeRecord } from '@/lib/types/trading';
 
+function buildPositionKey(order: TradeOrder) {
+  return [
+    order.symbol.trim().toUpperCase(),
+    (order.exchange || '').trim().toUpperCase(),
+    (order.segment || '').trim().toUpperCase(),
+    (order.expiry_date || '').trim(),
+  ].join('|||');
+}
+
 // Step 1 — Collapse partial fills by order_id
 // Broker CSV has one row per exchange fill. A single order can be broken
 // into multiple fills. Collapse them BEFORE position tracking.
@@ -54,24 +63,24 @@ function collapseFills(orders: TradeOrder[]): TradeOrder[] {
 
 
 // Step 2 — Position tracker on collapsed fills
-// Group by symbol + trade_date, sort by time, track running position.
+// Group by symbol, sort by time, track running position across days.
 // Emit complete trades when position returns to 0.
 export function matchTrades(orders: TradeOrder[]): TradeRecord[] {
   // Step 1: Collapse partial fills
   const fills = collapseFills(orders);
 
-  // Group by symbol + trade_date
-  const bySymbolDate: Record<string, TradeOrder[]> = {};
+  // Group by instrument identity so swing/delivery trades can span multiple sessions
+  // without mixing different exchanges or contract types.
+  const bySymbol: Record<string, TradeOrder[]> = {};
   for (const f of fills) {
-    const date = (f.trade_time || '').substring(0, 10);
-    const key = `${f.symbol}|||${date}`;
-    if (!bySymbolDate[key]) bySymbolDate[key] = [];
-    bySymbolDate[key].push(f);
+    const key = buildPositionKey(f);
+    if (!bySymbol[key]) bySymbol[key] = [];
+    bySymbol[key].push(f);
   }
 
   const trades: TradeRecord[] = [];
 
-  for (const [, group] of Object.entries(bySymbolDate)) {
+  for (const [, group] of Object.entries(bySymbol)) {
     // Sort by trade_time ascending
     group.sort((a, b) => a.trade_time.localeCompare(b.trade_time));
 
@@ -114,8 +123,7 @@ export function matchTrades(orders: TradeOrder[]): TradeRecord[] {
       }
     }
 
-    // Position still open at end — do NOT emit as complete trade
-    // (Silently dropped per spec)
+    // Position still open at end — do NOT emit as complete trade yet.
   }
 
   return trades.sort((a, b) => a.exit_time.localeCompare(b.exit_time));
@@ -152,7 +160,7 @@ function buildTrade(
   // exit_datetime = last exit fill timestamp
   const entryTime = entryFills[0].trade_time;
   const exitTime = exitFills[exitFills.length - 1].trade_time;
-  const tradeDate = entryTime.substring(0, 10);
+  const tradeDate = exitTime.substring(0, 10);
 
   // All fills for the trade (both entry and exit, for detail view)
   const allOrders = [...entryFills, ...exitFills].sort((a, b) =>
@@ -170,6 +178,7 @@ function buildTrade(
     avg_exit: Number(avgExit.toFixed(4)),
     entry_time: entryTime,
     exit_time: exitTime,
+    orders: allOrders,
   });
 
   return {
