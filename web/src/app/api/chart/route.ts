@@ -47,10 +47,11 @@ export async function GET(request: Request) {
   const isIntraday = durationSec > 0 && durationSec <= 86400; // ≤1 day
   const interval = isIntraday ? '5m' : '1d';
 
-  // Pad: 2 days before entry, 2 days after exit (or 5 days for intraday)
-  const padSec = isIntraday ? 86400 * 5 : 86400 * 2;
-  const period1 = Math.floor(entryUnix - padSec);
-  const period2 = Math.floor(Math.max(exitUnix, entryUnix + 86400) + padSec);
+  // Pad intraday charts tightly, but give swing trades a wider daily context.
+  const padBeforeSec = 86400 * (isIntraday ? 5 : 30);
+  const padAfterSec = 86400 * (isIntraday ? 5 : 10);
+  const period1 = Math.floor(entryUnix - padBeforeSec);
+  const period2 = Math.floor(Math.max(exitUnix, entryUnix + 86400) + padAfterSec);
 
   // Use period1/period2 for exact date range (range= is relative to "now")
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=${interval}&period1=${period1}&period2=${period2}&includePrePost=false`;
