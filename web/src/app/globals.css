@@ -178,11 +178,11 @@ body::before {
   background: var(--brand-light);
   border-color: var(--brand);
 }
-.mobile-header-menu {
-  display: none;
+.header-actions-menu {
+  display: block;
   position: relative;
 }
-.mobile-menu-trigger {
+.actions-menu-trigger {
   width: 34px;
   height: 38px;
   border: 1px solid var(--border);
@@ -194,7 +194,7 @@ body::before {
   line-height: 1;
   cursor: pointer;
 }
-.mobile-actions-menu {
+.actions-menu {
   display: none;
   position: absolute;
   top: calc(100% + 6px);
@@ -207,11 +207,11 @@ body::before {
   box-shadow: var(--shadow-md);
   z-index: 300;
 }
-.mobile-actions-menu.open {
+.actions-menu.open {
   display: flex;
   flex-direction: column;
 }
-.mobile-menu-item {
+.actions-menu-item {
   width: 100%;
   padding: 10px 12px;
   border: none;
@@ -224,11 +224,11 @@ body::before {
   cursor: pointer;
   white-space: nowrap;
 }
-.mobile-menu-item:hover {
+.actions-menu-item:hover {
   background: var(--brand-light);
   color: var(--brand);
 }
-.mobile-menu-item:disabled {
+.actions-menu-item:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
@@ -460,11 +460,31 @@ body::before {
   color: var(--text-secondary);
   font-size: 14px;
 }
+.zerodha-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
 .settings-back-link {
   color: var(--brand);
   font-size: 13px;
   font-weight: 700;
   text-decoration: none;
+}
+.settings-help-btn {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.settings-help-btn:hover {
+  border-color: var(--brand);
+  background: var(--brand-light);
 }
 .zerodha-notice {
   padding: 12px 14px;
@@ -491,6 +511,68 @@ body::before {
   font-family: var(--font-display);
   font-size: 18px;
   margin-bottom: 14px;
+}
+.zerodha-help-panel {
+  box-shadow: none;
+}
+.zerodha-help-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.zerodha-help-header h2 {
+  margin-bottom: 4px;
+}
+.zerodha-help-steps {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  counter-reset: zerodha-step;
+  list-style: none;
+}
+.zerodha-help-steps li {
+  position: relative;
+  min-height: 112px;
+  padding: 14px 14px 14px 46px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.zerodha-help-steps li::before {
+  counter-increment: zerodha-step;
+  content: counter(zerodha-step);
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 800;
+}
+.zerodha-help-steps strong {
+  display: block;
+  color: var(--text);
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+.zerodha-help-note {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
 }
 .settings-details {
   display: flex;
@@ -592,6 +674,16 @@ body::before {
   }
   .zerodha-settings-header {
     flex-direction: column;
+  }
+  .zerodha-header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .zerodha-help-steps {
+    grid-template-columns: 1fr;
+  }
+  .zerodha-help-steps li {
+    min-height: auto;
   }
   .settings-grid {
     grid-template-columns: 1fr;
@@ -1847,11 +1939,7 @@ tbody.day-group + tbody.day-group .day-header-row td {
     grid-column: 4;
     justify-self: end;
   }
-  .desktop-header-action {
-    display: none !important;
-  }
-  .mobile-header-menu {
-    display: block;
+  .header-actions-menu {
     grid-column: 5;
     justify-self: end;
   }
@@ -1953,7 +2041,7 @@ tbody.day-group + tbody.day-group .day-header-row td {
   .td-journal-grid { grid-template-columns: 1fr; }
   .td-metrics { grid-template-columns: 1fr; }
   .drp-popover { width: calc(100vw - 24px); max-width: none; }
-  .mobile-actions-menu {
+  .actions-menu {
     right: -2px;
   }
   .td-badge-wrap .badge {
@@ -1994,11 +2082,11 @@ tbody.day-group + tbody.day-group .day-header-row td {
     padding: 4px 7px;
     font-size: 10px;
   }
-  .mobile-header-menu {
+  .header-actions-menu {
     grid-column: 4;
     grid-row: 1;
   }
-  .mobile-menu-trigger {
+  .actions-menu-trigger {
     width: 30px;
     height: 34px;
   }

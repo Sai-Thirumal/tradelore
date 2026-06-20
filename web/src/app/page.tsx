@@ -78,10 +78,10 @@ export default function Home() {
   const [currentUser, setCurrentUser] = useState<{ email?: string } | null>(null);
   const [zerodhaStatus, setZerodhaStatus] = useState<ZerodhaStatus | null>(null);
   const [zerodhaSyncing, setZerodhaSyncing] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const actionsMenuRef = useRef<HTMLDivElement>(null);
   const cumChartRef = useRef<Chart<'line'> | null>(null);
   const dailyChartRef = useRef<Chart<'bar'> | null>(null);
   const autoZerodhaSyncRef = useRef(false);
@@ -357,13 +357,13 @@ export default function Home() {
 
   useEffect(() => {
     const handler = (event: MouseEvent) => {
-      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
-        setMobileMenuOpen(false);
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target as Node)) {
+        setActionsMenuOpen(false);
       }
     };
-    if (mobileMenuOpen) document.addEventListener('mousedown', handler);
+    if (actionsMenuOpen) document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [mobileMenuOpen]);
+  }, [actionsMenuOpen]);
 
   useEffect(() => {
     void Promise.resolve().then(async () => {
@@ -425,73 +425,24 @@ export default function Home() {
     }
   };
 
-  const renderZerodhaButton = (className = 'auth-header-btn') => {
+  const renderZerodhaMenuAction = () => {
     if (!zerodhaStatus?.server_configured) {
       return (
-        <button className={className} title="Set BROKER_TOKEN_ENCRYPTION_KEY and SUPABASE_SERVICE_ROLE_KEY on the server" disabled>
+        <button className="actions-menu-item" title="Set BROKER_TOKEN_ENCRYPTION_KEY and SUPABASE_SERVICE_ROLE_KEY on the server" disabled>
           Zerodha off
-        </button>
-      );
-    }
-
-    if (!zerodhaStatus.credentials_configured) {
-      return (
-        <button className={className} onClick={() => router.push('/settings/zerodha')}>
-          Setup Zerodha
-        </button>
-      );
-    }
-
-    if (!zerodhaStatus.connected || zerodhaStatus.needs_reconnect) {
-      return (
-        <button className={className} onClick={() => { window.location.href = '/api/broker/zerodha/login'; }}>
-          Connect Zerodha
-        </button>
-      );
-    }
-
-    if (zerodhaStatus.last_sync_at) {
-      return null;
-    }
-
-    return (
-      <button className={className} onClick={() => void syncZerodha(false)} disabled={zerodhaSyncing}>
-        {zerodhaSyncing ? 'Syncing…' : 'Sync Zerodha'}
-      </button>
-    );
-  };
-
-  const renderMobileZerodhaAction = () => {
-    if (!zerodhaStatus?.server_configured) return null;
-
-    if (!zerodhaStatus.credentials_configured) {
-      return (
-        <button className="mobile-menu-item" onClick={() => router.push('/settings/zerodha')}>
-          Setup Zerodha
-        </button>
-      );
-    }
-
-    if (zerodhaStatus.last_sync_at) return null;
-
-    if (!zerodhaStatus.connected || zerodhaStatus.needs_reconnect) {
-      return (
-        <button className="mobile-menu-item" onClick={() => { window.location.href = '/api/broker/zerodha/login'; }}>
-          Connect Zerodha
         </button>
       );
     }
 
     return (
       <button
-        className="mobile-menu-item"
+        className="actions-menu-item"
         onClick={() => {
-          setMobileMenuOpen(false);
-          void syncZerodha(false);
+          setActionsMenuOpen(false);
+          router.push('/settings/zerodha');
         }}
-        disabled={zerodhaSyncing}
       >
-        {zerodhaSyncing ? 'Syncing…' : 'Sync Zerodha'}
+        Zerodha Settings
       </button>
     );
   };
@@ -655,44 +606,41 @@ export default function Home() {
           />
         </div>
         <input type="file" ref={fileInputRef} accept=".csv" style={{display:'none'}} onChange={handleImport} />
-        <button className="import-btn desktop-header-action" style={{padding:'6px 12px', fontSize:'12px', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text)', gap:'4px'}} onClick={handleClearData}>🗑 Clear</button>
-        <button className="import-btn desktop-header-action" style={{padding:'6px 12px', fontSize:'12px'}} onClick={() => fileInputRef.current?.click()}>↑ Import CSV</button>
         {renderZerodhaStatus()}
-        {renderZerodhaButton('auth-header-btn desktop-header-action')}
-        <div className="mobile-header-menu" ref={mobileMenuRef}>
+        <div className="header-actions-menu" ref={actionsMenuRef}>
           <button
-            className="mobile-menu-trigger"
+            className="actions-menu-trigger"
             aria-label="Open actions menu"
-            aria-expanded={mobileMenuOpen}
-            onClick={() => setMobileMenuOpen(open => !open)}
+            aria-expanded={actionsMenuOpen}
+            onClick={() => setActionsMenuOpen(open => !open)}
           >
             ⋮
           </button>
-          <div className={`mobile-actions-menu ${mobileMenuOpen ? 'open' : ''}`}>
+          <div className={`actions-menu ${actionsMenuOpen ? 'open' : ''}`}>
             <button
-              className="mobile-menu-item"
+              className="actions-menu-item"
               onClick={() => {
-                setMobileMenuOpen(false);
+                setActionsMenuOpen(false);
                 fileInputRef.current?.click();
               }}
             >
               Import CSV
             </button>
             <button
-              className="mobile-menu-item"
+              className="actions-menu-item"
               onClick={() => {
-                setMobileMenuOpen(false);
+                setActionsMenuOpen(false);
                 void handleClearData();
               }}
             >
               Clear data
             </button>
-            {renderMobileZerodhaAction()}
+            {renderZerodhaMenuAction()}
             {currentUser ? (
               <button
-                className="mobile-menu-item"
+                className="actions-menu-item"
                 onClick={() => {
-                  setMobileMenuOpen(false);
+                  setActionsMenuOpen(false);
                   void handleLogout();
                 }}
               >
@@ -700,9 +648,9 @@ export default function Home() {
               </button>
             ) : (
               <button
-                className="mobile-menu-item"
+                className="actions-menu-item"
                 onClick={() => {
-                  setMobileMenuOpen(false);
+                  setActionsMenuOpen(false);
                   router.push('/login');
                 }}
               >
@@ -711,19 +659,6 @@ export default function Home() {
             )}
           </div>
         </div>
-        {currentUser ? (
-          <button
-            className="auth-header-btn desktop-header-action"
-            title={currentUser.email || 'Signed in'}
-            onClick={handleLogout}
-          >
-            Logout
-          </button>
-        ) : (
-          <button className="auth-header-btn desktop-header-action" onClick={() => router.push('/login')}>
-            Login
-          </button>
-        )}
       </header>
 
       <nav className="nav">
