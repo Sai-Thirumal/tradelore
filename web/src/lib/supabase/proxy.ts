@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSupabasePublishableKey, getSupabaseUrl } from './env';
 
-const PUBLIC_PATHS = new Set(['/login', '/auth/callback']);
+const PUBLIC_PATHS = new Set(['/', '/login', '/auth/callback']);
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.has(pathname);
@@ -54,7 +54,7 @@ export async function updateSession(request: NextRequest) {
 
   if (signedIn && pathname === '/login') {
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = '/';
+    redirectUrl.pathname = '/dashboard';
     redirectUrl.search = '';
     return NextResponse.redirect(redirectUrl);
   }

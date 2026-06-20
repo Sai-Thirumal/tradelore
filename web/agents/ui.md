@@ -3,7 +3,14 @@
 ## Page Tree
 
 ```
-/                           Main dashboard (page.tsx)
+/                           Public marketing landing page (page.tsx)
+├── Hero                     Product-positioning copy + dashboard screenshot preview
+├── Feature strip            CSV import, journaling, analytics, chart review, reports, privacy
+├── Product tour             Dashboard, Journal, Trade Log, and Reports screenshot sections
+├── Workflow                 Import → journal → study process
+└── Trade replay             Trade detail screenshot and CTA
+
+/dashboard                   Main authenticated dashboard (dashboard/page.tsx)
 ├── Dashboard tab            Stat pills, P&L charts, monthly calendar
 │   └── Header broker sync   Zerodha status chip + connect/sync button
 ├── Journal tab              PreMarket plan + PostTrade analysis
@@ -14,9 +21,8 @@
 ├── Reports tab              Overview metrics + grouped report tables/charts
 └── Modal                    Trade detail popup (legacy, being phased out)
 
-/login                      Sign-up/login landing page
-├── Left visual panel        Brand, value copy, dashboard preview
-└── Right auth panel         Sign up / Log in form
+/login                      Focused Supabase auth page
+└── Auth panel               Sign up / Log in form, redirects to `/dashboard` by default
 
 /trade?idx=N                Trade detail page (trade/page.tsx)
 ├── Header                   Back link, same-day trade switcher, result badge, P&L
@@ -118,9 +124,10 @@ Mobile note: trade detail constrains the top header to the viewport, truncating 
 
 | File | Type | Notes |
 |------|------|-------|
-| `app/page.tsx` | Client | Main dashboard, 5 tabs (Dashboard, Journal, Trade Log, Playbooks, Reports) |
+| `app/page.tsx` | Server | Public landing page with product screenshots and CTAs into auth |
+| `app/dashboard/page.tsx` | Client | Main dashboard, 5 tabs (Dashboard, Journal, Trade Log, Playbooks, Reports) |
 | `app/layout.tsx` | Server | Root layout |
-| `app/login/page.tsx` | Client | Sign-up/login landing page |
+| `app/login/page.tsx` | Client | Focused Supabase sign-up/login page |
 | `app/login/layout.tsx` | Server | `force-dynamic` for `useSearchParams` |
 | `app/auth/callback/route.ts` | Route | Supabase callback code exchange |
 | `app/trade/page.tsx` | Client | Trade detail, `useSearchParams`, same-day switcher, chart/pre-market/post-market tabs |

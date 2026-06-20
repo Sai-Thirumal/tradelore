@@ -7,6 +7,28 @@ import { createClient } from '@/lib/supabase/client';
 
 type Mode = 'signin' | 'signup';
 
+const PASSWORD_REQUIREMENTS_MESSAGE = 'Password must be at least 8 characters and include lowercase, uppercase, digit, and symbol characters.';
+const STRONG_PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+
+function TradeLoreMark() {
+  return (
+    <svg
+      width="20"
+      height="24"
+      viewBox="0 0 20 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="auth-logo-mark"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <line x1="10" y1="2" x2="10" y2="7" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M3 7H12.5L17 11.5V17H3V7Z" fill="#f97316" />
+      <line x1="10" y1="17" x2="10" y2="22" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -27,6 +49,11 @@ export default function LoginPage() {
     try {
       const supabase = createClient();
       if (mode === 'signup') {
+        if (!STRONG_PASSWORD_PATTERN.test(password)) {
+          setError(PASSWORD_REQUIREMENTS_MESSAGE);
+          return;
+        }
+
         const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
@@ -55,38 +82,16 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="auth-page">
-      <section className="auth-hero">
-        <div className="auth-brand">
-          <span className="auth-logo-mark">TL</span>
+    <main className="auth-page auth-page-compact">
+      <section className="auth-panel">
+        <div className="auth-brand compact">
+          <TradeLoreMark />
           <span>TradeLore</span>
         </div>
-        <div className="auth-copy">
-          <h1>Trading journal for serious Indian market work.</h1>
-          <p>Import your broker CSV, review net P&amp;L after costs, journal each trade, and keep every account private.</p>
+        <div className="auth-copy compact">
+          <h1>{mode === 'signup' ? 'Create your TradeLore account.' : 'Welcome back.'}</h1>
+          <p>{mode === 'signup' ? 'Start importing trades, journaling decisions, and finding your edge.' : 'Log in to open your dashboard.'}</p>
         </div>
-        <div className="auth-preview" aria-hidden="true">
-          <div className="auth-preview-top">
-            <span>Net P&amp;L</span>
-            <strong>+₹42,800</strong>
-          </div>
-          <div className="auth-preview-chart">
-            {[28, 44, 38, 62, 55, 78, 72, 86].map((height, index) => (
-              <span key={index} style={{ height: `${height}%` }} />
-            ))}
-          </div>
-          <div className="auth-preview-row">
-            <span>Win rate</span>
-            <b>58%</b>
-          </div>
-          <div className="auth-preview-row">
-            <span>Profit factor</span>
-            <b>1.72</b>
-          </div>
-        </div>
-      </section>
-
-      <section className="auth-panel">
         <div className="auth-tabs">
           <button className={mode === 'signup' ? 'active' : ''} onClick={() => setMode('signup')}>Sign up</button>
           <button className={mode === 'signin' ? 'active' : ''} onClick={() => setMode('signin')}>Log in</button>
@@ -109,10 +114,12 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={event => setPassword(event.target.value)}
-              placeholder="Minimum 6 characters"
-              minLength={6}
+              placeholder={mode === 'signup' ? 'Minimum 8 chars, Aa, 0-9, symbol' : 'Enter your password'}
+              minLength={mode === 'signup' ? 8 : undefined}
+              autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
               required
             />
+            {mode === 'signup' && <p className="auth-help">{PASSWORD_REQUIREMENTS_MESSAGE}</p>}
           </div>
 
           {error && <div className="auth-alert error">{error}</div>}

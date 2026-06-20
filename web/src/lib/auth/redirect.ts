@@ -1,4 +1,4 @@
-const DEFAULT_REDIRECT_PATH = '/';
+const DEFAULT_REDIRECT_PATH = '/dashboard';
 const INTERNAL_ORIGIN = 'https://tradelore.local';
 
 export function getInternalRedirectPath(path: string | null | undefined): string {

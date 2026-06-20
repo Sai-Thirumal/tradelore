@@ -68,6 +68,7 @@ src/
 - If old data is not needed, run `sql/multi-user-auth.sql` as-is; its commented backfill section is optional.
 - Dashboard stats are computed in `lib/compute/stats.ts` and should be commission-aware when displaying net values.
 - Reports live in `app/components/reports/` and `/api/reports/*`; add new report categories as separate components/routes instead of extending one giant conditional.
+- Public visitors see the marketing landing page at `/`; signed-in product work lives at `/dashboard`.
 - Trade detail lives at `/trade?idx=N` and has View Trade, Pre Market, and Post Market tabs.
 - Commission logic lives in `lib/engine/commission.ts`; `trades` rows may contain stored commission fields, and API reads backfill legacy rows that do not.
 - DB rows are multi-tenant: `trade_orders`, `trades`, `playbooks`, `trade_journal`, and `daily_journal` all require `user_id`.
