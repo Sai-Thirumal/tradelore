@@ -41,6 +41,11 @@ Site URL:     https://web-phi-one-12.vercel.app
 Redirect URL: https://web-phi-one-12.vercel.app/auth/callback
 ```
 
+Password signup handling:
+- `/login` sends signup passwords only to Supabase Auth.
+- Supabase Auth owns password hashing and salted password storage.
+- TradeLore must not store plaintext passwords or pre-hash passwords in the browser; a browser hash would become a reusable password equivalent.
+
 ### GET /api/auth/me
 Returns the authenticated user claims used by the header control.
 

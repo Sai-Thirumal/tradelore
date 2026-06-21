@@ -10,6 +10,20 @@ type Mode = 'signin' | 'signup';
 const PASSWORD_REQUIREMENTS_MESSAGE = 'Password must be at least 8 characters and include lowercase, uppercase, digit, and symbol characters.';
 const STRONG_PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
+async function signUpWithHashedPasswordStorage(email: string, password: string, emailRedirectTo: string) {
+  const supabase = createClient();
+
+  // Supabase Auth hashes and salts passwords before storage. Do not pre-hash
+  // here: that would turn the client-side hash into the reusable password.
+  return supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo,
+    },
+  });
+}
+
 function TradeLoreMark() {
   return (
     <svg
@@ -54,14 +68,13 @@ export default function LoginPage() {
           return;
         }
 
-        const { data, error: signUpError } = await supabase.auth.signUp({
+        const { data, error: signUpError } = await signUpWithHashedPasswordStorage(
           email,
           password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-          },
-        });
+          `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        );
         if (signUpError) throw signUpError;
+        setPassword('');
         if (data.session) {
           router.replace(next);
           router.refresh();
@@ -71,6 +84,7 @@ export default function LoginPage() {
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) throw signInError;
+        setPassword('');
         router.replace(next);
         router.refresh();
       }
