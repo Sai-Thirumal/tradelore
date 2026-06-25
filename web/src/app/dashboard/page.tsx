@@ -940,9 +940,9 @@ export default function Home() {
               const [y, m] = key.split('-');
               const label = `${MONTH_NAMES[parseInt(m) - 1]} ${y}`;
               const isOpen = expandedMonths.has(key);
-              const monthPnl = monthTrades.reduce((s, t) => s + t.pnl, 0);
-              const wins = monthTrades.filter((t) => t.result === 'win').length;
-              const losses = monthTrades.filter((t) => t.result === 'loss').length;
+              const monthPnl = monthTrades.reduce((s, t) => s + t.pnl - (t.commission || 0), 0);
+              const wins = monthTrades.filter((t) => t.pnl - (t.commission || 0) > 0.005).length;
+              const losses = monthTrades.filter((t) => t.pnl - (t.commission || 0) < -0.005).length;
               const wr = monthTrades.length > 0 ? Math.round(wins / monthTrades.length * 100) : 0;
 
               const toggleMonth = () => {
@@ -989,9 +989,9 @@ export default function Home() {
                               </tr>
                             </thead>
                             {days.map(([dayDate, dayTrades]) => {
-                              const dayPnl = dayTrades.reduce((s, t) => s + t.pnl, 0);
-                              const dayWins = dayTrades.filter((t) => t.result === 'win').length;
-                              const dayLosses = dayTrades.filter((t) => t.result === 'loss').length;
+                              const dayPnl = dayTrades.reduce((s, t) => s + t.pnl - (t.commission || 0), 0);
+                              const dayWins = dayTrades.filter((t) => t.pnl - (t.commission || 0) > 0.005).length;
+                              const dayLosses = dayTrades.filter((t) => t.pnl - (t.commission || 0) < -0.005).length;
 
                               return (
                                 <tbody key={dayDate} className="day-group">

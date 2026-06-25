@@ -8,6 +8,14 @@ CREATE TABLE public.trades (
   exchange    text DEFAULT '',
   segment     text DEFAULT '',        -- e.g. 'FO', 'EQ'
   expiry_date text DEFAULT '',        -- options/futures expiry
+  instrument_name text DEFAULT '',
+  instrument_type text DEFAULT '',
+  strike numeric DEFAULT 0,
+  lot_size numeric DEFAULT 1,
+  price_multiplier numeric DEFAULT 1,
+  commodity_class text DEFAULT '',
+  calculation_status text DEFAULT 'exact',
+  calculation_warnings jsonb DEFAULT '[]',
   direction   text NOT NULL,          -- 'LONG' or 'SHORT'
   qty         numeric NOT NULL,
   avg_entry   numeric NOT NULL,

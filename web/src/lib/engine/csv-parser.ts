@@ -1,5 +1,6 @@
 import Papa from 'papaparse';
 import type { TradeOrder } from '@/lib/types/trading';
+import { enrichMcxMetadata } from './mcx';
 
 const HEADER_MAP: Record<string, string> = {
   "symbol": "symbol", "scrip": "symbol", "stock": "symbol",
@@ -15,6 +16,14 @@ const HEADER_MAP: Record<string, string> = {
   "exchange": "exchange", "market": "exchange",
   "segment": "segment",
   "expiry_date": "expiry_date", "expiry": "expiry_date",
+  "instrument_token": "instrument_token", "instrument token": "instrument_token",
+  "instrument_name": "instrument_name", "instrument name": "instrument_name",
+  "instrument_type": "instrument_type", "instrument type": "instrument_type",
+  "strike": "strike",
+  "lot_size": "lot_size", "lot size": "lot_size",
+  "price_multiplier": "price_multiplier", "price multiplier": "price_multiplier",
+  "contract_multiplier": "price_multiplier", "contract multiplier": "price_multiplier",
+  "commodity_class": "commodity_class", "commodity class": "commodity_class",
 };
 
 const EXCHANGE_CODES = new Set(["NSE", "BSE", "NFO", "MCX", "BFO", "CDS", "NCD"]);
@@ -71,15 +80,34 @@ export async function parseCsv(fileContent: string): Promise<TradeOrder[]> {
 
     const orderId = (row.order_id || '').trim();
     const tradeId = (row.trade_id || '').trim();
-    const segment = (row.segment || '').trim().toUpperCase();
+    let segment = (row.segment || '').trim().toUpperCase();
     const expiryDate = (row.expiry_date || '').trim();
+    const isMcx = exchange.toUpperCase() === 'MCX' || segment.startsWith('MCX');
+    if (isMcx && !segment) segment = 'MCX';
+    const mcxMetadata = isMcx
+      ? enrichMcxMetadata(symbol, {
+          instrument_name: (row.instrument_name || '').trim().toUpperCase(),
+          instrument_type: (row.instrument_type || '').trim().toUpperCase() as TradeOrder['instrument_type'],
+          price_multiplier: parseFloat(row.price_multiplier || '0'),
+          commodity_class: (row.commodity_class || '').trim().toLowerCase() as TradeOrder['commodity_class'],
+          metadata_source: row.price_multiplier ? 'csv' : '',
+        })
+      : null;
 
     const uid = (orderId && tradeId) 
       ? `${orderId}_${tradeId}`
       : `${symbol}_${tradeTime}_${orderType}_${qty}_${price}_${i}`;
 
     orders.push({
-      uid, symbol, exchange, segment, expiry_date: expiryDate,
+      uid, symbol, exchange: exchange.toUpperCase(), segment, expiry_date: expiryDate,
+      instrument_token: parseInt(row.instrument_token || '0') || undefined,
+      instrument_name: mcxMetadata?.instrumentName || (row.instrument_name || '').trim(),
+      instrument_type: mcxMetadata?.instrumentType || '',
+      strike: parseFloat(row.strike || '0') || 0,
+      lot_size: parseFloat(row.lot_size || '0') || 1,
+      price_multiplier: mcxMetadata?.priceMultiplier || 1,
+      commodity_class: mcxMetadata?.commodityClass || '',
+      metadata_source: mcxMetadata?.specificationSource || '',
       trade_time: tradeTime, order_id: orderId, trade_id: tradeId,
       type: orderType, qty, price
     });

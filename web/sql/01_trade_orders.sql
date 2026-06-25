@@ -8,6 +8,14 @@ CREATE TABLE public.trade_orders (
   exchange    text DEFAULT '',
   segment     text DEFAULT '',        -- e.g. 'FO', 'EQ'
   expiry_date text DEFAULT '',        -- options/futures expiry
+  instrument_token bigint,
+  instrument_name text DEFAULT '',
+  instrument_type text DEFAULT '',
+  strike numeric DEFAULT 0,
+  lot_size numeric DEFAULT 1,
+  price_multiplier numeric DEFAULT 1,
+  commodity_class text DEFAULT '',
+  metadata_source text DEFAULT '',
   trade_time  text NOT NULL,
   order_id    text DEFAULT '',
   trade_id    text DEFAULT '',

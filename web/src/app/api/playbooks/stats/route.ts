@@ -61,8 +61,9 @@ export async function GET() {
     // Compute stats per playbook
     const stats: Record<string, PlaybookStats> = {};
     for (const [pbId, entries] of Object.entries(playbookTrades)) {
-      const wins = entries.filter(e => e.result === 'win').length;
-      const losses = entries.filter(e => e.result === 'loss').length;
+      const netValue = (entry: (typeof entries)[number]) => entry.pnl - entry.commission;
+      const wins = entries.filter(e => netValue(e) > 0.005).length;
+      const losses = entries.filter(e => netValue(e) < -0.005).length;
       const total = entries.length;
       const winRate = total > 0 ? Math.round((wins / total) * 100) : 0;
       const totalPnl = entries.reduce((s, e) => s + e.pnl, 0);
@@ -72,7 +73,7 @@ export async function GET() {
       // Average R:R = average of (actual P&L / risk) — only for trades with risk data
       const rrValues = entries
         .filter(e => e.risk > 0)
-        .map(e => e.pnl / e.risk);
+        .map(e => netValue(e) / e.risk);
       const avgRR = rrValues.length > 0
         ? rrValues.reduce((s, v) => s + v, 0) / rrValues.length
         : 0;
@@ -81,7 +82,7 @@ export async function GET() {
       let maxConsec = 0;
       let currentStreak = 0;
       for (const e of entries) {
-        if (e.result === 'loss') {
+        if (netValue(e) < -0.005) {
           currentStreak++;
           maxConsec = Math.max(maxConsec, currentStreak);
         } else {

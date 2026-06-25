@@ -6,7 +6,8 @@
 /api/
 ├── auth/
 │   ├── me/           GET   — Current authenticated user
-│   └── logout/       POST  — Sign out current user
+│   ├── logout/       POST  — Sign out current user
+│   └── signup/       POST  — First-100 launch signup gate
 ├── broker/
 │   └── zerodha/
 │       ├── login/    GET   — Start Kite Connect login flow
@@ -45,6 +46,22 @@ Password signup handling:
 - `/login` sends signup passwords only to Supabase Auth.
 - Supabase Auth owns password hashing and salted password storage.
 - TradeLore must not store plaintext passwords or pre-hash passwords in the browser; a browser hash would become a reusable password equivalent.
+- Freemium launch signup requires joining the Telegram community and calling `/api/auth/signup`, which checks the first-100 launch cap before Supabase signup.
+
+### POST /api/auth/signup
+Creates a new Supabase Auth signup only while the first-100-user freemium launch still has slots.
+
+Requires `SUPABASE_SERVICE_ROLE_KEY` server-side so the route can count Supabase Auth users through the admin API before creating a signup.
+
+**Request:**
+```json
+{ "email": "trader@example.com", "password": "StrongPass!1", "joinedTelegram": true, "next": "/dashboard" }
+```
+
+**Response:**
+```json
+{ "session": false }
+```
 
 ### GET /api/auth/me
 Returns the authenticated user claims used by the header control.
@@ -100,7 +117,9 @@ Returns Zerodha connection metadata only. Does not return raw API keys, API secr
 ```
 
 ### POST /api/broker/zerodha/sync
-Fetches today's executed order fills from Kite `GET /trades`, normalizes them into TradeLore `TradeOrder[]`, stores them idempotently, runs `matchTrades()`, and replaces completed trades for the user.
+Fetches today's executed order fills from Kite `GET /trades`, normalizes them into TradeLore `TradeOrder[]`, stores them idempotently, runs `matchTrades()`, and replaces completed trades for the user. For NFO, BFO, and MCX fills, sync downloads only the relevant Zerodha instrument masters and enriches fills with exact expiry, strike, instrument type, lot-size step, and segment. MCX additionally receives commodity family and TradeLore's contract-value multiplier.
+
+Unmatched/unrealized positions remain intentionally omitted; only positions that return to zero become `trades`.
 
 **Response:**
 ```json
@@ -151,7 +170,9 @@ Upload a Zerodha/Kite tradebook CSV file. Full pipeline: parse → store orders 
 - Supported broker: Zerodha only (`broker=zerodha`)
 - Max file size: 10 MB (`413`)
 - Max data rows: 50,000 (`413`)
-- Required Zerodha columns: symbol, trade_date, trade_type, quantity, price, trade_id, order_id, and order_execution_time (`400`)
+- Required Zerodha columns: symbol, exchange, trade_date, trade_type, quantity, price, trade_id, order_id, and order_execution_time (`400`)
+- Optional MCX columns: `expiry_date`, `instrument_name`, `instrument_type`, `strike`, `lot_size`, and `price_multiplier`/`contract_multiplier`
+- Known MCX symbols are enriched from the built-in contract catalog. Unknown contracts use a visible estimated-calculation warning unless the CSV supplies a multiplier.
 - Invalid individual rows are skipped by the parser; if no valid orders remain, returns `422`
 
 **Response:**
@@ -176,11 +197,13 @@ Fetches OHLC candle data for the underlying asset of a trade symbol.
 
 **Params:**
 - `symbol` — trade symbol (e.g., `NIFTY2520623400PE`)
+- `exchange` — exchange code; required for MCX-aware resolution
 - `from` — entry datetime (e.g., `2025-02-01 14:07:00`)
 - `to` — exit datetime
 
 **Behavior:**
 - Extracts underlying (NIFTY → `^NSEI` on Yahoo Finance)
+- MCX Gold, Silver, Crude Oil, Natural Gas, and Copper use global Yahoo futures as clearly labelled reference charts; unsupported commodities return `404` instead of being mapped to an incorrect `.NS` symbol
 - Trade ≤ 1 day → 5-min candles with 5 days of padding
 - Trade > 1 day → daily candles with 2 days of padding before entry and after exit
 
@@ -330,9 +353,9 @@ Group behavior:
 - `trade-time`: entry hour bucket
 - `trade-duration`: holding duration bucket
 - `instruments`: extracted base instrument plus market type
-- `deployed-capital`: dynamic ranges from each imported trade's `avg_entry * qty`; buckets use rounded uniform steps and boundary values belong to one range only
+- `deployed-capital`: dynamic contract-notional ranges from `avg_entry * qty * price_multiplier`; buckets use rounded uniform steps and boundary values belong to one range only
 - `playbooks`: journal-tagged trades grouped by `trade_journal.playbook_id`; untagged trades are excluded
-- `options-expiry`: option trades grouped by market-session time from entry to expiry close; expiry uses `expiry_date` first, then weekly/monthly option symbol parsing; buckets use 10-minute, 1-hour, 1-day, 1-week, or 1-month steps depending on distance
+- `options-expiry`: option trades grouped by market-session time from entry to expiry close; MCX requires imported instrument-master expiry and uses the MCX 9:00 AM/evening session with the US daylight-saving close schedule. NSE/BSE can fall back to option-symbol parsing.
 
 ### GET /api/trade-journal
 Get journal entry for a specific trade. If `trade_id` is omitted, returns the set of journaled trade IDs that have at least one filled field.
@@ -362,6 +385,7 @@ Unknown JSON fields return `400`. Free-text journal fields are limited to 500 wo
 Broker CSV
   → requireAuthUser() (current Supabase Auth user)
   → csv-parser.ts (parse rows → individual fills)
+  → NFO/BFO/MCX metadata enrichment (instrument master; MCX also uses contract catalog)
   → trade-matcher.ts (collapseFills → position tracker → complete trades + commission)
   → supabase.ts (store user-owned orders + replace only that user's trades)
   → /api/trades (serve to frontend)

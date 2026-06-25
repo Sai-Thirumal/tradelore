@@ -17,8 +17,11 @@ const INDEX_PATTERNS: { regex: RegExp; underlying: string; exchange: string }[] 
 // WIPRO26APRFUT → WIPRO
 const FO_SYMBOL_RE = /^([A-Z]+)\d{2}[A-Z]{3}(\d+|FUT)/i;
 
-export function getUnderlying(symbol: string): { underlying: string; exchange: string } {
+export function getUnderlying(symbol: string, exchange = ''): { underlying: string; exchange: string } {
   const clean = symbol.trim().toUpperCase();
+  if (exchange.toUpperCase() === 'MCX') {
+    return { underlying: extractMcxInstrumentName(clean), exchange: 'MCX' };
+  }
 
   // Try index patterns first
   for (const p of INDEX_PATTERNS) {
@@ -38,8 +41,9 @@ export function getUnderlying(symbol: string): { underlying: string; exchange: s
 }
 
 // Convert underlying to Yahoo Finance symbol
-export function toYahooSymbol(underlying: string): string {
+export function toYahooSymbol(underlying: string, exchange = ''): string | null {
   const u = underlying.toUpperCase();
+  if (exchange.toUpperCase() === 'MCX') return getMcxYahooSymbol(u);
   // NSE indices
   if (u === 'NIFTY' || u === 'NIFTY50') return '^NSEI';
   if (u === 'BANKNIFTY') return '^NSEBANK';
@@ -59,3 +63,4 @@ export function istToUnix(istStr: string): number {
   const iso = istStr.replace(' ', 'T') + '+05:30';
   return new Date(iso).getTime() / 1000;
 }
+import { extractMcxInstrumentName, getMcxYahooSymbol } from './mcx';

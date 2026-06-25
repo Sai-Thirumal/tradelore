@@ -1,4 +1,5 @@
-import { calculateTradeCommission } from './commission';
+import { calculateTradeCommission } from './commission.ts';
+import { enrichMcxMetadata, isMcxInstrument } from './mcx.ts';
 import type { TradeDirection, TradeOrder, TradeRecord } from '@/lib/types/trading';
 
 function buildPositionKey(order: TradeOrder) {
@@ -104,14 +105,17 @@ export function matchTrades(orders: TradeOrder[]): TradeRecord[] {
 
         if (sameDirection) {
           entryFills.push(fill);
-        } else {
-          exitFills.push(fill);
+          netQty += signedQty;
+          continue;
         }
 
-        netQty += signedQty;
+        const openQty = Math.abs(netQty);
+        const fillQty = Number(fill.qty);
+        const closingQty = Math.min(openQty, fillQty);
+        exitFills.push({ ...fill, qty: closingQty });
+        netQty += direction === 'LONG' ? -closingQty : closingQty;
 
         if (Math.abs(netQty) < 0.001) {
-          // Position fully closed — emit completed trade
           if (direction) {
             trades.push(buildTrade(fill.symbol, direction, entryFills, exitFills));
           }
@@ -119,11 +123,19 @@ export function matchTrades(orders: TradeOrder[]): TradeRecord[] {
           exitFills = [];
           direction = null;
           netQty = 0;
+
+          const reversalQty = fillQty - closingQty;
+          if (reversalQty > 0.001) {
+            const reversalFill = { ...fill, qty: reversalQty };
+            direction = fill.type === 'BUY' ? 'LONG' : 'SHORT';
+            entryFills = [reversalFill];
+            netQty = fill.type === 'BUY' ? reversalQty : -reversalQty;
+          }
         }
       }
     }
 
-    // Position still open at end — do NOT emit as complete trade yet.
+    // Position still open at end — do NOT emit as a completed trade.
   }
 
   return trades.sort((a, b) => a.exit_time.localeCompare(b.exit_time));
@@ -149,12 +161,15 @@ function buildTrade(
     totalExitQty;
 
   const qty = totalEntryQty;
+  const firstEntry = entryFills[0];
+  const mcxMetadata = isMcxInstrument(firstEntry)
+    ? enrichMcxMetadata(symbol, firstEntry)
+    : null;
+  const priceMultiplier = Number(mcxMetadata?.priceMultiplier || firstEntry.price_multiplier || 1);
   const pnl =
     direction === 'LONG'
-      ? (avgExit - avgEntry) * qty
-      : (avgEntry - avgExit) * qty;
-
-  const result = pnl > 0.005 ? 'win' : pnl < -0.005 ? 'loss' : 'breakeven';
+      ? (avgExit - avgEntry) * qty * priceMultiplier
+      : (avgEntry - avgExit) * qty * priceMultiplier;
 
   // entry_datetime = first entry fill timestamp
   // exit_datetime = last exit fill timestamp
@@ -180,12 +195,26 @@ function buildTrade(
     exit_time: exitTime,
     orders: allOrders,
   });
+  const netPnl = pnl - commission.total;
+  const result = netPnl > 0.005 ? 'win' : netPnl < -0.005 ? 'loss' : 'breakeven';
+  const calculationWarnings = [
+    ...(mcxMetadata?.warnings || []),
+    ...(commission.warnings || []),
+  ].filter((warning, index, warnings) => warnings.indexOf(warning) === index);
 
   return {
     symbol,
     exchange: entryFills[0].exchange || '',
     segment: entryFills[0].segment || '',
     expiry_date: entryFills[0].expiry_date || '',
+    instrument_name: entryFills[0].instrument_name || mcxMetadata?.instrumentName || '',
+    instrument_type: entryFills[0].instrument_type || mcxMetadata?.instrumentType || '',
+    strike: entryFills[0].strike || 0,
+    lot_size: entryFills[0].lot_size || 1,
+    price_multiplier: priceMultiplier,
+    commodity_class: entryFills[0].commodity_class || mcxMetadata?.commodityClass || '',
+    calculation_status: calculationWarnings.length ? 'estimated' : 'exact',
+    calculation_warnings: calculationWarnings,
     direction,
     qty,
     avg_entry: Number(avgEntry.toFixed(4)),

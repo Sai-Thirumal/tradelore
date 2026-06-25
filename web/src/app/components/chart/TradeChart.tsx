@@ -8,6 +8,7 @@ import { istToUnix } from '@/lib/engine/symbols';
 
 interface Props {
   symbol: string;
+  exchange?: string;
   direction: string;
   avgEntry: number;
   avgExit: number;
@@ -30,14 +31,15 @@ interface ChartResponse {
   underlying: string;
   interval: string;
   candles?: ChartCandle[];
+  referenceOnly?: boolean;
 }
 
-export default function TradeChart({ symbol, direction, avgEntry, avgExit, entryTime, exitTime, orders }: Props) {
+export default function TradeChart({ symbol, exchange = '', direction, avgEntry, avgExit, entryTime, exitTime, orders }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const [status, setStatus] = useState<'loading' | 'error' | 'ok'>('loading');
   const [errMsg, setErrMsg] = useState('');
-  const [meta, setMeta] = useState<{ underlying: string; interval: string } | null>(null);
+  const [meta, setMeta] = useState<{ underlying: string; interval: string; referenceOnly: boolean } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,14 +49,14 @@ export default function TradeChart({ symbol, direction, avgEntry, avgExit, entry
       setErrMsg('');
 
       try {
-        const res = await fetch(`/api/chart?symbol=${encodeURIComponent(symbol)}&from=${encodeURIComponent(entryTime)}&to=${encodeURIComponent(exitTime)}`);
+        const res = await fetch(`/api/chart?symbol=${encodeURIComponent(symbol)}&exchange=${encodeURIComponent(exchange)}&from=${encodeURIComponent(entryTime)}&to=${encodeURIComponent(exitTime)}`);
         const data = await res.json() as ChartResponse;
         if (cancelled) return;
 
         if (data.error) { setErrMsg(data.error); setStatus('error'); return; }
         if (!data.candles?.length) { setErrMsg('No chart data'); setStatus('error'); return; }
 
-        setMeta({ underlying: data.underlying, interval: data.interval });
+        setMeta({ underlying: data.underlying, interval: data.interval, referenceOnly: Boolean(data.referenceOnly) });
 
         // Wait for container width
         let width = 0;
@@ -207,7 +209,7 @@ export default function TradeChart({ symbol, direction, avgEntry, avgExit, entry
       window.removeEventListener('resize', onResize);
       if (chartRef.current) { try { chartRef.current.remove(); } catch {} }
     };
-  }, [symbol, direction, avgEntry, avgExit, entryTime, exitTime, orders]);
+  }, [symbol, exchange, direction, avgEntry, avgExit, entryTime, exitTime, orders]);
 
   return (
     <>
@@ -215,6 +217,7 @@ export default function TradeChart({ symbol, direction, avgEntry, avgExit, entry
         Chart · {meta?.underlying || symbol}
         <span style={{fontSize:'11px',color:'var(--text-secondary)',fontWeight:400,marginLeft:'8px'}}>
           {meta?.interval === '5m' ? '5-min' : 'Daily'}
+          {meta?.referenceOnly ? ' · global reference' : ''}
         </span>
       </h3>
       <div style={{position:'relative',width:'100%',height:'520px'}}>
@@ -228,7 +231,7 @@ export default function TradeChart({ symbol, direction, avgEntry, avgExit, entry
           <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'8px',background:'var(--bg)'}}>
             <span style={{fontSize:'40px',opacity:0.3}}>📈</span>
             <p style={{color:'var(--text-secondary)',fontSize:'13px'}}>{errMsg}</p>
-            <a href={`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(meta?.underlying || symbol)}`} target="_blank" rel="noreferrer"
+            <a href={`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(exchange ? `${exchange}:${symbol}` : (meta?.underlying || symbol))}`} target="_blank" rel="noreferrer"
                style={{padding:'8px 16px',background:'var(--brand)',color:'white',borderRadius:'6px',textDecoration:'none',fontSize:'12px',fontWeight:600}}>
               Open in TradingView ↗
             </a>

@@ -28,6 +28,7 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const symbol = searchParams.get('symbol') || '';
+  const exchange = searchParams.get('exchange') || '';
   const fromStr = searchParams.get('from') || '';
   const toStr = searchParams.get('to') || '';
 
@@ -35,8 +36,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'symbol required' }, { status: 400 });
   }
 
-  const { underlying } = getUnderlying(symbol);
-  const yahooSymbol = toYahooSymbol(underlying);
+  const { underlying } = getUnderlying(symbol, exchange);
+  const yahooSymbol = toYahooSymbol(underlying, exchange);
+  if (!yahooSymbol) {
+    return NextResponse.json({
+      error: `Chart data is unavailable for ${underlying} on ${exchange || 'this exchange'}.`,
+    }, { status: 404 });
+  }
 
   // Convert IST times to Unix timestamps
   const entryUnix = fromStr ? istToUnix(fromStr) : 0;
@@ -98,6 +104,8 @@ export async function GET(request: Request) {
     return NextResponse.json({
       underlying,
       yahooSymbol,
+      exchange,
+      referenceOnly: exchange.toUpperCase() === 'MCX',
       interval,
       candles,
       from: fromStr,

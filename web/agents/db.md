@@ -19,6 +19,14 @@ CREATE TABLE public.trade_orders (
   exchange     TEXT,
   segment      TEXT,
   expiry_date  TEXT,
+  instrument_token BIGINT,
+  instrument_name TEXT,
+  instrument_type TEXT,              -- EQ | FUT | CE | PE
+  strike       NUMERIC,
+  lot_size     NUMERIC DEFAULT 1,    -- broker order-quantity step
+  price_multiplier NUMERIC DEFAULT 1,-- quoted price → rupee contract value
+  commodity_class TEXT,              -- agricultural | non_agricultural
+  metadata_source TEXT,
   trade_time   TEXT NOT NULL,          -- "YYYY-MM-DD HH:MM:SS"
   order_id     TEXT,                   -- Broker order ID (partial fills share this)
   trade_id     TEXT,                   -- Broker execution ID (unique per fill)
@@ -49,6 +57,14 @@ CREATE TABLE public.trades (
   exchange     TEXT,
   segment      TEXT,
   expiry_date  TEXT,
+  instrument_name TEXT,
+  instrument_type TEXT,
+  strike       NUMERIC,
+  lot_size     NUMERIC DEFAULT 1,
+  price_multiplier NUMERIC DEFAULT 1,
+  commodity_class TEXT,
+  calculation_status TEXT DEFAULT 'exact',
+  calculation_warnings JSONB DEFAULT '[]',
   direction    TEXT NOT NULL,          -- "LONG" | "SHORT"
   qty          NUMERIC NOT NULL,
   avg_entry    NUMERIC NOT NULL,       -- Weighted avg of entry fills
@@ -66,13 +82,15 @@ CREATE TABLE public.trades (
 ```
 
 **P&L formula:**
-- LONG: `(avg_exit − avg_entry) × qty`
-- SHORT: `(avg_entry − avg_exit) × qty`
+- LONG: `(avg_exit − avg_entry) × qty × price_multiplier`
+- SHORT: `(avg_entry − avg_exit) × qty × price_multiplier`
+
+For equities and NFO/BFO derivatives, `price_multiplier` defaults to `1`; Zerodha sync stores exact derivative expiry, strike, instrument type, lot-size step, and segment from the relevant instrument master. MCX uses a contract-value multiplier distinct from Kite's `lot_size`. Unknown MCX contracts are marked `estimated` rather than silently presented as exact.
 
 **Commission note:**
 - New matched trades include `commission` and `commission_breakdown` from `lib/engine/commission.ts`.
 - Legacy rows may not have these columns populated; `/api/trades`, `/api/playbooks/stats`, and report routes compute commission on read when missing.
-- UI labels that say **Net P&L** should use `pnl - commission`. Stored `result` is currently based on gross `pnl`.
+- UI labels that say **Net P&L** use `pnl - commission`; win/loss classification also uses net P&L.
 
 ---
 
@@ -260,6 +278,7 @@ Run in Supabase SQL Editor:
 2. `sql/playbooks-migration.sql`
 3. `sql/multi-user-auth.sql`
 4. `sql/broker-connections.sql`
+5. `sql/03_mcx_support.sql`
 
 When old data is not needed, run `multi-user-auth.sql` as-is. Its commented `UPDATE ... user_id = ...` block is only for preserving existing rows by assigning them to a first Supabase Auth user.
 

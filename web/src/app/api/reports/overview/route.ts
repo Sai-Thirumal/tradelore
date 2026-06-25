@@ -100,25 +100,26 @@ export async function GET() {
       return ae.localeCompare(be);
     });
 
-    const wins = sorted.filter(t => t.result === 'win');
-    const losses = sorted.filter(t => t.result === 'loss');
-    const breakevens = sorted.filter(t => t.result === 'breakeven');
+    const tradeNet = (t: TradeRecord) => Number(t.pnl || 0) - Number(t.commission || 0);
+    const wins = sorted.filter(t => tradeNet(t) > 0.005);
+    const losses = sorted.filter(t => tradeNet(t) < -0.005);
+    const breakevens = sorted.filter(t => Math.abs(tradeNet(t)) <= 0.005);
 
     const grossPnl = sorted.reduce((s, t) => s + (t.pnl || 0), 0);
     const totalCommission = sorted.reduce((s, t) => s + (t.commission || 0), 0);
     const netPnl = grossPnl - totalCommission;
-    const totalWins = wins.reduce((s, t) => s + (t.pnl || 0), 0);
-    const totalLosses = Math.abs(losses.reduce((s, t) => s + (t.pnl || 0), 0));
+    const totalWins = wins.reduce((s, t) => s + tradeNet(t), 0);
+    const totalLosses = Math.abs(losses.reduce((s, t) => s + tradeNet(t), 0));
 
     // Consecutive wins/losses
-    const winLossArr = sorted.map(t => t.result === 'win');
-    const lossArr = sorted.map(t => t.result === 'loss');
+    const winLossArr = sorted.map(t => tradeNet(t) > 0.005);
+    const lossArr = sorted.map(t => tradeNet(t) < -0.005);
     const maxConsecutiveWins = maxConsecutive(winLossArr, true);
     const maxConsecutiveLosses = maxConsecutive(lossArr, true);
 
     // Largest profit/loss
-    const largestProfit = sorted.reduce((max, t) => t.pnl > max ? t.pnl : max, 0);
-    const largestLoss = sorted.reduce((min, t) => t.pnl < min ? t.pnl : min, 0);
+    const largestProfit = sorted.reduce((max, t) => tradeNet(t) > max ? tradeNet(t) : max, 0);
+    const largestLoss = sorted.reduce((min, t) => tradeNet(t) < min ? tradeNet(t) : min, 0);
 
     // Hold times
     const holdTimes = sorted.map(t => getHoldMinutes(t.entry_time || t.entryTime || '', t.exit_time || t.exitTime || ''));
@@ -137,7 +138,7 @@ export async function GET() {
     for (const t of sorted) {
       const d = t.trade_date || t.date || '';
       if (!d) continue;
-      dayPnl[d] = (dayPnl[d] || 0) + (t.pnl || 0);
+      dayPnl[d] = (dayPnl[d] || 0) + tradeNet(t);
       dayTrades[d] = (dayTrades[d] || 0) + 1;
     }
 
@@ -199,7 +200,7 @@ export async function GET() {
         const riskAmount = Number(j.risk_amount || 0);
         if (trade && riskAmount > 0) {
           // Realised R = pnl / risk_amount
-          const realisedR = (trade.pnl || 0) / riskAmount;
+          const realisedR = tradeNet(trade) / riskAmount;
           rValues.push(realisedR);
 
           // Planned R from profit_target fields if available

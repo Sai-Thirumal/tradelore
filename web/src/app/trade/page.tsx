@@ -30,6 +30,9 @@ interface Trade {
   exchange?: string;
   segment?: string;
   expiry_date?: string;
+  price_multiplier?: number;
+  calculation_status?: 'exact' | 'estimated';
+  calculation_warnings?: string[];
   orders?: TradeOrder[];
   id?: string;
 }
@@ -333,7 +336,7 @@ export default function TradeDetailPage() {
             </div>
             <div className="td-metric">
               <span className="td-metric-val">{trade.qty}</span>
-              <span className="td-metric-lbl">Quantity</span>
+              <span className="td-metric-lbl">{trade.exchange === 'MCX' ? 'Contract qty' : 'Quantity'}</span>
             </div>
             <div className="td-metric">
               <span className="td-metric-val">₹{fmtPrice(trade.avg_entry)}</span>
@@ -350,10 +353,19 @@ export default function TradeDetailPage() {
             <div className="td-detail"><span>Exit Time</span><span>{trade.exit_time?.substring(0, 16)}</span></div>
             <div className="td-detail"><span>Segment</span><span>{trade.segment || '—'}</span></div>
             <div className="td-detail"><span>Exchange</span><span>{trade.exchange || '—'}</span></div>
+            {trade.exchange === 'MCX' && (
+              <div className="td-detail"><span>Price multiplier</span><span>{trade.price_multiplier || 1}×</span></div>
+            )}
             <div className="td-detail"><span>P&L</span><span style={{color: trade.pnl >= 0 ? 'var(--green)' : 'var(--red)'}}>{fmtINR(trade.pnl)}</span></div>
             <div className="td-detail"><span>Commission</span><span style={{color: 'var(--red)'}}>{fmtINR(trade.commission || 0)}</span></div>
             <div className="td-detail"><span>Net P&L</span><span style={{color: (trade.pnl - (trade.commission || 0)) >= 0 ? 'var(--green)' : 'var(--red)'}}>{fmtINR(trade.pnl - (trade.commission || 0))}</span></div>
           </div>
+
+          {trade.calculation_status === 'estimated' && (
+            <div style={{fontSize:'12px',color:'var(--brand)',marginBottom:'12px'}}>
+              Estimated calculation: {(trade.calculation_warnings || []).join(' ')}
+            </div>
+          )}
 
           {trade.orders && trade.orders.length > 0 && (
             <div className="td-orders">
@@ -379,6 +391,7 @@ export default function TradeDetailPage() {
         <div className="td-chart">
           <TradeChart
             symbol={trade.symbol}
+            exchange={trade.exchange}
             direction={trade.direction}
             avgEntry={trade.avg_entry}
             avgExit={trade.avg_exit}

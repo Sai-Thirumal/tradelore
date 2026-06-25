@@ -550,7 +550,7 @@ export default function DayTimeReport({ group }: Props) {
               : group === 'options-expiry'
                 ? 'Time to expiry'
                 : group === 'deployed-capital'
-                  ? 'Deployed capital'
+                  ? 'Contract notional'
                   : 'Day';
 
     const inputStyle: React.CSSProperties = {

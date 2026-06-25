@@ -1,0 +1,21 @@
+-- MCX instrument metadata for completed trades.
+
+ALTER TABLE public.trade_orders
+  ADD COLUMN IF NOT EXISTS instrument_token BIGINT,
+  ADD COLUMN IF NOT EXISTS instrument_name TEXT DEFAULT '',
+  ADD COLUMN IF NOT EXISTS instrument_type TEXT DEFAULT '',
+  ADD COLUMN IF NOT EXISTS strike NUMERIC DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS lot_size NUMERIC DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS price_multiplier NUMERIC DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS commodity_class TEXT DEFAULT '',
+  ADD COLUMN IF NOT EXISTS metadata_source TEXT DEFAULT '';
+
+ALTER TABLE public.trades
+  ADD COLUMN IF NOT EXISTS instrument_name TEXT DEFAULT '',
+  ADD COLUMN IF NOT EXISTS instrument_type TEXT DEFAULT '',
+  ADD COLUMN IF NOT EXISTS strike NUMERIC DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS lot_size NUMERIC DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS price_multiplier NUMERIC DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS commodity_class TEXT DEFAULT '',
+  ADD COLUMN IF NOT EXISTS calculation_status TEXT DEFAULT 'exact',
+  ADD COLUMN IF NOT EXISTS calculation_warnings JSONB DEFAULT '[]'::jsonb;

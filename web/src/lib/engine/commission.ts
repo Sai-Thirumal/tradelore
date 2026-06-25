@@ -1,6 +1,7 @@
 // Indian exchange commission calculator for Zerodha charges.
 
 import type { TradeDirection, TradeOrder, TradeRecord } from '@/lib/types/trading';
+import { enrichMcxMetadata, getContractValue, isMcxInstrument } from './mcx.ts';
 
 export const COMMISSION_RATE_VERSION = 'zerodha_charges_2026_06_19';
 
@@ -14,6 +15,8 @@ export interface CommissionBreakdown {
   dpCharge: number;        // Depository charge (delivery sell only)
   gst: number;             // GST on brokerage + exchange + SEBI
   total: number;           // Sum of all above
+  calculationStatus: 'exact' | 'estimated';
+  warnings: string[];
 }
 
 // ── Rate tables ──
@@ -54,6 +57,8 @@ const STAMP_DUTY_RATES: Record<string, number> = {
 
 // SEBI turnover fee: ₹10 per crore = 0.0001% = 0.000001
 const SEBI_RATE = 0.000001;
+const AGRI_SEBI_RATE = 0.0000001;
+const CURRENT_RATE_EFFECTIVE_DATE = '2026-06-19';
 
 // GST rate
 const GST_RATE = 0.18;
@@ -130,6 +135,9 @@ interface CommissionParams {
   isDelivery?: boolean;
   isExercise?: boolean;
   brokeragePerOrder?: number;
+  commodityClass?: string;
+  tradeDate?: string;
+  warnings?: string[];
 }
 
 function calculateLegCommission(params: CommissionParams): CommissionBreakdown {
@@ -143,6 +151,9 @@ function calculateLegCommission(params: CommissionParams): CommissionBreakdown {
     isDelivery = false,
     isExercise = false,
     brokeragePerOrder,
+    commodityClass = '',
+    tradeDate = '',
+    warnings = [],
   } = params;
 
   const seg = (segment || '').toUpperCase();
@@ -175,7 +186,9 @@ function calculateLegCommission(params: CommissionParams): CommissionBreakdown {
 
   const sttRate = STT_RATES[sttKey];
   if (sttRate) {
-    if (sttRate.sellOnly && !isSell) {
+    if (isMCX && commodityClass === 'agricultural' && !isOptions) {
+      stt = 0;
+    } else if (sttRate.sellOnly && !isSell) {
       stt = 0;
     } else {
       stt = turnover * sttRate.rate;
@@ -188,7 +201,8 @@ function calculateLegCommission(params: CommissionParams): CommissionBreakdown {
   const exchangeCharge = (turnover / 1_00_000) * exRatePerLakh;
 
   // 4. SEBI fee
-  const sebiFee = turnover * SEBI_RATE;
+  const sebiRate = isMCX && commodityClass === 'agricultural' ? AGRI_SEBI_RATE : SEBI_RATE;
+  const sebiFee = turnover * sebiRate;
 
   // 5. Stamp duty (buy side only)
   let stampDuty = 0;
@@ -213,6 +227,12 @@ function calculateLegCommission(params: CommissionParams): CommissionBreakdown {
   const gst = gstBase * GST_RATE;
 
   const total = brokerage + stt + exchangeCharge + sebiFee + stampDuty + dpCharge + gst;
+  const rateWarnings = [...warnings];
+  if (tradeDate && tradeDate < CURRENT_RATE_EFFECTIVE_DATE) {
+    rateWarnings.push(
+      `Charges for ${tradeDate} are estimated using the ${CURRENT_RATE_EFFECTIVE_DATE} rate schedule.`,
+    );
+  }
 
   return {
     rateVersion: COMMISSION_RATE_VERSION,
@@ -224,6 +244,8 @@ function calculateLegCommission(params: CommissionParams): CommissionBreakdown {
     dpCharge: round(dpCharge),
     gst: round(gst),
     total: round(total),
+    calculationStatus: rateWarnings.length ? 'estimated' : 'exact',
+    warnings: rateWarnings,
   };
 }
 
@@ -244,12 +266,25 @@ export function calculateTradeCommission(trade: {
   entry_time: string;
   exit_time: string;
   orders?: TradeOrder[];
+  price_multiplier?: number;
+  commodity_class?: string;
+  instrument_name?: string;
+  instrument_type?: TradeOrder['instrument_type'];
 }): CommissionBreakdown {
   const { symbol, exchange, segment, direction, qty, avg_entry, avg_exit, entry_time, exit_time } = trade;
 
   const upperSymbol = (symbol || '').toUpperCase();
   const isOptions = upperSymbol.endsWith('CE') || upperSymbol.endsWith('PE');
   const seg = (segment || '').toUpperCase();
+  const mcxMetadata = isMcxInstrument({ exchange, segment })
+    ? enrichMcxMetadata(symbol, {
+        price_multiplier: trade.orders?.[0]?.price_multiplier || trade.price_multiplier,
+        commodity_class: (trade.orders?.[0]?.commodity_class || trade.commodity_class) as TradeOrder['commodity_class'],
+        instrument_name: trade.orders?.[0]?.instrument_name || trade.instrument_name,
+        instrument_type: trade.orders?.[0]?.instrument_type || trade.instrument_type,
+        metadata_source: trade.orders?.[0]?.metadata_source,
+      })
+    : null;
 
   // For equity delivery vs intraday: infer from hold time
   const entryDate = entry_time.substring(0, 10);
@@ -257,12 +292,24 @@ export function calculateTradeCommission(trade: {
   const isDelivery = seg === 'EQ' && entryDate !== exitDate;
   const tradeOrders = trade.orders && trade.orders.length > 0
     ? trade.orders
-    : buildFallbackOrders({ direction, qty, avg_entry, avg_exit, exchange, segment, entry_time, exit_time });
+    : buildFallbackOrders({
+        direction,
+        qty,
+        avg_entry,
+        avg_exit,
+        exchange,
+        segment,
+        entry_time,
+        exit_time,
+        priceMultiplier: trade.price_multiplier || mcxMetadata?.priceMultiplier || 1,
+        commodityClass: trade.commodity_class || mcxMetadata?.commodityClass || '',
+      });
 
   return tradeOrders.reduce((sum, order) => {
     const orderSegment = order.segment || segment;
     const orderExchange = order.exchange || exchange;
-    const turnover = Number(order.qty) * Number(order.price);
+    const orderMultiplier = Number(mcxMetadata?.priceMultiplier || order.price_multiplier || 1);
+    const turnover = getContractValue(Number(order.qty), Number(order.price), orderMultiplier);
     const commission = calculateLegCommission({
       turnover,
       segment: orderSegment,
@@ -271,6 +318,9 @@ export function calculateTradeCommission(trade: {
       isSell: order.type === 'SELL',
       isBuy: order.type === 'BUY',
       isDelivery,
+      commodityClass: order.commodity_class || mcxMetadata?.commodityClass || '',
+      tradeDate: order.trade_time.substring(0, 10),
+      warnings: mcxMetadata?.warnings || [],
     });
     return sumCommissions(sum, commission);
   }, emptyCommission());
@@ -287,6 +337,12 @@ function sumCommissions(a: CommissionBreakdown, b: CommissionBreakdown): Commiss
     dpCharge: round(a.dpCharge + b.dpCharge),
     gst: round(a.gst + b.gst),
     total: round(a.total + b.total),
+    calculationStatus: a.calculationStatus === 'estimated' || b.calculationStatus === 'estimated'
+      ? 'estimated'
+      : 'exact',
+    warnings: [...a.warnings, ...b.warnings].filter(
+      (warning, index, warnings) => warnings.indexOf(warning) === index,
+    ),
   };
 }
 
@@ -301,6 +357,8 @@ function emptyCommission(): CommissionBreakdown {
     dpCharge: 0,
     gst: 0,
     total: 0,
+    calculationStatus: 'exact',
+    warnings: [],
   };
 }
 
@@ -313,8 +371,13 @@ function buildFallbackOrders(params: {
   segment: string;
   entry_time: string;
   exit_time: string;
+  priceMultiplier: number;
+  commodityClass: string;
 }): TradeOrder[] {
-  const { direction, qty, avg_entry, avg_exit, exchange, segment, entry_time, exit_time } = params;
+  const {
+    direction, qty, avg_entry, avg_exit, exchange, segment, entry_time, exit_time,
+    priceMultiplier, commodityClass,
+  } = params;
   const entryType = direction === 'LONG' ? 'BUY' : 'SELL';
   const exitType = direction === 'LONG' ? 'SELL' : 'BUY';
 
@@ -328,6 +391,8 @@ function buildFallbackOrders(params: {
       type: entryType,
       qty,
       price: avg_entry,
+      price_multiplier: priceMultiplier,
+      commodity_class: commodityClass as TradeOrder['commodity_class'],
     },
     {
       uid: 'commission-exit',
@@ -338,6 +403,8 @@ function buildFallbackOrders(params: {
       type: exitType,
       qty,
       price: avg_exit,
+      price_multiplier: priceMultiplier,
+      commodity_class: commodityClass as TradeOrder['commodity_class'],
     },
   ];
 }
@@ -346,12 +413,16 @@ export function isCurrentCommissionBreakdown(value: unknown): value is Commissio
   return typeof value === 'object'
     && value !== null
     && 'rateVersion' in value
-    && value.rateVersion === COMMISSION_RATE_VERSION;
+    && value.rateVersion === COMMISSION_RATE_VERSION
+    && 'calculationStatus' in value
+    && 'warnings' in value;
 }
 
 export function withCurrentCommission<T extends TradeRecord>(trade: T): T {
   if (trade.commission !== undefined && trade.commission !== null && isCurrentCommissionBreakdown(trade.commission_breakdown)) {
-    return trade;
+    const netPnl = Number(trade.pnl || 0) - Number(trade.commission || 0);
+    const result = netPnl > 0.005 ? 'win' : netPnl < -0.005 ? 'loss' : 'breakeven';
+    return trade.result === result ? trade : { ...trade, result };
   }
 
   const commission = calculateTradeCommission({
@@ -365,12 +436,23 @@ export function withCurrentCommission<T extends TradeRecord>(trade: T): T {
     entry_time: trade.entry_time || trade.entryTime || '',
     exit_time: trade.exit_time || trade.exitTime || '',
     orders: trade.orders,
+    price_multiplier: trade.price_multiplier,
+    commodity_class: trade.commodity_class,
+    instrument_name: trade.instrument_name,
+    instrument_type: trade.instrument_type,
   });
 
   return {
     ...trade,
     commission: commission.total,
     commission_breakdown: commission,
+    calculation_status: commission.calculationStatus,
+    calculation_warnings: commission.warnings,
+    result: (trade.pnl || 0) - commission.total > 0.005
+      ? 'win'
+      : (trade.pnl || 0) - commission.total < -0.005
+        ? 'loss'
+        : 'breakeven',
   };
 }
 
@@ -447,5 +529,7 @@ export function calculateExercisedOptionCommission(params: {
     dpCharge: 0,
     gst: round(gst),
     total: round(total),
+    calculationStatus: 'exact',
+    warnings: [],
   };
 }

@@ -460,6 +460,56 @@ body::before {
 .auth-copy.compact p {
   font-size: 14px;
 }
+.auth-launch-card {
+  border: 1px solid rgba(249,115,22,0.28);
+  border-radius: var(--radius-sm);
+  background: rgba(249,115,22,0.08);
+  padding: 12px 13px;
+  margin-bottom: 16px;
+}
+.auth-launch-card strong {
+  display: block;
+  font-size: 13px;
+  color: var(--text);
+  margin-bottom: 5px;
+}
+.auth-launch-card p {
+  margin: 0 0 9px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.auth-launch-card a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  background: var(--brand);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.auth-form .auth-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+.auth-form .auth-checkbox input {
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  accent-color: var(--brand);
+  flex: 0 0 auto;
+}
 
 /* ── Public Landing Page ── */
 .landing-page {

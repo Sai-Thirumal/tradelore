@@ -35,15 +35,16 @@ export function computeStats(trades: TradeRecord[]): StatsResult {
   };
   if (!trades.length) return zero;
 
-  const wins   = trades.filter(t => t.result === 'win');
-  const losses = trades.filter(t => t.result === 'loss');
+  const tradeNet = (t: TradeRecord) => Number(t.pnl || 0) - Number(t.commission || 0);
+  const wins   = trades.filter(t => tradeNet(t) > 0.005);
+  const losses = trades.filter(t => tradeNet(t) < -0.005);
 
   const grossPnl      = trades.reduce((s, t) => s + (t.pnl || 0), 0);
   const totalCommission = trades.reduce((s, t) => s + (t.commission || 0), 0);
   const netPnl        = grossPnl - totalCommission;
 
-  const totalWins   = wins.reduce((s, t) => s + (t.pnl || 0), 0);
-  const totalLosses = Math.abs(losses.reduce((s, t) => s + (t.pnl || 0), 0));
+  const totalWins   = wins.reduce((s, t) => s + tradeNet(t), 0);
+  const totalLosses = Math.abs(losses.reduce((s, t) => s + tradeNet(t), 0));
 
   const tradeWinPct  = wins.length / trades.length * 100;
   const profitFactor = totalLosses > 0 ? totalWins / totalLosses : (totalWins > 0 ? 999 : 0);
@@ -56,8 +57,7 @@ export function computeStats(trades: TradeRecord[]): StatsResult {
   for (const t of trades) {
     const date = t.trade_date || t.date || '';
     if (!date) continue;
-    const tradeNet = (t.pnl || 0) - (t.commission || 0);
-    dayPnl[date] = (dayPnl[date] || 0) + tradeNet;
+    dayPnl[date] = (dayPnl[date] || 0) + tradeNet(t);
     dayTrades[date] = (dayTrades[date] || 0) + 1;
   }
 

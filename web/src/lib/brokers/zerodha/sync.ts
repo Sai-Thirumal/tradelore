@@ -6,6 +6,7 @@ import { KiteApiError, fetchKiteTrades } from './client';
 import { kiteFillsToTradeOrders } from './normalize';
 import { safeBrokerErrorMessage } from './safe-errors';
 import { isTokenExpired } from './session';
+import { fetchInstrumentIndex, type DerivativesExchange } from './instruments';
 
 export interface ZerodhaSyncResult {
   imported_orders: number;
@@ -33,7 +34,22 @@ export async function syncZerodhaTrades(userId: string): Promise<ZerodhaSyncResu
     const accessToken = decryptSecret(connection.encrypted_access_token);
     const kiteUserId = connection.broker_user_id || userId;
     const fills = await fetchKiteTrades(connection.api_key || '', accessToken);
-    const newOrders = kiteFillsToTradeOrders(fills, kiteUserId);
+    const derivativesExchanges = [...new Set(
+      fills
+        .map((fill) => fill.exchange.toUpperCase())
+        .filter((exchange): exchange is DerivativesExchange =>
+          exchange === 'NFO' || exchange === 'BFO' || exchange === 'MCX'),
+    )];
+    const instrumentEntries = await Promise.all(
+      derivativesExchanges.map(async (exchange) => [
+        exchange,
+        await fetchInstrumentIndex(exchange).catch(() => undefined),
+      ] as const),
+    );
+    const instrumentIndexes = Object.fromEntries(
+      instrumentEntries.filter((entry) => entry[1]),
+    );
+    const newOrders = kiteFillsToTradeOrders(fills, kiteUserId, instrumentIndexes);
 
     await storeOrders(newOrders, userId);
 

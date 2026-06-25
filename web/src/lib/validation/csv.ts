@@ -42,6 +42,10 @@ const HEADER_MAP: Record<string, string> = {
   segment: 'segment',
   expiry_date: 'expiry_date',
   expiry: 'expiry_date',
+  'price multiplier': 'price_multiplier',
+  price_multiplier: 'price_multiplier',
+  'contract multiplier': 'price_multiplier',
+  contract_multiplier: 'price_multiplier',
 };
 
 const REQUIRED_FIELDS = ['symbol', 'type', 'qty', 'price'] as const;
@@ -54,6 +58,7 @@ const ZERODHA_REQUIRED_HEADERS = [
   'trade_id',
   'order_id',
   'order_execution_time',
+  'exchange',
 ] as const;
 
 interface CsvPreview {

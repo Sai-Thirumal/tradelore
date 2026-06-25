@@ -18,7 +18,7 @@ A trading journal and analytics dashboard for Indian markets. Import broker CSV 
 | **Reports** | Overview metrics plus grouped reports by day, month, trade time, trade duration, and instrument |
 | **Date Filter** | Dual-calendar date range picker — filter the entire dashboard by any date range |
 | **Charts** | TradingView `lightweight-charts` with entry/exit markers, auto-detects intraday vs daily candles |
-| **Costs** | Indian exchange commission calculator for equity, F&O, options, and MCX; legacy trades are backfilled on read |
+| **Costs** | Indian exchange commission calculator for equity, F&O, options, and MCX, including MCX contract multipliers and agri/non-agri treatment |
 | **Authentication** | Supabase Auth sign-up/login, protected app routes, per-user imports and journals |
 
 ---
@@ -65,7 +65,7 @@ Reports add a second analytics layer:
 - **Overview** — trade counts, largest win/loss, profit factor, hold times, trading day stats, drawdown, R-multiples, total commissions
 - **Day & Time** — grouped performance by weekday, month, entry hour, and holding duration
 - **Instruments** — grouped performance by extracted underlying/instrument
-- **Risk** — grouped performance by dynamic deployed-capital ranges from imported entry price and quantity
+- **Risk** — grouped performance by dynamic contract-notional ranges from entry price, quantity, and MCX multiplier
 - **Playbooks** — grouped performance by playbook tags entered in each trade journal
 - **Options** — grouped performance by market-session time to expiry, using imported expiry data or option-symbol expiry parsing
 
@@ -169,6 +169,8 @@ Run these SQL files in your Supabase SQL Editor (in order):
 1. `sql/setup-journal.sql` — creates all tables
 2. `sql/playbooks-migration.sql` — expands playbooks schema + seeds 3 examples
 3. `sql/multi-user-auth.sql` — adds `user_id`, per-user unique indexes, commission columns, and RLS policies
+4. `sql/broker-connections.sql` — encrypted per-user Zerodha connection metadata
+5. `sql/03_mcx_support.sql` — MCX instrument metadata, contract multipliers, and calculation warnings
 
 If old imported data does not need to be preserved, run `multi-user-auth.sql` as-is. The commented backfill block is only for assigning old rows to a first user.
 

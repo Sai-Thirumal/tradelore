@@ -113,12 +113,13 @@ Mobile note: trade detail constrains the top header to the viewport, truncating 
 ### `components/chart/TradeChart.tsx`
 `src/app/components/chart/TradeChart.tsx`
 
-- **Props:** `{ symbol, direction, avgEntry, avgExit, entryTime, exitTime, orders? }`
+- **Props:** `{ symbol, exchange?, direction, avgEntry, avgExit, entryTime, exitTime, orders? }`
 - **Library:** `lightweight-charts` v5 (TradingView) — loaded via `next/dynamic({ ssr: false })`
 - **Data source:** `/api/chart` → Yahoo Finance proxy
 - **Features:** CandlestickSeries, `createSeriesMarkers()` for entry/exit arrows, deduped order markers by candle/price/type
 - **States:** loading → error → ok (all rendered in single return, ref div always mounted)
 - **Smart interval:** 5-min for intraday, daily for multi-day trades
+- **MCX behavior:** supported commodity families use a labelled global-futures reference chart; unsupported families show an explicit unavailable state and keep the `MCX:symbol` TradingView link
 
 ### Page Files
 
@@ -150,6 +151,7 @@ Mobile note: trade detail constrains the top header to the viewport, truncating 
 ### Trade matching pipeline
 ```
 Signed-in user → Broker CSV rows → csv-parser.ts (parse)
+  → NFO/BFO/MCX instrument metadata enrichment
   → storeOrders(userId) (Supabase insert with user_id)
   → fetchAllOrders(userId) (Supabase select, paginated)
   → collapseFills() (merge by order_id, weighted avg price)
@@ -158,6 +160,8 @@ Signed-in user → Broker CSV rows → csv-parser.ts (parse)
   → fetchAllTrades(userId) (Supabase select, paginated)
   → Frontend renders
 ```
+
+Only completed positions are rendered. Unmatched/unrealized positions remain intentionally excluded pending a separate product specification.
 
 ### Reports data flow
 ```

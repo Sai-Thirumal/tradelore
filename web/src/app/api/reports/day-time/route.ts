@@ -4,6 +4,12 @@ import { withCurrentCommission } from '@/lib/engine/commission';
 import { requireAuthUser } from '@/lib/auth/session';
 import { getErrorMessage } from '@/lib/errors';
 import type { TradeRecord } from '@/lib/types/trading';
+import {
+  getContractValue,
+  getMcxFamilyLabel,
+  getMcxSessionCloseMinutes,
+  isMcxInstrument,
+} from '@/lib/engine/mcx';
 
 type Group = 'days' | 'months' | 'trade-time' | 'trade-duration' | 'instruments' | 'deployed-capital' | 'playbooks' | 'options-expiry';
 
@@ -26,6 +32,18 @@ const TRADING_DAYS_PER_MONTH = 21;
 function getInstrument(t: TradeRecord): string {
   const sym: string = t.symbol || '';
   const segment: string = t.segment || '';
+  const upper = sym.toUpperCase();
+
+  if (isMcxInstrument(t)) {
+    const family = getMcxFamilyLabel(t.instrument_name || sym);
+    if ((t.instrument_type || '').toUpperCase() === 'FUT' || upper.endsWith('FUT')) {
+      return `${family} (MCX Futures)`;
+    }
+    if (['CE', 'PE'].includes((t.instrument_type || '').toUpperCase()) || upper.endsWith('CE') || upper.endsWith('PE')) {
+      return `${family} (MCX Options)`;
+    }
+    return `${family} (MCX)`;
+  }
 
   // Equity — symbol is the instrument
   if (segment === 'EQ') return sym + ' (Equity)';
@@ -42,7 +60,6 @@ function getInstrument(t: TradeRecord): string {
 
   if (!base) base = sym; // fallback
 
-  const upper = sym.toUpperCase();
   if (upper.endsWith('FUT') || upper.includes('FUT')) return base + ' (Futures)';
   if (upper.endsWith('CE') || upper.endsWith('PE')) return base + ' (Options)';
 
@@ -133,7 +150,7 @@ function buildCapitalBuckets(values: number[]): CapitalBucket[] {
 function getDeployedCapital(t: TradeRecord): number {
   const entryPrice = Number(t.avg_entry || t.avgEntry || 0);
   const quantity = Number(t.qty || t.quantity || 0);
-  const deployedCapital = Math.abs(entryPrice * quantity);
+  const deployedCapital = getContractValue(quantity, entryPrice, Number(t.price_multiplier || 1));
   return Number.isFinite(deployedCapital) ? deployedCapital : 0;
 }
 
@@ -160,9 +177,10 @@ function parseDateTime(value: string): Date | null {
   return date;
 }
 
-function toExpiryClose(date: Date): Date {
+function toExpiryClose(date: Date, trade: TradeRecord): Date {
   const expiry = new Date(date);
-  expiry.setHours(Math.floor(MARKET_CLOSE_MINUTES / 60), MARKET_CLOSE_MINUTES % 60, 0, 0);
+  const closeMinutes = isMcxInstrument(trade) ? getMcxSessionCloseMinutes(date) : MARKET_CLOSE_MINUTES;
+  expiry.setHours(Math.floor(closeMinutes / 60), closeMinutes % 60, 0, 0);
   return expiry;
 }
 
@@ -200,6 +218,7 @@ function parseSymbolExpiry(symbol: string): Date | null {
 
 function getExpiryDate(t: TradeRecord): Date | null {
   const importedExpiry = t.expiry_date ? parseDateParts(t.expiry_date) : null;
+  if (isMcxInstrument(t)) return importedExpiry;
   return importedExpiry || parseSymbolExpiry(t.symbol || '');
 }
 
@@ -219,7 +238,7 @@ function addDays(date: Date, days: number): Date {
   return next;
 }
 
-function marketMinutesBetween(start: Date, end: Date): number {
+function marketMinutesBetween(start: Date, end: Date, trade: TradeRecord): number {
   if (end <= start) return 0;
 
   let total = 0;
@@ -228,11 +247,13 @@ function marketMinutesBetween(start: Date, end: Date): number {
 
   while (cursor <= endDay) {
     if (!isWeekend(cursor)) {
+      const openMinutes = isMcxInstrument(trade) ? 9 * 60 : MARKET_OPEN_MINUTES;
+      const closeMinutes = isMcxInstrument(trade) ? getMcxSessionCloseMinutes(cursor) : MARKET_CLOSE_MINUTES;
       const sessionStart = new Date(cursor);
-      sessionStart.setHours(Math.floor(MARKET_OPEN_MINUTES / 60), MARKET_OPEN_MINUTES % 60, 0, 0);
+      sessionStart.setHours(Math.floor(openMinutes / 60), openMinutes % 60, 0, 0);
 
       const sessionEnd = new Date(cursor);
-      sessionEnd.setHours(Math.floor(MARKET_CLOSE_MINUTES / 60), MARKET_CLOSE_MINUTES % 60, 0, 0);
+      sessionEnd.setHours(Math.floor(closeMinutes / 60), closeMinutes % 60, 0, 0);
 
       const rangeStart = start > sessionStart ? start : sessionStart;
       const rangeEnd = end < sessionEnd ? end : sessionEnd;
@@ -246,7 +267,7 @@ function marketMinutesBetween(start: Date, end: Date): number {
   return total;
 }
 
-function getExpiryBucketKey(minutes: number): string {
+function getExpiryBucketKey(minutes: number, sessionMinutes = MARKET_SESSION_MINUTES): string {
   const safeMinutes = Math.max(0, Math.floor(minutes));
   let order: number;
   let label: string;
@@ -254,21 +275,21 @@ function getExpiryBucketKey(minutes: number): string {
   if (safeMinutes < 60) {
     order = Math.floor(safeMinutes / 10) * 10;
     label = `${order}m`;
-  } else if (safeMinutes < MARKET_SESSION_MINUTES) {
+  } else if (safeMinutes < sessionMinutes) {
     const hours = Math.floor(safeMinutes / 60);
     order = hours * 60;
     label = `${hours}h`;
-  } else if (safeMinutes < MARKET_SESSION_MINUTES * TRADING_DAYS_PER_WEEK) {
-    const days = Math.floor(safeMinutes / MARKET_SESSION_MINUTES);
-    order = days * MARKET_SESSION_MINUTES;
+  } else if (safeMinutes < sessionMinutes * TRADING_DAYS_PER_WEEK) {
+    const days = Math.floor(safeMinutes / sessionMinutes);
+    order = days * sessionMinutes;
     label = `${days}D`;
-  } else if (safeMinutes < MARKET_SESSION_MINUTES * TRADING_DAYS_PER_MONTH) {
-    const weeks = Math.floor(safeMinutes / (MARKET_SESSION_MINUTES * TRADING_DAYS_PER_WEEK));
-    order = weeks * MARKET_SESSION_MINUTES * TRADING_DAYS_PER_WEEK;
+  } else if (safeMinutes < sessionMinutes * TRADING_DAYS_PER_MONTH) {
+    const weeks = Math.floor(safeMinutes / (sessionMinutes * TRADING_DAYS_PER_WEEK));
+    order = weeks * sessionMinutes * TRADING_DAYS_PER_WEEK;
     label = `${weeks}W`;
   } else {
-    const months = Math.floor(safeMinutes / (MARKET_SESSION_MINUTES * TRADING_DAYS_PER_MONTH));
-    order = months * MARKET_SESSION_MINUTES * TRADING_DAYS_PER_MONTH;
+    const months = Math.floor(safeMinutes / (sessionMinutes * TRADING_DAYS_PER_MONTH));
+    order = months * sessionMinutes * TRADING_DAYS_PER_MONTH;
     label = `${months}M`;
   }
 
@@ -296,19 +317,20 @@ function computeGroupStats(trades: TradeRecord[], getKey: (t: TradeRecord) => st
 
   const stats: GroupStats[] = [];
   for (const [label, groupTrades] of Object.entries(groups)) {
-    const wins = groupTrades.filter(t => t.result === 'win');
-    const losses = groupTrades.filter(t => t.result === 'loss');
+    const netValue = (t: TradeRecord) => Number(t.pnl || 0) - Number(t.commission || 0);
+    const wins = groupTrades.filter(t => netValue(t) > 0.005);
+    const losses = groupTrades.filter(t => netValue(t) < -0.005);
     const grossPnl = groupTrades.reduce((s, t) => s + (t.pnl || 0), 0);
     const totalCommission = groupTrades.reduce((s, t) => s + (t.commission || 0), 0);
     const netPnl = grossPnl - totalCommission;
     const tradeCount = groupTrades.length;
     const winPct = tradeCount > 0 ? (wins.length / tradeCount) * 100 : 0;
-    const totalWins = wins.reduce((s, t) => s + (t.pnl || 0), 0);
-    const totalLosses = Math.abs(losses.reduce((s, t) => s + (t.pnl || 0), 0));
+    const totalWins = wins.reduce((s, t) => s + netValue(t), 0);
+    const totalLosses = Math.abs(losses.reduce((s, t) => s + netValue(t), 0));
     const avgWin = wins.length > 0 ? totalWins / wins.length : 0;
     const avgLoss = losses.length > 0 ? totalLosses / losses.length : 0;
     const avgVolume = tradeCount > 0
-      ? groupTrades.reduce((s, t) => s + (t.quantity || 0), 0) / tradeCount
+      ? groupTrades.reduce((s, t) => s + Number(t.qty || t.quantity || 0), 0) / tradeCount
       : 0;
 
     stats.push({ label, winPct, netPnl, tradeCount, avgWin, avgLoss, avgVolume });
@@ -478,7 +500,13 @@ export async function GET(request: NextRequest) {
           const entry = parseDateTime(t.entry_time || t.entryTime || '');
           const expiry = getExpiryDate(t);
           if (!entry || !expiry) return 'unavailable';
-          return getExpiryBucketKey(marketMinutesBetween(entry, toExpiryClose(expiry)));
+          const sessionMinutes = isMcxInstrument(t)
+            ? getMcxSessionCloseMinutes(expiry) - 9 * 60
+            : MARKET_SESSION_MINUTES;
+          return getExpiryBucketKey(
+            marketMinutesBetween(entry, toExpiryClose(expiry, t), t),
+            sessionMinutes,
+          );
         };
         labelFormatter = (k) => k.split('|')[1] || k;
         break;
