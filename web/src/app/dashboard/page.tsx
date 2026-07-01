@@ -14,6 +14,7 @@ import type { TradeOrder, TradeRecord } from '@/lib/types/trading';
 import DateRangePicker from '../components/DateRangePicker';
 import JournalPreMarket from '../components/journal/PreMarket';
 import JournalPostTrade from '../components/journal/PostTrade';
+import LiveTradeNotes from '../components/journal/LiveTradeNotes';
 import Playbooks from '../components/Playbooks';
 import ReportsPage from '../components/reports/ReportsPage';
 
@@ -573,10 +574,14 @@ export default function Home() {
           <div className={`journal-subtab ${journalTab === 'posttrade' ? 'active' : ''}`} onClick={() => setJournalTab('posttrade')}>
             Post-Market
           </div>
+          <div className={`journal-subtab ${journalTab === 'live' ? 'active' : ''}`} onClick={() => setJournalTab('live')}>
+            Live Trade Notes
+          </div>
         </div>
         <div className="fade-in-up">
           {journalTab === 'premarket' && <JournalPreMarket latestTradeDate={todayStr} />}
           {journalTab === 'posttrade' && <JournalPostTrade trades={latestTrades} date={latestDate} />}
+          {journalTab === 'live' && <LiveTradeNotes />}
         </div>
       </div>
     );
@@ -619,12 +624,14 @@ export default function Home() {
           <div className={`actions-menu ${actionsMenuOpen ? 'open' : ''}`}>
             <button
               className="actions-menu-item"
+              title="Max upload: latest 6 months of trades."
               onClick={() => {
                 setActionsMenuOpen(false);
                 fileInputRef.current?.click();
               }}
             >
               Import CSV
+              <span className="actions-menu-hint">Max upload: latest 6 months</span>
             </button>
             <button
               className="actions-menu-item"
@@ -915,7 +922,13 @@ export default function Home() {
             </div>
             <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
               <span style={{fontSize:'12px',color:'var(--text-secondary)'}}>{importStatus}</span>
-              <button className="import-btn" onClick={() => fileInputRef.current?.click()}>↑ Import CSV</button>
+              <button
+                className="import-btn"
+                title="Max upload: latest 6 months of trades."
+                onClick={() => fileInputRef.current?.click()}
+              >
+                ↑ Import CSV
+              </button>
             </div>
           </div>
 
@@ -1009,7 +1022,9 @@ export default function Home() {
                                   {dayTrades.sort((a, b) => (b.exit_time || b.exitTime || '').localeCompare(a.exit_time || a.exitTime || '')).map((t, i) => {
                                     const rowKey = `${key}_${dayDate}_${i}`;
                                     const isRowOpen = expandedTradeRow === rowKey;
-                                    const allIdx = allTrades.findIndex((at) => (at.id || `${at.symbol}_${at.entry_time || at.entryTime}`) === (t.id || `${t.symbol}_${t.entry_time || t.entryTime}`));
+                                    const journalKey = `${t.symbol}_${t.entry_time || t.entryTime}`;
+                                    const journaled = journaledTradeIds.has(journalKey) || Boolean(t.id && journaledTradeIds.has(t.id));
+                                    const allIdx = allTrades.findIndex((at) => `${at.symbol}_${at.entry_time || at.entryTime}` === journalKey);
                                     const tradeIdx = allIdx >= 0 ? allIdx : trades.indexOf(t);
                                     const tradeUrl = `/trade?idx=${tradeIdx}`;
                                     return (
@@ -1023,8 +1038,8 @@ export default function Home() {
                                           <td style={{fontWeight:700,color:(t.pnl - (t.commission || 0)) >= 0 ? 'var(--green)' : 'var(--red)'}}>{fmtINR(t.pnl - (t.commission || 0))}</td>
                                           <td>
                                             <span style={{display:'inline-flex', alignItems:'center', gap:'4px'}}>
-                                              <span style={{width:'6px', height:'6px', borderRadius:'50%', background: journaledTradeIds.has(t.id || `${t.symbol}_${t.entry_time || t.entryTime}`) ? '#16a34a' : '#d1d5db', display:'inline-block'}}></span>
-                                              <span style={{fontSize:'11px', color:'var(--text-secondary)'}}>{journaledTradeIds.has(t.id || `${t.symbol}_${t.entry_time || t.entryTime}`) ? 'Yes' : 'No'}</span>
+                                              <span style={{width:'6px', height:'6px', borderRadius:'50%', background: journaled ? '#16a34a' : '#d1d5db', display:'inline-block'}}></span>
+                                              <span style={{fontSize:'11px', color:'var(--text-secondary)'}}>{journaled ? 'Yes' : 'No'}</span>
                                             </span>
                                           </td>
                                           <td>

@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     const apiSecret = requiredString(body, 'api_secret', { maxChars: 200 });
 
     await saveBrokerCredentials(user.id, {
-      api_key: apiKey,
+      encrypted_api_key: encryptSecret(apiKey),
       encrypted_api_secret: encryptSecret(apiSecret),
     });
 

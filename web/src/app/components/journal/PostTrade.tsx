@@ -49,7 +49,7 @@ interface JournalDraft {
 }
 
 function getTradeId(t: Trade): string {
-  return t.id || `${t.symbol}_${t.entry_time || t.entryTime}`;
+  return `${t.symbol}_${t.entry_time || t.entryTime}`;
 }
 
 function lsKey(tradeId: string): string {
@@ -119,7 +119,7 @@ export default function JournalPostTrade({ trades, date }: { trades: Trade[]; da
   useEffect(() => {
     for (const t of trades) {
       const tid = getTradeId(t);
-      const cached = localStorage.getItem(lsKey(tid));
+      const cached = localStorage.getItem(lsKey(tid)) || (t.id ? localStorage.getItem(lsKey(t.id)) : null);
       if (cached) {
         try {
           const draft = JSON.parse(cached) as JournalDraft;
@@ -128,6 +128,7 @@ export default function JournalPostTrade({ trades, date }: { trades: Trade[]; da
       }
       fetch(`/api/trade-journal?trade_id=${encodeURIComponent(tid)}`)
         .then(r => r.json())
+        .then(data => data || (t.id ? fetch(`/api/trade-journal?trade_id=${encodeURIComponent(t.id)}`).then(r => r.json()) : null))
         .then(data => {
           if (data && data.trade_id) applyJournal(tid, {
             riskAmount: data.risk_amount?.toString() || '',
@@ -361,8 +362,8 @@ export default function JournalPostTrade({ trades, date }: { trades: Trade[]; da
                             </div>
 
                             <div className="posttrade-field">
-                              <label>Important notes</label>
-                              <textarea placeholder="Anything else worth remembering about this trade" rows={2}
+                              <label>Live Trade Notes</label>
+                              <textarea placeholder="Notes carried from the live trade" rows={2}
                                 value={importantNotes[tid] || ''}
                                 onChange={e => setImportantNotes(p => ({ ...p, [tid]: e.target.value }))} />
                             </div>

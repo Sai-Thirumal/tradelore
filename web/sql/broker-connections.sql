@@ -1,5 +1,5 @@
 -- Broker connections for per-user Zerodha/Kite Personal API credentials.
--- API secrets and daily access tokens are encrypted server-side before storage.
+-- API keys, API secrets, and daily access tokens are encrypted server-side before storage.
 -- Do not expose this table directly to clients; use server API routes that return
 -- sanitized metadata only.
 
@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS public.broker_connections (
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   broker text NOT NULL,
   api_key text DEFAULT '',
+  encrypted_api_key text,
   encrypted_api_secret text,
   credentials_saved_at timestamptz,
   broker_user_id text DEFAULT '',
@@ -24,6 +25,7 @@ CREATE TABLE IF NOT EXISTS public.broker_connections (
 
 ALTER TABLE public.broker_connections
   ADD COLUMN IF NOT EXISTS api_key text DEFAULT '',
+  ADD COLUMN IF NOT EXISTS encrypted_api_key text,
   ADD COLUMN IF NOT EXISTS encrypted_api_secret text,
   ADD COLUMN IF NOT EXISTS credentials_saved_at timestamptz;
 

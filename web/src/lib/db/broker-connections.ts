@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createServiceClient } from '@/lib/supabase/service';
+import { decryptSecret } from '@/lib/security/encryption';
 
 export const ZERODHA_BROKER = 'zerodha';
 
@@ -8,6 +9,7 @@ export interface BrokerConnectionRecord {
   user_id: string;
   broker: string;
   api_key?: string | null;
+  encrypted_api_key?: string | null;
   encrypted_api_secret?: string | null;
   credentials_saved_at?: string | null;
   broker_user_id?: string | null;
@@ -27,8 +29,12 @@ async function getSupabase(): Promise<SupabaseClient> {
 
 export function hasBrokerCredentials(
   connection: BrokerConnectionRecord | null,
-): connection is BrokerConnectionRecord & { api_key: string; encrypted_api_secret: string } {
-  return Boolean(connection?.api_key && connection.encrypted_api_secret);
+): connection is BrokerConnectionRecord & { encrypted_api_secret: string } {
+  return Boolean((connection?.encrypted_api_key || connection?.api_key) && connection.encrypted_api_secret);
+}
+
+export function getBrokerApiKey(connection: BrokerConnectionRecord): string {
+  return connection.encrypted_api_key ? decryptSecret(connection.encrypted_api_key) : connection.api_key || '';
 }
 
 export function maskApiKey(apiKey?: string | null) {
@@ -76,11 +82,12 @@ export async function upsertBrokerConnection(
 
 export async function saveBrokerCredentials(
   userId: string,
-  credentials: Pick<BrokerConnectionRecord, 'api_key' | 'encrypted_api_secret'>,
+  credentials: Pick<BrokerConnectionRecord, 'encrypted_api_key' | 'encrypted_api_secret'>,
   broker = ZERODHA_BROKER,
 ) {
   return upsertBrokerConnection(userId, {
-    api_key: credentials.api_key,
+    api_key: '',
+    encrypted_api_key: credentials.encrypted_api_key,
     encrypted_api_secret: credentials.encrypted_api_secret,
     credentials_saved_at: new Date().toISOString(),
     broker_user_id: '',
@@ -108,6 +115,7 @@ export async function disconnectBrokerConnection(userId: string, broker = ZERODH
 export async function deleteBrokerCredentials(userId: string, broker = ZERODHA_BROKER) {
   return upsertBrokerConnection(userId, {
     api_key: '',
+    encrypted_api_key: null,
     encrypted_api_secret: null,
     credentials_saved_at: null,
     broker_user_id: '',

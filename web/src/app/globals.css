@@ -224,8 +224,18 @@ body::before {
   cursor: pointer;
   white-space: nowrap;
 }
+.actions-menu-hint {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+}
 .actions-menu-item:hover {
   background: var(--brand-light);
+  color: var(--brand);
+}
+.actions-menu-item:hover .actions-menu-hint {
   color: var(--brand);
 }
 .actions-menu-item:disabled {

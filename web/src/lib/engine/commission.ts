@@ -3,7 +3,7 @@
 import type { TradeDirection, TradeOrder, TradeRecord } from '@/lib/types/trading';
 import { enrichMcxMetadata, getContractValue, isMcxInstrument } from './mcx.ts';
 
-export const COMMISSION_RATE_VERSION = 'zerodha_charges_2026_06_19';
+export const COMMISSION_RATE_VERSION = 'zerodha_charges_2026_06_19_no_dp';
 
 export interface CommissionBreakdown {
   rateVersion: string;
@@ -62,9 +62,6 @@ const CURRENT_RATE_EFFECTIVE_DATE = '2026-06-19';
 
 // GST rate
 const GST_RATE = 0.18;
-
-// DP charges: flat per ISIN per day on delivery sell, inclusive of GST.
-const DP_CHARGE_PER_ISIN = 15.34;
 
 // ── Helpers ──
 
@@ -215,11 +212,7 @@ function calculateLegCommission(params: CommissionParams): CommissionBreakdown {
     stampDuty = turnover * sdRate;
   }
 
-  // 6. DP charge (delivery sell only)
-  let dpCharge = 0;
-  if (seg === 'EQ' && isDelivery && isSell) {
-    dpCharge = DP_CHARGE_PER_ISIN;
-  }
+  const dpCharge = 0;
 
   // 7. GST (18% on brokerage + exchange charge + SEBI fee ONLY)
   // Do NOT apply GST on STT, CTT, or stamp duty.

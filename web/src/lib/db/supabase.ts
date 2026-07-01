@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { latestTradeMonths, tradeMonth } from '@/lib/engine/trade-retention';
 import { createClient as createServerSupabaseClient } from '@/lib/supabase/server';
 import type { JsonRecord, PlaybookRecord, TradeJournalRecord, TradeOrder, TradeRecord } from '@/lib/types/trading';
 
@@ -54,6 +55,29 @@ export async function fetchAllOrders(userId: string): Promise<TradeOrder[]> {
   }
 
   return allData;
+}
+
+export async function retainLatestTradeMonths(userId: string): Promise<TradeOrder[]> {
+  const supabase = await getSupabase();
+  const allOrders = await fetchAllOrders(userId);
+  if (!supabase || allOrders.length === 0) return allOrders;
+
+  const retainedMonths = latestTradeMonths(allOrders);
+  const retainedOrders = allOrders.filter(order => retainedMonths.has(tradeMonth(order)));
+  const staleUids = allOrders
+    .filter(order => !retainedMonths.has(tradeMonth(order)))
+    .map(order => order.uid);
+
+  for (let i = 0; i < staleUids.length; i += 1000) {
+    const { error } = await supabase
+      .from('trade_orders')
+      .delete()
+      .eq('user_id', userId)
+      .in('uid', staleUids.slice(i, i + 1000));
+    if (error) throw error;
+  }
+
+  return retainedOrders;
 }
 
 export async function replaceTrades(trades: TradeRecord[], userId: string) {

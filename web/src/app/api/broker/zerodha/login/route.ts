@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthUser } from '@/lib/auth/session';
 import { createKiteLoginUrl } from '@/lib/brokers/zerodha/client';
 import { isZerodhaServerConfigured } from '@/lib/brokers/zerodha/config';
-import { fetchBrokerConnection, hasBrokerCredentials } from '@/lib/db/broker-connections';
+import { fetchBrokerConnection, getBrokerApiKey, hasBrokerCredentials } from '@/lib/db/broker-connections';
 
 export const runtime = 'nodejs';
 
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     }
 
     const state = randomBytes(24).toString('base64url');
-    const loginUrl = createKiteLoginUrl(connection.api_key || '', state);
+    const loginUrl = createKiteLoginUrl(getBrokerApiKey(connection), state);
 
     const redirect = NextResponse.redirect(loginUrl);
     redirect.cookies.set(STATE_COOKIE, state, {

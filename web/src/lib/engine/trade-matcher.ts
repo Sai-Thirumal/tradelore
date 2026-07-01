@@ -11,6 +11,53 @@ function buildPositionKey(order: TradeOrder) {
   ].join('|||');
 }
 
+function buildEquityKey(order: TradeOrder) {
+  return [
+    order.symbol.trim().toUpperCase(),
+    (order.segment || 'EQ').trim().toUpperCase(),
+    (order.expiry_date || '').trim(),
+  ].join('|||');
+}
+
+function isNseBseEquity(order: TradeOrder) {
+  const exchange = (order.exchange || '').trim().toUpperCase();
+  const segment = (order.segment || 'EQ').trim().toUpperCase();
+  return (exchange === 'NSE' || exchange === 'BSE') && segment === 'EQ';
+}
+
+function tradeDate(order: TradeOrder) {
+  return (order.trade_date || order.trade_time || '').substring(0, 10);
+}
+
+function crossExchangeDeliveryKeys(orders: TradeOrder[]) {
+  const byEquity: Record<string, TradeOrder[]> = {};
+  for (const order of orders) {
+    if (!isNseBseEquity(order)) continue;
+    const key = buildEquityKey(order);
+    if (!byEquity[key]) byEquity[key] = [];
+    byEquity[key].push(order);
+  }
+
+  const keys = new Set<string>();
+  for (const [key, group] of Object.entries(byEquity)) {
+    if (group.some(a => group.some(b =>
+      a.type !== b.type &&
+      (a.exchange || '').toUpperCase() !== (b.exchange || '').toUpperCase() &&
+      tradeDate(a) !== tradeDate(b)
+    ))) {
+      keys.add(key);
+    }
+  }
+  return keys;
+}
+
+function buildMatchingKey(order: TradeOrder, crossExchangeKeys: Set<string>) {
+  const equityKey = buildEquityKey(order);
+  return isNseBseEquity(order) && crossExchangeKeys.has(equityKey)
+    ? `EQ_DELIVERY|||${equityKey}`
+    : buildPositionKey(order);
+}
+
 // Step 1 — Collapse partial fills by order_id
 // Broker CSV has one row per exchange fill. A single order can be broken
 // into multiple fills. Collapse them BEFORE position tracking.
@@ -69,12 +116,13 @@ function collapseFills(orders: TradeOrder[]): TradeOrder[] {
 export function matchTrades(orders: TradeOrder[]): TradeRecord[] {
   // Step 1: Collapse partial fills
   const fills = collapseFills(orders);
+  const crossExchangeKeys = crossExchangeDeliveryKeys(fills);
 
   // Group by instrument identity so swing/delivery trades can span multiple sessions
   // without mixing different exchanges or contract types.
   const bySymbol: Record<string, TradeOrder[]> = {};
   for (const f of fills) {
-    const key = buildPositionKey(f);
+    const key = buildMatchingKey(f, crossExchangeKeys);
     if (!bySymbol[key]) bySymbol[key] = [];
     bySymbol[key].push(f);
   }
@@ -139,6 +187,77 @@ export function matchTrades(orders: TradeOrder[]): TradeRecord[] {
   }
 
   return trades.sort((a, b) => a.exit_time.localeCompare(b.exit_time));
+}
+
+export function findOpenTrades(orders: TradeOrder[]): TradeRecord[] {
+  const fills = collapseFills(orders);
+  const crossExchangeKeys = crossExchangeDeliveryKeys(fills);
+  const bySymbol: Record<string, TradeOrder[]> = {};
+  for (const f of fills) {
+    const key = buildMatchingKey(f, crossExchangeKeys);
+    if (!bySymbol[key]) bySymbol[key] = [];
+    bySymbol[key].push(f);
+  }
+
+  const openTrades: TradeRecord[] = [];
+
+  for (const [, group] of Object.entries(bySymbol)) {
+    group.sort((a, b) => a.trade_time.localeCompare(b.trade_time));
+
+    let netQty = 0;
+    let direction: TradeDirection | null = null;
+    let entryFills: TradeOrder[] = [];
+    let exitFills: TradeOrder[] = [];
+
+    for (const fill of group) {
+      const signedQty = fill.type === 'BUY' ? Number(fill.qty) : -Number(fill.qty);
+
+      if (netQty === 0) {
+        direction = fill.type === 'BUY' ? 'LONG' : 'SHORT';
+        entryFills = [fill];
+        exitFills = [];
+        netQty = signedQty;
+        continue;
+      }
+
+      const sameDirection =
+        (direction === 'LONG' && fill.type === 'BUY') ||
+        (direction === 'SHORT' && fill.type === 'SELL');
+
+      if (sameDirection) {
+        entryFills.push(fill);
+        netQty += signedQty;
+        continue;
+      }
+
+      const openQty = Math.abs(netQty);
+      const fillQty = Number(fill.qty);
+      const closingQty = Math.min(openQty, fillQty);
+      exitFills.push({ ...fill, qty: closingQty });
+      netQty += direction === 'LONG' ? -closingQty : closingQty;
+
+      if (Math.abs(netQty) < 0.001) {
+        entryFills = [];
+        exitFills = [];
+        direction = null;
+        netQty = 0;
+
+        const reversalQty = fillQty - closingQty;
+        if (reversalQty > 0.001) {
+          const reversalFill = { ...fill, qty: reversalQty };
+          direction = fill.type === 'BUY' ? 'LONG' : 'SHORT';
+          entryFills = [reversalFill];
+          netQty = fill.type === 'BUY' ? reversalQty : -reversalQty;
+        }
+      }
+    }
+
+    if (direction && Math.abs(netQty) >= 0.001) {
+      openTrades.push(buildOpenTrade(direction, Math.abs(netQty), entryFills, exitFills));
+    }
+  }
+
+  return openTrades.sort((a, b) => a.entry_time.localeCompare(b.entry_time));
 }
 
 
@@ -227,5 +346,49 @@ function buildTrade(
     trade_date: tradeDate,
     result,
     orders: allOrders,
+  };
+}
+
+function buildOpenTrade(
+  direction: TradeDirection,
+  qty: number,
+  entryFills: TradeOrder[],
+  exitFills: TradeOrder[],
+): TradeRecord {
+  const totalEntryQty = entryFills.reduce((s, f) => s + Number(f.qty), 0);
+  const avgEntry =
+    entryFills.reduce((s, f) => s + Number(f.price) * Number(f.qty), 0) /
+    totalEntryQty;
+  const firstEntry = entryFills[0];
+  const mcxMetadata = isMcxInstrument(firstEntry)
+    ? enrichMcxMetadata(firstEntry.symbol, firstEntry)
+    : null;
+  const priceMultiplier = Number(mcxMetadata?.priceMultiplier || firstEntry.price_multiplier || 1);
+  const entryTime = firstEntry.trade_time;
+
+  return {
+    symbol: firstEntry.symbol,
+    exchange: firstEntry.exchange || '',
+    segment: firstEntry.segment || '',
+    expiry_date: firstEntry.expiry_date || '',
+    instrument_name: firstEntry.instrument_name || mcxMetadata?.instrumentName || '',
+    instrument_type: firstEntry.instrument_type || mcxMetadata?.instrumentType || '',
+    strike: firstEntry.strike || 0,
+    lot_size: firstEntry.lot_size || 1,
+    price_multiplier: priceMultiplier,
+    commodity_class: firstEntry.commodity_class || mcxMetadata?.commodityClass || '',
+    calculation_status: mcxMetadata?.warnings?.length ? 'estimated' : 'exact',
+    calculation_warnings: mcxMetadata?.warnings || [],
+    direction,
+    qty,
+    avg_entry: Number(avgEntry.toFixed(4)),
+    avg_exit: 0,
+    pnl: 0,
+    commission: 0,
+    entry_time: entryTime,
+    exit_time: '',
+    trade_date: entryTime.substring(0, 10),
+    result: 'breakeven',
+    orders: [...entryFills, ...exitFills].sort((a, b) => a.trade_time.localeCompare(b.trade_time)),
   };
 }

@@ -1,5 +1,5 @@
-import { fetchBrokerConnection, hasBrokerCredentials, updateBrokerSyncState } from '@/lib/db/broker-connections';
-import { fetchAllOrders, replaceTrades, storeOrders } from '@/lib/db/supabase';
+import { fetchBrokerConnection, getBrokerApiKey, hasBrokerCredentials, updateBrokerSyncState } from '@/lib/db/broker-connections';
+import { replaceTrades, retainLatestTradeMonths, storeOrders } from '@/lib/db/supabase';
 import { matchTrades } from '@/lib/engine/trade-matcher';
 import { decryptSecret } from '@/lib/security/encryption';
 import { KiteApiError, fetchKiteTrades } from './client';
@@ -33,7 +33,7 @@ export async function syncZerodhaTrades(userId: string): Promise<ZerodhaSyncResu
   try {
     const accessToken = decryptSecret(connection.encrypted_access_token);
     const kiteUserId = connection.broker_user_id || userId;
-    const fills = await fetchKiteTrades(connection.api_key || '', accessToken);
+    const fills = await fetchKiteTrades(getBrokerApiKey(connection), accessToken);
     const derivativesExchanges = [...new Set(
       fills
         .map((fill) => fill.exchange.toUpperCase())
@@ -53,7 +53,7 @@ export async function syncZerodhaTrades(userId: string): Promise<ZerodhaSyncResu
 
     await storeOrders(newOrders, userId);
 
-    const allOrders = await fetchAllOrders(userId);
+    const allOrders = await retainLatestTradeMonths(userId);
     const allTrades = matchTrades(allOrders);
     await replaceTrades(allTrades, userId);
 

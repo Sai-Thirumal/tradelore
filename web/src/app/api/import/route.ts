@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { parseCsv } from '@/lib/engine/csv-parser';
-import { storeOrders, fetchAllOrders, replaceTrades } from '@/lib/db/supabase';
+import { storeOrders, replaceTrades, retainLatestTradeMonths } from '@/lib/db/supabase';
 import { matchTrades } from '@/lib/engine/trade-matcher';
 import { requireAuthUser } from '@/lib/auth/session';
 import { getErrorMessage } from '@/lib/errors';
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
 
     await storeOrders(newOrders, user.id);
 
-    const allOrders = await fetchAllOrders(user.id);
+    const allOrders = await retainLatestTradeMonths(user.id);
     const allTrades = matchTrades(allOrders);
 
     await replaceTrades(allTrades, user.id);

@@ -8,6 +8,7 @@ import {
 } from './request';
 
 const JOURNAL_WORD_LIMIT = 500;
+const LIVE_TRADE_NOTES_WORD_LIMIT = 10_000;
 const MAX_MONEY_VALUE = 1_000_000_000;
 
 const DAILY_JOURNAL_FIELDS = [
@@ -79,7 +80,7 @@ export function validateTradeJournalPayload(body: Record<string, unknown>): Trad
     what_didnt: optionalJournalString(body, 'what_didnt'),
     lessons_learned: optionalJournalString(body, 'lessons_learned'),
     emotions: optionalJournalString(body, 'emotions'),
-    important_notes: optionalJournalString(body, 'important_notes'),
+    important_notes: optionalString(body, 'important_notes', { maxWords: LIVE_TRADE_NOTES_WORD_LIMIT, allowEmpty: true }),
   };
 }
 

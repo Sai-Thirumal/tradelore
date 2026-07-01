@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthUser } from '@/lib/auth/session';
 import { KiteApiError, exchangeRequestToken } from '@/lib/brokers/zerodha/client';
 import { getNextKiteTokenExpiry } from '@/lib/brokers/zerodha/session';
-import { fetchBrokerConnection, hasBrokerCredentials, upsertBrokerConnection } from '@/lib/db/broker-connections';
+import { fetchBrokerConnection, getBrokerApiKey, hasBrokerCredentials, upsertBrokerConnection } from '@/lib/db/broker-connections';
 import { decryptSecret, encryptSecret } from '@/lib/security/encryption';
 
 export const runtime = 'nodejs';
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     }
 
     const token = await exchangeRequestToken(requestToken, {
-      apiKey: connection.api_key || '',
+      apiKey: getBrokerApiKey(connection),
       apiSecret: decryptSecret(connection.encrypted_api_secret || ''),
     });
 

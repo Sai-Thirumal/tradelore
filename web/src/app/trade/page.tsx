@@ -70,7 +70,7 @@ const EMOTIONS = [
 ];
 
 function getTradeId(t: Trade): string {
-  return t.id || `${t.symbol}_${t.entry_time}`;
+  return `${t.symbol}_${t.entry_time}`;
 }
 
 export default function TradeDetailPage() {
@@ -177,7 +177,7 @@ export default function TradeDetailPage() {
     const tid = getTradeId(trade);
 
     // localStorage first
-    const cached = localStorage.getItem(`trade_journal_${tid}`);
+    const cached = localStorage.getItem(`trade_journal_${tid}`) || (trade.id ? localStorage.getItem(`trade_journal_${trade.id}`) : null);
     if (cached) {
       try {
         const j = JSON.parse(cached) as TradeJournalDraft;
@@ -199,6 +199,7 @@ export default function TradeDetailPage() {
     // Then API
     fetch(`/api/trade-journal?trade_id=${encodeURIComponent(tid)}`)
       .then(r => r.json())
+      .then((data: TradeJournalRecord | null) => data || (trade.id ? fetch(`/api/trade-journal?trade_id=${encodeURIComponent(trade.id)}`).then(r => r.json()) : null))
       .then((data: TradeJournalRecord | null) => {
         if (data && data.trade_id) {
           setRiskAmount(data.risk_amount?.toString() || '');
@@ -512,8 +513,8 @@ export default function TradeDetailPage() {
         </div>
 
         <div className="td-field">
-          <label>Important notes</label>
-          <textarea placeholder="Anything else worth remembering" value={importantNotes} onChange={e => setImportantNotes(e.target.value)} rows={2} />
+          <label>Live Trade Notes</label>
+          <textarea placeholder="Notes carried from the live trade" value={importantNotes} onChange={e => setImportantNotes(e.target.value)} rows={2} />
         </div>
 
         <p className="td-autosave">Auto-saved locally · Syncs with Journal tab</p>

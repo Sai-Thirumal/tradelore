@@ -1,0 +1,21 @@
+import { NextResponse } from 'next/server';
+import { requireAuthUser } from '@/lib/auth/session';
+import { fetchAllOrders } from '@/lib/db/supabase';
+import { findOpenTrades } from '@/lib/engine/trade-matcher';
+import { getErrorMessage } from '@/lib/errors';
+
+const LIVE_EXCHANGES = new Set(['NSE', 'BSE', 'MCX']);
+
+export async function GET() {
+  try {
+    const { user, response } = await requireAuthUser();
+    if (response) return response;
+
+    const openTrades = findOpenTrades(await fetchAllOrders(user.id))
+      .filter((trade) => LIVE_EXCHANGES.has((trade.exchange || '').toUpperCase()));
+
+    return NextResponse.json(openTrades);
+  } catch (error: unknown) {
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+  }
+}
