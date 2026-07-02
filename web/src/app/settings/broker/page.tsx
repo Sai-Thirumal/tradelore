@@ -16,7 +16,7 @@ export default function BrokerSettingsPage() {
       <section className="zerodha-settings-shell">
         <header className="zerodha-settings-header">
           <div>
-            <Link className="settings-back-link" href="/">Back to dashboard</Link>
+            <Link className="settings-back-link" href="/dashboard">Back to dashboard</Link>
             <h1>Broker Settings</h1>
             <p>Select one broker to connect, sync, disconnect, or manage API credentials.</p>
           </div>
