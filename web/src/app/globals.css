@@ -251,6 +251,11 @@ body::before {
   background: var(--brand-light);
   border-color: var(--brand);
 }
+.dashboard-broker-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .header-actions-menu {
   display: block;
   position: relative;
@@ -2605,7 +2610,7 @@ tbody.day-group + tbody.day-group .day-header-row td {
     min-width: 122px;
     max-width: 150px;
   }
-  .header .broker-status {
+  .dashboard-broker-controls {
     grid-column: 4;
     justify-self: end;
   }
@@ -2753,9 +2758,16 @@ tbody.day-group + tbody.day-group .day-header-row td {
     padding: 0 24px 0 8px;
     font-size: 11px;
   }
-  .header .broker-status {
+  .dashboard-broker-controls {
     grid-column: 3;
     grid-row: 1;
+    gap: 5px;
+  }
+  .header .broker-status {
+    padding: 4px 7px;
+    font-size: 10px;
+  }
+  .dashboard-sync-btn {
     padding: 4px 7px;
     font-size: 10px;
   }

@@ -584,6 +584,7 @@ export default function Home() {
   const segmentLabel = scopedSegmentFilter.includes('all')
     ? 'All segments'
     : segmentOptions.find((option) => option.value === scopedSegmentFilter[0])?.label || 'All segments';
+  const showDeltaSyncButton = Boolean(deltaStatus?.server_configured && deltaStatus.credentials_configured);
 
   // Calendars / Weekdays
   const renderCalendar = () => {
@@ -772,7 +773,18 @@ export default function Home() {
           </div>
         </div>
         <input type="file" ref={fileInputRef} accept=".csv" style={{display:'none'}} onChange={handleImport} />
-        {renderZerodhaStatus()}
+        <div className="dashboard-broker-controls">
+          {showDeltaSyncButton && (
+            <button
+              className="auth-header-btn dashboard-sync-btn"
+              onClick={() => void syncDelta()}
+              disabled={deltaSyncing}
+            >
+              {deltaSyncing ? 'Syncing...' : 'Sync Delta'}
+            </button>
+          )}
+          {renderZerodhaStatus()}
+        </div>
         <div className="header-actions-menu" ref={actionsMenuRef}>
           <button
             className="actions-menu-trigger"
