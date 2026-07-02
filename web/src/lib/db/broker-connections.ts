@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { decryptSecret } from '@/lib/security/encryption';
 
 export const ZERODHA_BROKER = 'zerodha';
+export const DELTA_BROKER = 'delta';
 
 export interface BrokerConnectionRecord {
   id?: string;
@@ -19,6 +20,7 @@ export interface BrokerConnectionRecord {
   last_sync_at?: string | null;
   last_sync_status?: string | null;
   last_sync_error?: string | null;
+  last_sync_cursor?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -57,6 +59,30 @@ export async function fetchBrokerConnection(userId: string, broker = ZERODHA_BRO
   return data as BrokerConnectionRecord | null;
 }
 
+export async function fetchBrokerConnections(userId: string): Promise<BrokerConnectionRecord[]> {
+  const supabase = await getSupabase();
+  const { data, error } = await supabase
+    .from('broker_connections')
+    .select('*')
+    .eq('user_id', userId);
+
+  if (error) throw error;
+  return (data || []) as BrokerConnectionRecord[];
+}
+
+export function findOtherConfiguredBroker(connections: BrokerConnectionRecord[], broker: string) {
+  return connections.find((connection) =>
+    connection.broker !== broker
+    && Boolean(connection.encrypted_access_token || connection.encrypted_api_key || connection.api_key),
+  )?.broker || '';
+}
+
+export class BrokerSwitchRequiredError extends Error {
+  constructor(public broker: string) {
+    super(`You can only connect one broker at a time. Go to Broker Settings to switch from ${broker}.`);
+  }
+}
+
 export async function upsertBrokerConnection(
   userId: string,
   connection: Omit<Partial<BrokerConnectionRecord>, 'id' | 'user_id' | 'broker'>,
@@ -85,6 +111,9 @@ export async function saveBrokerCredentials(
   credentials: Pick<BrokerConnectionRecord, 'encrypted_api_key' | 'encrypted_api_secret'>,
   broker = ZERODHA_BROKER,
 ) {
+  const blockedByBroker = findOtherConfiguredBroker(await fetchBrokerConnections(userId), broker);
+  if (blockedByBroker) throw new BrokerSwitchRequiredError(blockedByBroker);
+
   return upsertBrokerConnection(userId, {
     api_key: '',
     encrypted_api_key: credentials.encrypted_api_key,
@@ -97,6 +126,7 @@ export async function saveBrokerCredentials(
     last_sync_at: null,
     last_sync_status: 'credentials_saved',
     last_sync_error: '',
+    last_sync_cursor: '',
   }, broker);
 }
 
@@ -109,6 +139,7 @@ export async function disconnectBrokerConnection(userId: string, broker = ZERODH
     last_sync_at: null,
     last_sync_status: 'disconnected',
     last_sync_error: '',
+    last_sync_cursor: '',
   }, broker);
 }
 
@@ -125,12 +156,13 @@ export async function deleteBrokerCredentials(userId: string, broker = ZERODHA_B
     last_sync_at: null,
     last_sync_status: 'credentials_deleted',
     last_sync_error: '',
+    last_sync_cursor: '',
   }, broker);
 }
 
 export async function updateBrokerSyncState(
   userId: string,
-  syncState: Pick<BrokerConnectionRecord, 'last_sync_at' | 'last_sync_status' | 'last_sync_error'>,
+  syncState: Pick<BrokerConnectionRecord, 'last_sync_at' | 'last_sync_status' | 'last_sync_error'> & Pick<Partial<BrokerConnectionRecord>, 'last_sync_cursor'>,
   broker = ZERODHA_BROKER,
 ) {
   const supabase = await getSupabase();

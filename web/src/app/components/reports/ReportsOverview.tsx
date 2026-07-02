@@ -1,14 +1,18 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { fmtINR } from '@/lib/ui/format';
+import { fmtMoney } from '@/lib/ui/format';
+import type { BrokerFilter, SegmentFilter } from '@/lib/engine/trade-filters';
 
 interface OverviewStats {
   totalTrades: number;
   winningTrades: number;
   losingTrades: number;
   breakevenTrades: number;
+  currency: string;
+  grossPnl: number;
   netPnl: number;
+  fundingAdjustedNetPnl: number;
   largestProfit: number;
   largestLoss: number;
   avgTradePnl: number;
@@ -38,6 +42,7 @@ interface OverviewStats {
   avgPlannedR: number | null;
   avgRealisedR: number | null;
   totalCommissions: number;
+  funding: number;
   openTrades: number;
 }
 
@@ -54,13 +59,20 @@ function fmtR(value: number | null): string {
   return (value >= 0 ? '+' : '') + value.toFixed(2) + 'R';
 }
 
-export default function ReportsOverview() {
+interface Props {
+  brokerFilter?: BrokerFilter;
+  segmentFilter?: SegmentFilter[];
+}
+
+export default function ReportsOverview({ brokerFilter = 'all', segmentFilter = ['all'] }: Props) {
   const [stats, setStats] = useState<OverviewStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const segmentParam = segmentFilter.join(',');
 
   useEffect(() => {
-    fetch('/api/reports/overview')
+    const params = new URLSearchParams({ broker: brokerFilter, segment: segmentParam });
+    fetch(`/api/reports/overview?${params.toString()}`)
       .then(res => {
         if (!res.ok) throw new Error('Failed to load');
         return res.json();
@@ -68,7 +80,7 @@ export default function ReportsOverview() {
       .then(d => setStats(d))
       .catch(err => setError(err.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [brokerFilter, segmentParam]);
 
   if (loading) {
     return (
@@ -97,6 +109,7 @@ export default function ReportsOverview() {
 
   const winPct = stats.totalTrades > 0 ? ((stats.winningTrades / stats.totalTrades) * 100).toFixed(1) + '%' : '—';
   const dayWinPct = stats.totalTradingDays > 0 ? ((stats.winningDays / stats.totalTradingDays) * 100).toFixed(1) + '%' : '—';
+  const money = (n: number) => fmtMoney(n, stats.currency);
 
   const sections: { title: string; rows: [string, string][] }[] = [
     {
@@ -106,12 +119,16 @@ export default function ReportsOverview() {
         ['Winning trades', stats.winningTrades + ' (' + winPct + ')'],
         ['Losing trades', String(stats.losingTrades)],
         ['Breakeven trades', String(stats.breakevenTrades)],
-        ['Net P&L', fmtINR(stats.netPnl)],
-        ['Average trade P&L', fmtINR(stats.avgTradePnl)],
-        ['Average winning trade', fmtINR(stats.avgWin)],
-        ['Average losing trade', fmtINR(-stats.avgLoss)],
-        ['Largest profit', fmtINR(stats.largestProfit)],
-        ['Largest loss', fmtINR(stats.largestLoss)],
+        ['Gross P&L', money(stats.grossPnl)],
+        ['Fees/commission', money(-stats.totalCommissions)],
+        ['Net P&L', money(stats.netPnl)],
+        ['Funding', money(stats.funding || 0)],
+        ['Funding-adjusted net P&L', money(stats.fundingAdjustedNetPnl)],
+        ['Average trade P&L', money(stats.avgTradePnl)],
+        ['Average winning trade', money(stats.avgWin)],
+        ['Average losing trade', money(-stats.avgLoss)],
+        ['Largest profit', money(stats.largestProfit)],
+        ['Largest loss', money(stats.largestLoss)],
         ['Profit factor', stats.profitFactor >= 999 ? '∞' : stats.profitFactor.toFixed(2)],
         ['Max consecutive wins', String(stats.maxConsecutiveWins)],
         ['Max consecutive losses', String(stats.maxConsecutiveLosses)],
@@ -141,11 +158,11 @@ export default function ReportsOverview() {
     {
       title: 'Daily P&L',
       rows: [
-        ['Average daily P&L', fmtINR(stats.avgDailyPnl)],
-        ['Average winning day P&L', fmtINR(stats.avgWinningDayPnl)],
-        ['Average losing day P&L', fmtINR(stats.avgLosingDayPnl)],
-        ['Largest profitable day', fmtINR(stats.largestProfitableDay)],
-        ['Largest losing day', fmtINR(stats.largestLosingDay)],
+        ['Average daily P&L', money(stats.avgDailyPnl)],
+        ['Average winning day P&L', money(stats.avgWinningDayPnl)],
+        ['Average losing day P&L', money(stats.avgLosingDayPnl)],
+        ['Largest profitable day', money(stats.largestProfitableDay)],
+        ['Largest losing day', money(stats.largestLosingDay)],
       ],
     },
     {
@@ -153,10 +170,10 @@ export default function ReportsOverview() {
       rows: [
         ['Average planned R-multiple', fmtR(stats.avgPlannedR)],
         ['Average realised R-multiple', fmtR(stats.avgRealisedR)],
-        ['Maximum drawdown', fmtINR(-stats.maxDrawdown)],
-        ['Average drawdown', fmtINR(-stats.avgDrawdown)],
+        ['Maximum drawdown', money(-stats.maxDrawdown)],
+        ['Average drawdown', money(-stats.avgDrawdown)],
         ['Open trades', String(stats.openTrades)],
-        ['Total commissions', String(stats.totalCommissions)],
+        ['Total commissions', money(-stats.totalCommissions)],
       ],
     },
   ];

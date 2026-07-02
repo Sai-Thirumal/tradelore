@@ -7,6 +7,8 @@ interface DailyPnlPoint {
 
 export interface StatsResult {
   netPnl: number;
+  funding: number;
+  fundingAdjustedNetPnl: number;
   tradeWinPct: number;
   profitFactor: number;
   dayWinPct: number;
@@ -28,6 +30,7 @@ export interface StatsResult {
 export function computeStats(trades: TradeRecord[]): StatsResult {
   const zero = {
     netPnl: 0, tradeWinPct: 0, profitFactor: 0, dayWinPct: 0,
+    funding: 0, fundingAdjustedNetPnl: 0,
     avgWinLoss: 0, totalWins: 0, totalLosses: 0, avgWin: 0, avgLoss: 0,
     winCount: 0, lossCount: 0, greenDays: 0, redDays: 0,
     dayPnl: {} as Record<string, number>, dayTrades: {} as Record<string, number>,
@@ -42,6 +45,8 @@ export function computeStats(trades: TradeRecord[]): StatsResult {
   const grossPnl      = trades.reduce((s, t) => s + (t.pnl || 0), 0);
   const totalCommission = trades.reduce((s, t) => s + (t.commission || 0), 0);
   const netPnl        = grossPnl - totalCommission;
+  const funding       = trades.reduce((s, t) => s + Number(t.funding || 0), 0);
+  const fundingAdjustedNetPnl = netPnl + funding;
 
   const totalWins   = wins.reduce((s, t) => s + tradeNet(t), 0);
   const totalLosses = Math.abs(losses.reduce((s, t) => s + tradeNet(t), 0));
@@ -71,7 +76,7 @@ export function computeStats(trades: TradeRecord[]): StatsResult {
   const cumulativeArr = dailyArr.map(({ date, pnl }) => { cumSum += pnl; return { date, pnl: cumSum }; });
 
   return {
-    netPnl, tradeWinPct, profitFactor, dayWinPct, avgWinLoss,
+    netPnl, funding, fundingAdjustedNetPnl, tradeWinPct, profitFactor, dayWinPct, avgWinLoss,
     totalWins, totalLosses, avgWin, avgLoss,
     winCount: wins.length, lossCount: losses.length,
     greenDays, redDays, dayPnl, dayTrades, dailyArr, cumulativeArr,

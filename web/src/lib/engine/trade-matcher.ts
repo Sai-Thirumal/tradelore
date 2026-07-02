@@ -2,17 +2,25 @@ import { calculateTradeCommission } from './commission.ts';
 import { enrichMcxMetadata, isMcxInstrument } from './mcx.ts';
 import type { TradeDirection, TradeOrder, TradeRecord } from '@/lib/types/trading';
 
+const DELTA_FEE_RATE_VERSION = 'delta_fill_fees';
+
 function buildPositionKey(order: TradeOrder) {
   return [
+    (order.broker || 'zerodha').trim().toLowerCase(),
     order.symbol.trim().toUpperCase(),
     (order.exchange || '').trim().toUpperCase(),
     (order.segment || '').trim().toUpperCase(),
     (order.expiry_date || '').trim(),
+    order.product_id || '',
+    (order.product_symbol || '').trim().toUpperCase(),
+    (order.contract_type || '').trim().toUpperCase(),
+    (order.settlement_asset || '').trim().toUpperCase(),
   ].join('|||');
 }
 
 function buildEquityKey(order: TradeOrder) {
   return [
+    (order.broker || 'zerodha').trim().toLowerCase(),
     order.symbol.trim().toUpperCase(),
     (order.segment || 'EQ').trim().toUpperCase(),
     (order.expiry_date || '').trim(),
@@ -58,6 +66,44 @@ function buildMatchingKey(order: TradeOrder, crossExchangeKeys: Set<string>) {
     : buildPositionKey(order);
 }
 
+function isDeltaOrder(order: TradeOrder) {
+  return (order.broker || '').toLowerCase() === 'delta';
+}
+
+function deltaContractWarning(order: TradeOrder) {
+  const notionalType = (order.notional_type || '').trim().toUpperCase();
+  const contractType = (order.contract_type || order.segment || '').trim().toUpperCase();
+  const contractValue = Number(order.contract_value || order.price_multiplier || 0);
+
+  if (notionalType !== 'VANILLA') {
+    return `Unsupported Delta notional_type "${notionalType || 'unknown'}"; P&L was not calculated.`;
+  }
+  const supportedContract = contractType.includes('PERP')
+    || contractType.includes('FUT')
+    || contractType.includes('CALL_OPTION')
+    || contractType.includes('PUT_OPTION');
+  if (!supportedContract) {
+    return `Unsupported Delta contract_type "${contractType || 'unknown'}"; P&L was not calculated.`;
+  }
+  if (!Number.isFinite(contractValue) || contractValue <= 0) {
+    return 'Unsupported Delta contract value; P&L was not calculated.';
+  }
+  return '';
+}
+
+function calculateDeltaGrossPnl(params: {
+  direction: TradeDirection;
+  avgEntry: number;
+  avgExit: number;
+  qty: number;
+  contractValue: number;
+}) {
+  const { direction, avgEntry, avgExit, qty, contractValue } = params;
+  return direction === 'LONG'
+    ? (avgExit - avgEntry) * qty * contractValue
+    : (avgEntry - avgExit) * qty * contractValue;
+}
+
 // Step 1 — Collapse partial fills by order_id
 // Broker CSV has one row per exchange fill. A single order can be broken
 // into multiple fills. Collapse them BEFORE position tracking.
@@ -66,10 +112,11 @@ function collapseFills(orders: TradeOrder[]): TradeOrder[] {
   const orphans: TradeOrder[] = [];
 
   for (const o of orders) {
-    const oid = o.order_id;
+    const oid = o.order_id || o.external_order_id;
     if (oid) {
-      if (!groups[oid]) groups[oid] = [];
-      groups[oid].push(o);
+      const key = `${(o.broker || 'zerodha').toLowerCase()}|||${oid}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(o);
     } else {
       orphans.push(o);
     }
@@ -284,11 +331,12 @@ function buildTrade(
   const mcxMetadata = isMcxInstrument(firstEntry)
     ? enrichMcxMetadata(symbol, firstEntry)
     : null;
-  const priceMultiplier = Number(mcxMetadata?.priceMultiplier || firstEntry.price_multiplier || 1);
-  const pnl =
-    direction === 'LONG'
-      ? (avgExit - avgEntry) * qty * priceMultiplier
-      : (avgEntry - avgExit) * qty * priceMultiplier;
+  const isDelta = isDeltaOrder(firstEntry);
+  const priceMultiplier = Number(mcxMetadata?.priceMultiplier || firstEntry.contract_value || firstEntry.price_multiplier || 1);
+  const deltaWarning = isDelta ? deltaContractWarning(firstEntry) : '';
+  const pnl = deltaWarning
+    ? 0
+    : calculateDeltaGrossPnl({ direction, avgEntry, avgExit, qty, contractValue: priceMultiplier });
 
   // entry_datetime = first entry fill timestamp
   // exit_datetime = last exit fill timestamp
@@ -300,20 +348,27 @@ function buildTrade(
   const allOrders = [...entryFills, ...exitFills].sort((a, b) =>
     a.trade_time.localeCompare(b.trade_time),
   );
+  const feeAmount = allOrders.reduce((sum, order) => sum + Number(order.fee_amount || 0), 0);
 
-  // Calculate commission
-  const commission = calculateTradeCommission({
-    symbol,
-    exchange: entryFills[0].exchange || '',
-    segment: entryFills[0].segment || '',
-    direction,
-    qty,
-    avg_entry: Number(avgEntry.toFixed(4)),
-    avg_exit: Number(avgExit.toFixed(4)),
-    entry_time: entryTime,
-    exit_time: exitTime,
-    orders: allOrders,
-  });
+  const commission = isDelta
+    ? {
+        rateVersion: DELTA_FEE_RATE_VERSION,
+        total: Number(feeAmount.toFixed(8)),
+        warnings: deltaWarning ? [deltaWarning] : [],
+        calculationStatus: deltaWarning ? 'unsupported' as const : 'exact' as const,
+      }
+    : calculateTradeCommission({
+        symbol,
+        exchange: entryFills[0].exchange || '',
+        segment: entryFills[0].segment || '',
+        direction,
+        qty,
+        avg_entry: Number(avgEntry.toFixed(4)),
+        avg_exit: Number(avgExit.toFixed(4)),
+        entry_time: entryTime,
+        exit_time: exitTime,
+        orders: allOrders,
+      });
   const netPnl = pnl - commission.total;
   const result = netPnl > 0.005 ? 'win' : netPnl < -0.005 ? 'loss' : 'breakeven';
   const calculationWarnings = [
@@ -323,16 +378,24 @@ function buildTrade(
 
   return {
     symbol,
+    broker: firstEntry.broker || 'zerodha',
+    market_type: firstEntry.market_type || '',
     exchange: entryFills[0].exchange || '',
     segment: entryFills[0].segment || '',
     expiry_date: entryFills[0].expiry_date || '',
+    product_id: firstEntry.product_id,
+    product_symbol: firstEntry.product_symbol || '',
+    contract_type: firstEntry.contract_type || '',
+    notional_type: firstEntry.notional_type || '',
+    settlement_asset: firstEntry.settlement_asset || '',
+    contract_value: firstEntry.contract_value,
     instrument_name: entryFills[0].instrument_name || mcxMetadata?.instrumentName || '',
     instrument_type: entryFills[0].instrument_type || mcxMetadata?.instrumentType || '',
     strike: entryFills[0].strike || 0,
     lot_size: entryFills[0].lot_size || 1,
     price_multiplier: priceMultiplier,
     commodity_class: entryFills[0].commodity_class || mcxMetadata?.commodityClass || '',
-    calculation_status: calculationWarnings.length ? 'estimated' : 'exact',
+    calculation_status: deltaWarning ? 'unsupported' : calculationWarnings.length ? 'estimated' : 'exact',
     calculation_warnings: calculationWarnings,
     direction,
     qty,
@@ -341,6 +404,9 @@ function buildTrade(
     pnl: Number(pnl.toFixed(2)),
     commission: commission.total,
     commission_breakdown: commission,
+    funding: 0,
+    fee_amount: feeAmount,
+    pnl_currency: firstEntry.settlement_asset || firstEntry.fee_asset || '',
     entry_time: entryTime,
     exit_time: exitTime,
     trade_date: tradeDate,
@@ -368,9 +434,17 @@ function buildOpenTrade(
 
   return {
     symbol: firstEntry.symbol,
+    broker: firstEntry.broker || 'zerodha',
+    market_type: firstEntry.market_type || '',
     exchange: firstEntry.exchange || '',
     segment: firstEntry.segment || '',
     expiry_date: firstEntry.expiry_date || '',
+    product_id: firstEntry.product_id,
+    product_symbol: firstEntry.product_symbol || '',
+    contract_type: firstEntry.contract_type || '',
+    notional_type: firstEntry.notional_type || '',
+    settlement_asset: firstEntry.settlement_asset || '',
+    contract_value: firstEntry.contract_value,
     instrument_name: firstEntry.instrument_name || mcxMetadata?.instrumentName || '',
     instrument_type: firstEntry.instrument_type || mcxMetadata?.instrumentType || '',
     strike: firstEntry.strike || 0,
@@ -385,6 +459,9 @@ function buildOpenTrade(
     avg_exit: 0,
     pnl: 0,
     commission: 0,
+    funding: 0,
+    fee_amount: [...entryFills, ...exitFills].reduce((sum, order) => sum + Number(order.fee_amount || 0), 0),
+    pnl_currency: firstEntry.settlement_asset || firstEntry.fee_asset || '',
     entry_time: entryTime,
     exit_time: '',
     trade_date: entryTime.substring(0, 10),

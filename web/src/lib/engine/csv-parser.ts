@@ -32,7 +32,7 @@ function normaliseDatetime(raw: string) {
   return raw.replace("T", " ").split(".")[0];
 }
 
-export async function parseCsv(fileContent: string): Promise<TradeOrder[]> {
+export async function parseCsv(fileContent: string, broker = 'zerodha'): Promise<TradeOrder[]> {
   const result = Papa.parse(fileContent, { header: true, skipEmptyLines: true });
   const rows = result.data as Record<string, string>[];
   
@@ -99,7 +99,7 @@ export async function parseCsv(fileContent: string): Promise<TradeOrder[]> {
       : `${symbol}_${tradeTime}_${orderType}_${qty}_${price}_${i}`;
 
     orders.push({
-      uid, symbol, exchange: exchange.toUpperCase(), segment, expiry_date: expiryDate,
+      uid, broker, symbol, exchange: exchange.toUpperCase(), segment, expiry_date: expiryDate,
       instrument_token: parseInt(row.instrument_token || '0') || undefined,
       instrument_name: mcxMetadata?.instrumentName || (row.instrument_name || '').trim(),
       instrument_type: mcxMetadata?.instrumentType || '',

@@ -8,7 +8,8 @@ import {
 } from 'chart.js';
 import type { ChartOptions, Plugin, TooltipItem } from 'chart.js';
 import { getErrorMessage } from '@/lib/errors';
-import { fmtINR } from '@/lib/ui/format';
+import { fmtMoney } from '@/lib/ui/format';
+import type { BrokerFilter, SegmentFilter } from '@/lib/engine/trade-filters';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Filler, Legend);
 
@@ -18,6 +19,8 @@ interface GroupRow {
   label: string;
   winPct: number;
   netPnl: number;
+  funding: number;
+  fundingAdjustedNetPnl: number;
   tradeCount: number;
   avgWin: number;
   avgLoss: number;
@@ -25,6 +28,7 @@ interface GroupRow {
 }
 
 interface ReportData {
+  currency: string;
   groups: GroupRow[];
   bestPerforming: GroupRow | null;
   leastPerforming: GroupRow | null;
@@ -145,9 +149,11 @@ const splitAreaPlugin: Plugin<'line'> = {
 
 interface Props {
   group: Group;
+  brokerFilter?: BrokerFilter;
+  segmentFilter?: SegmentFilter[];
 }
 
-export default function DayTimeReport({ group }: Props) {
+export default function DayTimeReport({ group, brokerFilter = 'all', segmentFilter = ['all'] }: Props) {
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -164,6 +170,7 @@ export default function DayTimeReport({ group }: Props) {
   const [wlRatioMin, setWlRatioMin] = useState<string>('');
   const [wlRatioMax, setWlRatioMax] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
+  const segmentParam = segmentFilter.join(',');
 
   useEffect(() => {
     let cancelled = false;
@@ -173,7 +180,8 @@ export default function DayTimeReport({ group }: Props) {
         setError('');
       }
     });
-    fetch(`/api/reports/day-time?group=${group}`)
+    const params = new URLSearchParams({ group, broker: brokerFilter, segment: segmentParam });
+    fetch(`/api/reports/day-time?${params.toString()}`)
       .then(res => {
         if (!res.ok) throw new Error('Failed to load');
         return res.json();
@@ -182,7 +190,7 @@ export default function DayTimeReport({ group }: Props) {
       .catch((err: unknown) => { if (!cancelled) setError(getErrorMessage(err)); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [group]);
+  }, [group, brokerFilter, segmentParam]);
 
   // Reset page when group changes
   useEffect(() => {
@@ -237,6 +245,7 @@ export default function DayTimeReport({ group }: Props) {
   const totalPages = Math.max(1, Math.ceil(filteredGroups.length / ROWS_PER_PAGE));
   const safePage = Math.min(page, totalPages);
   const pagedRows = filteredGroups.slice((safePage - 1) * ROWS_PER_PAGE, safePage * ROWS_PER_PAGE);
+  const money = (n: number) => fmtMoney(n, data?.currency || 'INR');
 
   const renderStatCards = () => {
     if (!data) return null;
@@ -260,7 +269,7 @@ export default function DayTimeReport({ group }: Props) {
                   <span className="sub">
                     {card.item.tradeCount} trade{card.item.tradeCount !== 1 ? 's' : ''}
                     {(card.color === 'green' || card.color === 'red') && (
-                      <> · <span className={card.color}>{fmtINR(card.item.netPnl)}</span></>
+                      <> · <span className={card.color}>{money(card.item.netPnl)}</span></>
                     )}
                     {!card.color && card.item.winPct !== undefined && (
                       <> · <span>{card.item.winPct.toFixed(1)}%</span></>
@@ -318,7 +327,7 @@ export default function DayTimeReport({ group }: Props) {
           legend: { display: false },
           tooltip: {
             callbacks: {
-              label: (ctx: TooltipItem<'bar'>) => isWin ? Number(ctx.raw).toFixed(1) + '%' : fmtINR(Number(ctx.raw)),
+              label: (ctx: TooltipItem<'bar'>) => isWin ? Number(ctx.raw).toFixed(1) + '%' : money(Number(ctx.raw)),
             },
           },
         },
@@ -327,7 +336,7 @@ export default function DayTimeReport({ group }: Props) {
             grid: { color: 'rgba(0,0,0,0.04)' },
             ticks: {
               font: { size: 10 },
-              callback: (v) => isWin ? v + '%' : fmtINR(Number(v)),
+              callback: (v) => isWin ? v + '%' : money(Number(v)),
             },
           },
           y: {
@@ -466,14 +475,14 @@ export default function DayTimeReport({ group }: Props) {
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { display: true, position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, padding: 16, font: { size: 11 } } },
-        tooltip: { callbacks: { label: (ctx: TooltipItem<'line'>) => ctx.dataset.label === 'Net P&L' || ctx.dataset.label === 'Avg win' ? fmtINR(Number(ctx.raw)) : String(ctx.raw) } },
+        tooltip: { callbacks: { label: (ctx: TooltipItem<'line'>) => ctx.dataset.label === 'Net P&L' || ctx.dataset.label === 'Avg win' ? money(Number(ctx.raw)) : String(ctx.raw) } },
       },
       scales: {
         x: { grid: { display: false }, ticks: { font: { size: 11 } } },
         y: {
           type: 'linear', position: 'left',
           grid: { color: 'rgba(0,0,0,0.04)' },
-          ticks: { font: { size: 10 }, callback: (v) => fmtINR(Number(v)) },
+          ticks: { font: { size: 10 }, callback: (v) => money(Number(v)) },
         },
         y1: {
           type: 'linear', position: 'right',
@@ -745,6 +754,8 @@ export default function DayTimeReport({ group }: Props) {
                 <th>{labelCol}</th>
                 <th>Win %</th>
                 <th>Net P&L</th>
+                <th>Funding</th>
+                <th>Funding adj net</th>
                 <th>Trades</th>
                 <th>Avg win</th>
                 <th>Avg loss</th>
@@ -756,10 +767,12 @@ export default function DayTimeReport({ group }: Props) {
                 <tr key={i}>
                   <td className="report-table-label">{g.label}</td>
                   <td>{g.tradeCount > 0 ? g.winPct.toFixed(2) + '%' : '—'}</td>
-                  <td className={g.netPnl >= 0 ? 'green' : 'red'}>{fmtINR(g.netPnl)}</td>
+                  <td className={g.netPnl >= 0 ? 'green' : 'red'}>{money(g.netPnl)}</td>
+                  <td className={g.funding >= 0 ? 'green' : 'red'}>{g.funding ? money(g.funding) : '—'}</td>
+                  <td className={g.fundingAdjustedNetPnl >= 0 ? 'green' : 'red'}>{money(g.fundingAdjustedNetPnl)}</td>
                   <td>{g.tradeCount}</td>
-                  <td className="green">{g.avgWin > 0 ? fmtINR(g.avgWin) : '—'}</td>
-                  <td className="red">{g.avgLoss > 0 ? fmtINR(-g.avgLoss) : '—'}</td>
+                  <td className="green">{g.avgWin > 0 ? money(g.avgWin) : '—'}</td>
+                  <td className="red">{g.avgLoss > 0 ? money(-g.avgLoss) : '—'}</td>
                   <td>{g.avgVolume > 0 ? g.avgVolume.toFixed(2) : '—'}</td>
                 </tr>
               ))}

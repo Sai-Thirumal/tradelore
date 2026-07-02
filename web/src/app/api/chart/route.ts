@@ -2,6 +2,12 @@ import { NextResponse } from 'next/server';
 import { getUnderlying, toYahooSymbol, istToUnix } from '@/lib/engine/symbols';
 import { requireAuthUser } from '@/lib/auth/session';
 import { getErrorMessage } from '@/lib/errors';
+import {
+  chooseDeltaResolution,
+  deltaDateTimeToUnix,
+  fetchDeltaCandles,
+  isDeltaChartExchange,
+} from '@/lib/brokers/delta/candles';
 
 interface YahooChartResult {
   timestamp?: number[];
@@ -34,6 +40,31 @@ export async function GET(request: Request) {
 
   if (!symbol) {
     return NextResponse.json({ error: 'symbol required' }, { status: 400 });
+  }
+
+  if (isDeltaChartExchange(exchange)) {
+    const entryUnix = fromStr ? deltaDateTimeToUnix(fromStr) : 0;
+    const exitUnix = toStr ? deltaDateTimeToUnix(toStr) : 0;
+    const durationSec = Math.max(exitUnix - entryUnix, 60);
+    const padSec = Math.max(3600, Math.min(durationSec, 86400));
+    const start = Math.max(0, Math.floor(entryUnix - padSec));
+    const end = Math.floor(Math.max(exitUnix, entryUnix + 60) + padSec);
+    const interval = chooseDeltaResolution(end - start);
+
+    try {
+      const candles = await fetchDeltaCandles({ symbol, resolution: interval, start, end });
+      return NextResponse.json({
+        underlying: symbol,
+        exchange,
+        source: 'delta',
+        interval,
+        candles,
+        from: fromStr,
+        to: toStr,
+      });
+    } catch (error: unknown) {
+      return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+    }
   }
 
   const { underlying } = getUnderlying(symbol, exchange);

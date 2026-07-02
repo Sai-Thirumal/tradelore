@@ -43,6 +43,7 @@ export function kiteFillsToTradeOrders(
 
       return {
         uid: `zerodha:${kiteUserId}:${fill.order_id}:${fill.trade_id}`,
+        broker: 'zerodha',
         symbol,
         exchange,
         segment: instrument?.segment || getSegment(fill.exchange || '', fill.product),

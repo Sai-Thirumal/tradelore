@@ -3,8 +3,14 @@
 import React, { useState } from 'react';
 import ReportsOverview from './ReportsOverview';
 import ReportsList from './ReportsList';
+import type { BrokerFilter, SegmentFilter } from '@/lib/engine/trade-filters';
 
-export default function ReportsPage() {
+interface Props {
+  brokerFilter?: BrokerFilter;
+  segmentFilter?: SegmentFilter[];
+}
+
+export default function ReportsPage({ brokerFilter = 'all', segmentFilter = ['all'] }: Props) {
   const [subTab, setSubTab] = useState<'overview' | 'reports'>('overview');
 
   return (
@@ -25,8 +31,8 @@ export default function ReportsPage() {
       </div>
 
       <div className="fade-in-up">
-        {subTab === 'overview' && <ReportsOverview />}
-        {subTab === 'reports' && <ReportsList />}
+        {subTab === 'overview' && <ReportsOverview brokerFilter={brokerFilter} segmentFilter={segmentFilter} />}
+        {subTab === 'reports' && <ReportsList brokerFilter={brokerFilter} segmentFilter={segmentFilter} />}
       </div>
     </>
   );

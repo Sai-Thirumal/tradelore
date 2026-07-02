@@ -31,7 +31,7 @@ interface Trade {
   segment?: string;
   expiry_date?: string;
   price_multiplier?: number;
-  calculation_status?: 'exact' | 'estimated';
+  calculation_status?: 'exact' | 'estimated' | 'unsupported';
   calculation_warnings?: string[];
   orders?: TradeOrder[];
   id?: string;

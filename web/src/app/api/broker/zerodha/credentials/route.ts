@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server';
 import { requireAuthUser } from '@/lib/auth/session';
 import { isZerodhaServerConfigured } from '@/lib/brokers/zerodha/config';
 import { safeBrokerErrorMessage } from '@/lib/brokers/zerodha/safe-errors';
-import { deleteBrokerCredentials, saveBrokerCredentials } from '@/lib/db/broker-connections';
+import {
+  BrokerSwitchRequiredError,
+  deleteBrokerCredentials,
+  saveBrokerCredentials,
+} from '@/lib/db/broker-connections';
 import { encryptSecret } from '@/lib/security/encryption';
 import {
   readJsonObject,
@@ -39,6 +43,9 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     const validationResponse = validationErrorResponse(error);
     if (validationResponse) return validationResponse;
+    if (error instanceof BrokerSwitchRequiredError) {
+      return NextResponse.json({ error: error.message, blocked_by_broker: error.broker }, { status: 409 });
+    }
     return NextResponse.json({ error: safeBrokerErrorMessage(error, 'Unable to save Zerodha credentials.') }, { status: 500 });
   }
 }

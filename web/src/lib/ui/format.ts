@@ -5,6 +5,17 @@ export function fmtINR(n: number, showSign = true) {
   return (n < 0 ? '−' : '+') + '₹' + str;
 }
 
+export function fmtMoney(n: number, currency = 'INR', showSign = true) {
+  const code = (currency || 'INR').toUpperCase();
+  if (code === 'INR') return fmtINR(n, showSign);
+
+  const abs = Math.abs(n);
+  const maximumFractionDigits = ['BTC', 'ETH'].includes(code) ? 8 : 2;
+  const str = new Intl.NumberFormat('en-IN', { maximumFractionDigits }).format(abs);
+  const sign = showSign ? (n < 0 ? '−' : '+') : '';
+  return `${sign}${str} ${code}`;
+}
+
 export function fmtPrice(n: number) {
   return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(n);
 }

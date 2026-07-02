@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { parseCsv } from '@/lib/engine/csv-parser';
+import { parseDeltaCsv } from '@/lib/brokers/delta/csv';
+import { fetchCachedDeltaProducts } from '@/lib/brokers/delta/products';
 import { storeOrders, replaceTrades, retainLatestTradeMonths } from '@/lib/db/supabase';
 import { matchTrades } from '@/lib/engine/trade-matcher';
 import { requireAuthUser } from '@/lib/auth/session';
@@ -23,7 +25,9 @@ export async function POST(request: Request) {
     const text = await file.text();
     validateCsvUpload(file, text, broker);
 
-    const newOrders = await parseCsv(text);
+    const newOrders = broker === 'delta'
+      ? parseDeltaCsv(text, await fetchCachedDeltaProducts().catch(() => []))
+      : await parseCsv(text, broker);
 
     if (newOrders.length === 0) {
       return NextResponse.json({ error: 'No valid orders found' }, { status: 422 });

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Line, Bar } from 'react-chartjs-2';
 import {
@@ -8,8 +8,17 @@ import {
 } from 'chart.js';
 import type { Chart, Plugin, ScriptableLineSegmentContext } from 'chart.js';
 import { getErrorMessage } from '@/lib/errors';
-import { fmtINR, fmtPrice, fmtDateLabel, fmtDateChart } from '@/lib/ui/format';
+import { fmtMoney, fmtPrice, fmtDateLabel, fmtDateChart } from '@/lib/ui/format';
 import { computeStats, filterTradesByDateRange } from '@/lib/compute/stats';
+import { isDeltaAutoSyncDue } from '@/lib/brokers/delta/autosync';
+import {
+  filterTradesForScope,
+  getScopeCurrency,
+  getTradeCurrency,
+  getTradeInstrumentLabel,
+  type BrokerFilter,
+  type SegmentFilter,
+} from '@/lib/engine/trade-filters';
 import type { TradeOrder, TradeRecord } from '@/lib/types/trading';
 import DateRangePicker from '../components/DateRangePicker';
 import JournalPreMarket from '../components/journal/PreMarket';
@@ -23,6 +32,23 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarEleme
 type Stats = ReturnType<typeof computeStats>;
 type CalendarDay = number | null;
 type TradeWithIndex = TradeRecord & { originalIdx: number };
+type ActiveBrokerFilter = Exclude<BrokerFilter, 'all'>;
+
+const SEGMENT_OPTIONS: { value: SegmentFilter; label: string; broker: ActiveBrokerFilter }[] = [
+  { value: 'equity', label: 'Equity', broker: 'zerodha' },
+  { value: 'fo', label: 'F&O', broker: 'zerodha' },
+  { value: 'mcx', label: 'MCX', broker: 'zerodha' },
+  { value: 'delta_perp', label: 'Delta Perp', broker: 'delta' },
+  { value: 'delta_futures', label: 'Delta Futures', broker: 'delta' },
+  { value: 'delta_options', label: 'Delta Options', broker: 'delta' },
+];
+
+function segmentsForBroker(selected: SegmentFilter[], broker: ActiveBrokerFilter): SegmentFilter[] {
+  if (selected.includes('all')) return ['all'];
+  const allowed = new Set(SEGMENT_OPTIONS.filter((option) => option.broker === broker).map((option) => option.value));
+  const filtered = selected.filter((segment) => allowed.has(segment));
+  return filtered.length ? filtered : ['all'];
+}
 
 interface ChartPoint {
   x: number;
@@ -53,6 +79,13 @@ interface ZerodhaStatus {
   today: string;
 }
 
+interface DeltaStatus {
+  server_configured: boolean;
+  credentials_configured: boolean;
+  connected: boolean;
+  last_sync_at: string | null;
+}
+
 interface SyncResult extends ImportResult {
   synced_at: string;
 }
@@ -67,6 +100,12 @@ export default function Home() {
   const [journalTab, setJournalTab] = useState('premarket');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
+  const [segmentFilter, setSegmentFilter] = useState<SegmentFilter[]>(['all']);
+  const [csvBroker, setCsvBroker] = useState<BrokerFilter | ''>(() => {
+    if (typeof window === 'undefined') return '';
+    const savedBroker = window.localStorage.getItem('tradelore_csv_broker');
+    return savedBroker === 'zerodha' || savedBroker === 'delta' ? savedBroker : '';
+  });
   
   const [expandedTradeRow, setExpandedTradeRow] = useState<string | null>(null);
   const [modalTradeIdx, setModalTradeIdx] = useState<number | null>(null);
@@ -79,13 +118,18 @@ export default function Home() {
   const [currentUser, setCurrentUser] = useState<{ email?: string } | null>(null);
   const [zerodhaStatus, setZerodhaStatus] = useState<ZerodhaStatus | null>(null);
   const [zerodhaSyncing, setZerodhaSyncing] = useState(false);
+  const [deltaStatus, setDeltaStatus] = useState<DeltaStatus | null>(null);
+  const [deltaSyncing, setDeltaSyncing] = useState(false);
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
+  const [segmentMenuOpen, setSegmentMenuOpen] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const actionsMenuRef = useRef<HTMLDivElement>(null);
+  const segmentMenuRef = useRef<HTMLDivElement>(null);
   const cumChartRef = useRef<Chart<'line'> | null>(null);
   const dailyChartRef = useRef<Chart<'bar'> | null>(null);
   const autoZerodhaSyncRef = useRef(false);
+  const autoDeltaSyncRef = useRef(false);
 
   /* Chart.js split-area plugin: green fill above zero, red fill below zero */
   const splitAreaPlugin: Plugin<'line'> = {
@@ -199,9 +243,20 @@ export default function Home() {
     setTimeout(() => setToast(null), 3500);
   }, []);
 
+  const zerodhaAvailable = Boolean(zerodhaStatus?.credentials_configured || allTrades.some((trade) => (trade.broker || 'zerodha') !== 'delta'));
+  const deltaAvailable = Boolean(deltaStatus?.credentials_configured || allTrades.some((trade) => (trade.broker || '').toLowerCase() === 'delta'));
+  const brokerFilter: ActiveBrokerFilter = deltaStatus?.credentials_configured
+    ? 'delta'
+    : zerodhaStatus?.credentials_configured
+    ? 'zerodha'
+    : deltaAvailable && !zerodhaAvailable
+    ? 'delta'
+    : 'zerodha';
+  const scopedSegmentFilter = useMemo(() => segmentsForBroker(segmentFilter, brokerFilter), [segmentFilter, brokerFilter]);
+
   useEffect(() => {
     queueMicrotask(() => {
-      const filtered = filterTradesByDateRange(allTrades, customStart, customEnd);
+      const filtered = filterTradesForScope(filterTradesByDateRange(allTrades, customStart, customEnd), brokerFilter, scopedSegmentFilter);
       setTrades(filtered);
       setStats(computeStats(filtered));
       setExpandedTradeRow(null);
@@ -217,7 +272,7 @@ export default function Home() {
         }
       }
     });
-  }, [allTrades, customStart, customEnd]);
+  }, [allTrades, customStart, customEnd, brokerFilter, scopedSegmentFilter]);
 
   /* Apply gradient fills after chart renders */
   useEffect(() => {
@@ -299,6 +354,22 @@ export default function Home() {
     }
   }, []);
 
+  const loadDeltaStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/broker/delta/status', { cache: 'no-store' });
+      if (!res.ok) {
+        setDeltaStatus(null);
+        return null;
+      }
+      const data = await res.json() as DeltaStatus;
+      setDeltaStatus(data);
+      return data;
+    } catch {
+      setDeltaStatus(null);
+      return null;
+    }
+  }, []);
+
   const syncZerodha = useCallback(async (silent = false) => {
     if (zerodhaSyncing) return;
     setZerodhaSyncing(true);
@@ -328,6 +399,24 @@ export default function Home() {
     }
   }, [loadTrades, loadZerodhaStatus, showToast, zerodhaSyncing]);
 
+  const syncDelta = useCallback(async (silent = false) => {
+    if (deltaSyncing) return;
+    setDeltaSyncing(true);
+    try {
+      const res = await fetch('/api/broker/delta/sync', { method: 'POST' });
+      if (!res.ok) throw new Error(await res.text());
+      const result = await res.json() as { imported_fills: number; total_trades: number };
+      await loadTrades();
+      await loadDeltaStatus();
+      if (!silent) showToast(`Delta synced ${result.imported_fills} fills, matched ${result.total_trades} trades`, 'success');
+    } catch (err: unknown) {
+      await loadDeltaStatus();
+      if (!silent) showToast('Delta sync failed: ' + getErrorMessage(err), 'error');
+    } finally {
+      setDeltaSyncing(false);
+    }
+  }, [deltaSyncing, loadDeltaStatus, loadTrades, showToast]);
+
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     router.push('/login');
@@ -342,6 +431,8 @@ export default function Home() {
       setTrades([]);
       setAllTrades([]);
       setStats(null);
+      setCsvBroker('');
+      window.localStorage.removeItem('tradelore_csv_broker');
       showToast("All data cleared successfully.", "success");
     } catch {
       showToast("Failed to clear data.", "error");
@@ -361,10 +452,13 @@ export default function Home() {
       if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target as Node)) {
         setActionsMenuOpen(false);
       }
+      if (segmentMenuRef.current && !segmentMenuRef.current.contains(event.target as Node)) {
+        setSegmentMenuOpen(false);
+      }
     };
-    if (actionsMenuOpen) document.addEventListener('mousedown', handler);
+    if (actionsMenuOpen || segmentMenuOpen) document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [actionsMenuOpen]);
+  }, [actionsMenuOpen, segmentMenuOpen]);
 
   useEffect(() => {
     void Promise.resolve().then(async () => {
@@ -374,6 +468,16 @@ export default function Home() {
       await syncZerodha(true);
     });
   }, [loadZerodhaStatus, syncZerodha]);
+
+  useEffect(() => {
+    void Promise.resolve().then(async () => {
+      const status = await loadDeltaStatus();
+      if (!status || autoDeltaSyncRef.current || !status.connected || !status.credentials_configured) return;
+      if (!isDeltaAutoSyncDue(status.last_sync_at)) return;
+      autoDeltaSyncRef.current = true;
+      await syncDelta(true);
+    });
+  }, [loadDeltaStatus, syncDelta]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -408,8 +512,20 @@ export default function Home() {
 
     setImportStatus('Uploading…');
     try {
+      let broker = csvBroker;
+      if (!broker) {
+        const answer = window.prompt('Import this CSV for which broker? Type "zerodha" or "delta".', 'zerodha')?.trim().toLowerCase();
+        if (answer !== 'zerodha' && answer !== 'delta') {
+          setImportStatus('');
+          showToast('CSV import cancelled. Choose zerodha or delta.', 'info');
+          return;
+        }
+        broker = answer;
+        setCsvBroker(broker);
+        window.localStorage.setItem('tradelore_csv_broker', broker);
+      }
       const body = new FormData();
-      body.append('broker', 'zerodha');
+      body.append('broker', broker);
       body.append('file', file);
       const res = await fetch('/api/import', { method: 'POST', body });
       if (!res.ok) throw new Error(await res.text());
@@ -426,11 +542,11 @@ export default function Home() {
     }
   };
 
-  const renderZerodhaMenuAction = () => {
-    if (!zerodhaStatus?.server_configured) {
+  const renderBrokerMenuAction = () => {
+    if (!zerodhaStatus?.server_configured && !deltaStatus?.server_configured) {
       return (
         <button className="actions-menu-item" title="Set BROKER_TOKEN_ENCRYPTION_KEY and SUPABASE_SERVICE_ROLE_KEY on the server" disabled>
-          Zerodha off
+          Brokers off
         </button>
       );
     }
@@ -440,10 +556,10 @@ export default function Home() {
         className="actions-menu-item"
         onClick={() => {
           setActionsMenuOpen(false);
-          router.push('/settings/zerodha');
+          router.push('/settings/broker');
         }}
       >
-        Zerodha Settings
+        Broker Settings
       </button>
     );
   };
@@ -461,6 +577,13 @@ export default function Home() {
   // --- RENDER HELPERS ---
   const pf  = stats ? (isFinite(stats.profitFactor) ? stats.profitFactor.toFixed(2) : '∞') : '—';
   const awl = stats ? (isFinite(stats.avgWinLoss) ? stats.avgWinLoss.toFixed(2) : '∞') : '—';
+  const displayCurrency = getScopeCurrency(trades);
+  const money = (n: number, showSign = true) => fmtMoney(n, displayCurrency, showSign);
+  const tradeMoney = (trade: TradeRecord, n: number, showSign = true) => fmtMoney(n, getTradeCurrency(trade), showSign);
+  const segmentOptions = SEGMENT_OPTIONS.filter((option) => option.broker === brokerFilter);
+  const segmentLabel = scopedSegmentFilter.includes('all')
+    ? 'All segments'
+    : segmentOptions.find((option) => option.value === scopedSegmentFilter[0])?.label || 'All segments';
 
   // Calendars / Weekdays
   const renderCalendar = () => {
@@ -509,8 +632,8 @@ export default function Home() {
               const miniText = pnl !== null ? (pnl >= 0 ? '+' : '') + (Math.abs(pnl) >= 1000 ? (pnl/1000).toFixed(1)+'k' : pnl.toFixed(0)) : '';
               const tradesText = tradeCount !== null ? `${tradeCount} trade${tradeCount !== 1 ? 's' : ''}` : '';
 
-              const dayTrades = allTrades
-                .map((t, i): TradeWithIndex => ({ ...t, originalIdx: i }))
+              const dayTrades = trades
+                .map((t): TradeWithIndex => ({ ...t, originalIdx: allTrades.findIndex((at) => `${at.symbol}_${at.entry_time || at.entryTime}` === `${t.symbol}_${t.entry_time || t.entryTime}`) }))
                 .filter((t) => t.trade_date === key)
                 .sort((a, b) => (a.entry_time || '').localeCompare(b.entry_time || ''));
               const firstIdx = dayTrades.length > 0 ? dayTrades[0].originalIdx : null;
@@ -520,7 +643,7 @@ export default function Home() {
                   key={j}
                   className={cls}
                   onClick={() => {
-                    if (firstIdx !== null) {
+                    if (firstIdx !== null && firstIdx >= 0) {
                       router.push(`/trade?idx=${firstIdx}`);
                     }
                   }}
@@ -539,7 +662,7 @@ export default function Home() {
             return (
               <tr key={i} className="week-row">
                 {rowTds}
-                <td><span className={`week-pnl ${weekPnl >= 0 ? 'up' : 'down'}`}>{weekDays > 0 ? fmtINR(weekPnl) : '—'}</span></td>
+                <td><span className={`week-pnl ${weekPnl >= 0 ? 'up' : 'down'}`}>{weekDays > 0 ? money(weekPnl) : '—'}</span></td>
                 <td><span className="week-trades">{weekDays > 0 ? `${weekDays} day${weekDays !== 1 ? 's' : ''}` : '—'}</span></td>
               </tr>
             );
@@ -609,6 +732,44 @@ export default function Home() {
             onChange={(s, e) => { setCustomStart(s); setCustomEnd(e); }}
             onClear={() => { setCustomStart(''); setCustomEnd(''); }}
           />
+          <div className="segment-menu" ref={segmentMenuRef}>
+            <button
+              className="segment-menu-trigger"
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded={segmentMenuOpen}
+              onClick={() => setSegmentMenuOpen(open => !open)}
+            >
+              {segmentLabel}
+            </button>
+            <div className={`segment-menu-list ${segmentMenuOpen ? 'open' : ''}`} role="menu">
+              <button
+                className={`segment-menu-item ${scopedSegmentFilter.includes('all') ? 'active' : ''}`}
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setSegmentFilter(['all']);
+                  setSegmentMenuOpen(false);
+                }}
+              >
+                All segments
+              </button>
+              {segmentOptions.map((option) => (
+                <button
+                  key={option.value}
+                  className={`segment-menu-item ${scopedSegmentFilter[0] === option.value ? 'active' : ''}`}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setSegmentFilter([option.value]);
+                    setSegmentMenuOpen(false);
+                  }}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
         <input type="file" ref={fileInputRef} accept=".csv" style={{display:'none'}} onChange={handleImport} />
         {renderZerodhaStatus()}
@@ -642,7 +803,7 @@ export default function Home() {
             >
               Clear data
             </button>
-            {renderZerodhaMenuAction()}
+            {renderBrokerMenuAction()}
             {currentUser ? (
               <button
                 className="actions-menu-item"
@@ -684,7 +845,10 @@ export default function Home() {
             <div className="stat-pill fade-in-up">
               <div className="sp-text">
                 <span className="label">Net P&amp;L</span>
-                <span className={`value ${(stats?.netPnl ?? 0) >= 0 ? 'green' : 'red'}`}>{stats ? fmtINR(stats.netPnl) : '—'}</span>
+                <span className={`value ${(stats?.netPnl ?? 0) >= 0 ? 'green' : 'red'}`}>{stats ? money(stats.netPnl) : '—'}</span>
+                {stats && stats.funding !== 0 && (
+                  <span className="sub">Funding adj {money(stats.fundingAdjustedNetPnl)}</span>
+                )}
               </div>
               {stats && (
                 <div className="sp-viz">
@@ -852,7 +1016,7 @@ export default function Home() {
               <div className="section-header">
                 <div><div className="section-title">Cumulative Net P&amp;L</div></div>
                 <span style={{fontSize:'20px',fontWeight:700,color: stats && stats.cumulativeArr.length ? (stats.cumulativeArr[stats.cumulativeArr.length-1].pnl >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--text-secondary)'}}>
-                  {stats && stats.cumulativeArr.length ? fmtINR(stats.cumulativeArr[stats.cumulativeArr.length-1].pnl) : '—'}
+                  {stats && stats.cumulativeArr.length ? money(stats.cumulativeArr[stats.cumulativeArr.length-1].pnl) : '—'}
                 </span>
               </div>
               <div className="chart-wrap">
@@ -977,7 +1141,7 @@ export default function Home() {
                     <span className="month-stat" style={{minWidth:'50px'}}>{wins}W / {losses}L</span>
                     <span className="month-stat" style={{minWidth:'42px',fontWeight:600}}>{wr}%</span>
                     <span className="month-pnl" style={{color: monthPnl >= 0 ? 'var(--green)' : 'var(--red)'}}>
-                      {fmtINR(monthPnl)}
+                      {money(monthPnl)}
                     </span>
                   </div>
 
@@ -1014,7 +1178,7 @@ export default function Home() {
                                         <span className="day-date">{fmtDateLabel(dayDate)}</span>
                                         <span className="day-meta">{dayTrades.length} trade{dayTrades.length !== 1 ? 's' : ''} · {dayWins}W / {dayLosses}L</span>
                                         <span className="day-pnl" style={{color: dayPnl >= 0 ? 'var(--green)' : 'var(--red)'}}>
-                                          {fmtINR(dayPnl)}
+                                          {money(dayPnl)}
                                         </span>
                                       </div>
                                     </td>
@@ -1030,12 +1194,12 @@ export default function Home() {
                                     return (
                                       <React.Fragment key={i}>
                                         <tr className="clickable" onClick={() => router.push(tradeUrl)}>
-                                          <td style={{fontWeight:600}}>{t.symbol}{t.exchange && <span style={{fontSize:'10px',color:'var(--text-secondary)'}}> {t.exchange}</span>}</td>
+                                          <td style={{fontWeight:600}}>{getTradeInstrumentLabel(t)}{t.exchange && <span style={{fontSize:'10px',color:'var(--text-secondary)'}}> {t.exchange}</span>}</td>
                                           <td>{t.direction === 'LONG' ? 'L' : 'S'}</td>
                                           <td>{t.qty}</td>
                                           <td>{fmtPrice(t.avg_entry || t.avgEntry || 0)}</td>
                                           <td>{fmtPrice(t.avg_exit || t.avgExit || 0)}</td>
-                                          <td style={{fontWeight:700,color:(t.pnl - (t.commission || 0)) >= 0 ? 'var(--green)' : 'var(--red)'}}>{fmtINR(t.pnl - (t.commission || 0))}</td>
+                                          <td style={{fontWeight:700,color:(t.pnl - (t.commission || 0)) >= 0 ? 'var(--green)' : 'var(--red)'}}>{tradeMoney(t, t.pnl - (t.commission || 0))}</td>
                                           <td>
                                             <span style={{display:'inline-flex', alignItems:'center', gap:'4px'}}>
                                               <span style={{width:'6px', height:'6px', borderRadius:'50%', background: journaled ? '#16a34a' : '#d1d5db', display:'inline-block'}}></span>
@@ -1103,32 +1267,34 @@ export default function Home() {
 
         {/* REPORTS */}
         <div className={`view ${view === 'reports' ? 'active' : ''}`} id="view-reports">
-          <ReportsPage />
+          <ReportsPage brokerFilter={brokerFilter} segmentFilter={scopedSegmentFilter} />
         </div>
       </div>
 
       {/* MODAL */}
       {modalTrade && (() => {
         const t = modalTrade;
-        const cleanSymbol = t.symbol.split(' ')[0];
+        const cleanSymbol = getTradeInstrumentLabel(t).split(' ')[0];
         const tvSymbol = `${t.exchange || 'NSE'}:${cleanSymbol}`;
         
         return (
           <div className="modal-overlay open" onClick={() => setModalTradeIdx(null)}>
             <div className="modal" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>{t.symbol} · {fmtDateLabel(t.trade_date || t.date || '')}</h2>
+                <h2>{getTradeInstrumentLabel(t)} · {fmtDateLabel(t.trade_date || t.date || '')}</h2>
                 <button className="modal-close" onClick={() => setModalTradeIdx(null)}>✕</button>
               </div>
               <div className="modal-body">
                 <div className="modal-left">
-                  <div className="stat-row"><span className="stat-label">Symbol</span><span className="stat-value">{t.symbol}{t.exchange ? ' · ' + t.exchange : ''}</span></div>
+                  <div className="stat-row"><span className="stat-label">Symbol</span><span className="stat-value">{getTradeInstrumentLabel(t)}{t.exchange ? ' · ' + t.exchange : ''}</span></div>
                   <div className="stat-row"><span className="stat-label">Direction</span><span className="stat-value">{t.direction} · Qty {t.qty}</span></div>
-                  <div className="stat-row"><span className="stat-label">Avg Entry</span><span className="stat-value">₹{fmtPrice(t.avg_entry || t.avgEntry || 0)}</span></div>
-                  <div className="stat-row"><span className="stat-label">Avg Exit</span><span className="stat-value">₹{fmtPrice(t.avg_exit || t.avgExit || 0)}</span></div>
-                  <div className="stat-row"><span className="stat-label">P&L</span><span className={`stat-value ${t.pnl >= 0 ? 'up' : 'down'}`}>{fmtINR(t.pnl)}</span></div>
-                  <div className="stat-row"><span className="stat-label">Commission</span><span className="stat-value" style={{color:'var(--red)'}}>{fmtINR(t.commission || 0)}</span></div>
-                  <div className="stat-row"><span className="stat-label">Net P&amp;L</span><span className={`stat-value ${(t.pnl - (t.commission || 0)) >= 0 ? 'up' : 'down'}`}>{fmtINR(t.pnl - (t.commission || 0))}</span></div>
+                  <div className="stat-row"><span className="stat-label">Avg Entry</span><span className="stat-value">{fmtPrice(t.avg_entry || t.avgEntry || 0)}</span></div>
+                  <div className="stat-row"><span className="stat-label">Avg Exit</span><span className="stat-value">{fmtPrice(t.avg_exit || t.avgExit || 0)}</span></div>
+                  <div className="stat-row"><span className="stat-label">Gross P&amp;L</span><span className={`stat-value ${t.pnl >= 0 ? 'up' : 'down'}`}>{tradeMoney(t, t.pnl)}</span></div>
+                  <div className="stat-row"><span className="stat-label">Fees/commission</span><span className="stat-value" style={{color:'var(--red)'}}>{tradeMoney(t, -(t.commission || 0))}</span></div>
+                  {Number(t.funding || 0) !== 0 && <div className="stat-row"><span className="stat-label">Funding</span><span className={`stat-value ${Number(t.funding || 0) >= 0 ? 'up' : 'down'}`}>{tradeMoney(t, Number(t.funding || 0))}</span></div>}
+                  <div className="stat-row"><span className="stat-label">Net P&amp;L</span><span className={`stat-value ${(t.pnl - (t.commission || 0)) >= 0 ? 'up' : 'down'}`}>{tradeMoney(t, t.pnl - (t.commission || 0))}</span></div>
+                  {Number(t.funding || 0) !== 0 && <div className="stat-row"><span className="stat-label">Funding adj net</span><span className={`stat-value ${(t.pnl - (t.commission || 0) + Number(t.funding || 0)) >= 0 ? 'up' : 'down'}`}>{tradeMoney(t, t.pnl - (t.commission || 0) + Number(t.funding || 0))}</span></div>}
                   <div className="stat-row"><span className="stat-label">Result</span><span className={`badge ${t.result}`} style={{fontSize:'13px'}}>{t.result.toUpperCase()}</span></div>
                   <div className="stat-row"><span className="stat-label">Entry time</span><span className="stat-value" style={{fontSize:'12px'}}>{(t.entry_time || t.entryTime || '').substring(0, 16)}</span></div>
                   <div className="stat-row"><span className="stat-label">Exit time</span><span className="stat-value" style={{fontSize:'12px'}}>{(t.exit_time || t.exitTime || '').substring(0, 16)}</span></div>
@@ -1139,7 +1305,7 @@ export default function Home() {
                   <div className="tradingview-placeholder">
                     <div className="tv-icon">📈</div>
                     <div style={{fontSize:'14px',fontWeight:600}}>{cleanSymbol}</div>
-                    <div style={{fontSize:'12px'}}>Avg Entry ₹{fmtPrice(t.avg_entry || t.avgEntry || 0)} → Avg Exit ₹{fmtPrice(t.avg_exit || t.avgExit || 0)}</div>
+                    <div style={{fontSize:'12px'}}>Avg Entry {fmtPrice(t.avg_entry || t.avgEntry || 0)} → Avg Exit {fmtPrice(t.avg_exit || t.avgExit || 0)}</div>
                     <a href={`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvSymbol)}`} target="_blank" rel="noreferrer"
                        style={{marginTop:'8px',padding:'8px 16px',background:'var(--brand)',color:'white',borderRadius:'6px',textDecoration:'none',fontSize:'12px',fontWeight:600}}>
                       Open in TradingView ↗

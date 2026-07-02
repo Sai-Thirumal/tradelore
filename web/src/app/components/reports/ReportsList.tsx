@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import DayTimeReport from './DayTimeReport';
+import type { BrokerFilter, SegmentFilter } from '@/lib/engine/trade-filters';
 
 type Group = 'days' | 'months' | 'trade-time' | 'trade-duration';
 
@@ -20,7 +21,12 @@ const DAY_TIME_TABS: { key: Group; label: string }[] = [
   { key: 'trade-duration', label: 'Trade duration' },
 ];
 
-export default function ReportsList() {
+interface Props {
+  brokerFilter?: BrokerFilter;
+  segmentFilter?: SegmentFilter[];
+}
+
+export default function ReportsList({ brokerFilter = 'all', segmentFilter = ['all'] }: Props) {
   const [category, setCategory] = useState('day-time');
   const [open, setOpen] = useState(false);
   const [dayTimeGroup, setDayTimeGroup] = useState<Group>('days');
@@ -58,15 +64,15 @@ export default function ReportsList() {
   const renderContent = () => {
     switch (category) {
       case 'day-time':
-        return <DayTimeReport group={dayTimeGroup} />;
+        return <DayTimeReport group={dayTimeGroup} brokerFilter={brokerFilter} segmentFilter={segmentFilter} />;
       case 'instruments':
-        return <DayTimeReport group="instruments" />;
+        return <DayTimeReport group="instruments" brokerFilter={brokerFilter} segmentFilter={segmentFilter} />;
       case 'risk':
-        return <DayTimeReport group="deployed-capital" />;
+        return <DayTimeReport group="deployed-capital" brokerFilter={brokerFilter} segmentFilter={segmentFilter} />;
       case 'playbooks':
-        return <DayTimeReport group="playbooks" />;
+        return <DayTimeReport group="playbooks" brokerFilter={brokerFilter} segmentFilter={segmentFilter} />;
       case 'options':
-        return <DayTimeReport group="options-expiry" />;
+        return <DayTimeReport group="options-expiry" brokerFilter={brokerFilter} segmentFilter={segmentFilter} />;
       default:
         return (
           <div className="section" style={{ textAlign: 'center', padding: '40px' }}>

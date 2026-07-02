@@ -1,9 +1,10 @@
 import Papa from 'papaparse';
 import { RequestValidationError } from './request';
+import { isDeltaCsvHeaders } from '@/lib/brokers/delta/csv';
 
 export const MAX_CSV_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const MAX_CSV_ROWS = 50_000;
-export const SUPPORTED_BROKERS = ['zerodha'] as const;
+export const SUPPORTED_BROKERS = ['zerodha', 'delta'] as const;
 
 export type SupportedBroker = (typeof SUPPORTED_BROKERS)[number];
 
@@ -70,8 +71,8 @@ interface CsvPreview {
 }
 
 export function parseSupportedBroker(rawBroker: FormDataEntryValue | null): SupportedBroker {
-  if (rawBroker !== 'zerodha') {
-    throw new RequestValidationError('Only Zerodha imports are supported');
+  if (rawBroker !== 'zerodha' && rawBroker !== 'delta') {
+    throw new RequestValidationError('Only Zerodha and Delta imports are supported');
   }
   return rawBroker;
 }
@@ -103,6 +104,13 @@ export function validateCsvUpload(file: File, text: string, broker: SupportedBro
     if (missingZerodhaHeader) {
       throw new RequestValidationError(`Zerodha CSV is missing required ${missingZerodhaHeader} column`);
     }
+  }
+
+  if (broker === 'delta') {
+    if (!isDeltaCsvHeaders(fields)) {
+      throw new RequestValidationError('Delta CSV is missing required fill headers');
+    }
+    return;
   }
 
   const mappedFields = new Set([...normalisedFields].map(field => HEADER_MAP[field] || field));

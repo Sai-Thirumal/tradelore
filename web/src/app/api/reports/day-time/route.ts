@@ -3,6 +3,14 @@ import { fetchAllTrades, fetchAllTradeJournals, fetchPlaybooks } from '@/lib/db/
 import { withCurrentCommission } from '@/lib/engine/commission';
 import { requireAuthUser } from '@/lib/auth/session';
 import { getErrorMessage } from '@/lib/errors';
+import {
+  filterTradesForScope,
+  getScopeCurrency,
+  getTradeBroker,
+  getTradeInstrumentLabel,
+  type BrokerFilter,
+  type SegmentFilter,
+} from '@/lib/engine/trade-filters';
 import type { TradeRecord } from '@/lib/types/trading';
 import {
   getContractValue,
@@ -30,6 +38,8 @@ const TRADING_DAYS_PER_MONTH = 21;
 
 // Extract base instrument: "NIFTY25N1324150PE" → "NIFTY (Options)"
 function getInstrument(t: TradeRecord): string {
+  if (getTradeBroker(t) === 'delta') return getTradeInstrumentLabel(t);
+
   const sym: string = t.symbol || '';
   const segment: string = t.segment || '';
   const upper = sym.toUpperCase();
@@ -89,6 +99,8 @@ interface GroupStats {
   label: string;
   winPct: number;
   netPnl: number;
+  funding: number;
+  fundingAdjustedNetPnl: number;
   tradeCount: number;
   avgWin: number;
   avgLoss: number;
@@ -323,6 +335,8 @@ function computeGroupStats(trades: TradeRecord[], getKey: (t: TradeRecord) => st
     const grossPnl = groupTrades.reduce((s, t) => s + (t.pnl || 0), 0);
     const totalCommission = groupTrades.reduce((s, t) => s + (t.commission || 0), 0);
     const netPnl = grossPnl - totalCommission;
+    const funding = groupTrades.reduce((s, t) => s + Number(t.funding || 0), 0);
+    const fundingAdjustedNetPnl = netPnl + funding;
     const tradeCount = groupTrades.length;
     const winPct = tradeCount > 0 ? (wins.length / tradeCount) * 100 : 0;
     const totalWins = wins.reduce((s, t) => s + netValue(t), 0);
@@ -333,7 +347,7 @@ function computeGroupStats(trades: TradeRecord[], getKey: (t: TradeRecord) => st
       ? groupTrades.reduce((s, t) => s + Number(t.qty || t.quantity || 0), 0) / tradeCount
       : 0;
 
-    stats.push({ label, winPct, netPnl, tradeCount, avgWin, avgLoss, avgVolume });
+    stats.push({ label, winPct, netPnl, funding, fundingAdjustedNetPnl, tradeCount, avgWin, avgLoss, avgVolume });
   }
 
   return stats;
@@ -377,12 +391,15 @@ export async function GET(request: NextRequest) {
     if (response) return response;
 
     const group = (request.nextUrl.searchParams.get('group') || 'days') as Group;
+    const broker = (request.nextUrl.searchParams.get('broker') || 'all') as BrokerFilter;
+    const segment = (request.nextUrl.searchParams.get('segment') || 'all').split(',') as SegmentFilter[];
     let trades = await fetchAllTrades(user.id);
 
-    trades = trades.map((t): TradeRecord => withCurrentCommission(t));
+    trades = filterTradesForScope(trades.map((t): TradeRecord => withCurrentCommission(t)), broker, segment);
 
     if (!trades.length) {
       return NextResponse.json({
+        currency: 'INR',
         groups: [],
         bestPerforming: null,
         leastPerforming: null,
@@ -539,6 +556,7 @@ export async function GET(request: NextRequest) {
       : null;
 
     return NextResponse.json({
+      currency: getScopeCurrency(trades),
       groups,
       bestPerforming: bestPerforming ? { ...bestPerforming } : null,
       leastPerforming: leastPerforming ? { ...leastPerforming } : null,

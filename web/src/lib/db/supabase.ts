@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { DeltaFundingTransaction } from '@/lib/brokers/delta/funding';
 import { latestTradeMonths, tradeMonth } from '@/lib/engine/trade-retention';
 import { createClient as createServerSupabaseClient } from '@/lib/supabase/server';
 import type { JsonRecord, PlaybookRecord, TradeJournalRecord, TradeOrder, TradeRecord } from '@/lib/types/trading';
@@ -91,6 +92,51 @@ export async function replaceTrades(trades: TradeRecord[], userId: string) {
   }
 }
 
+export async function storeDeltaFundingTransactions(transactions: DeltaFundingTransaction[], userId: string) {
+  const supabase = await getSupabase();
+  if (!supabase || transactions.length === 0) return;
+  const rows = transactions.map((transaction) => ({
+    ...transaction,
+    user_id: userId,
+    updated_at: new Date().toISOString(),
+  }));
+  const { error } = await supabase
+    .from('delta_wallet_transactions')
+    .upsert(rows, { onConflict: 'user_id,external_transaction_id' });
+  if (error) throw error;
+}
+
+export async function fetchDeltaFundingTransactions(userId: string): Promise<DeltaFundingTransaction[]> {
+  const supabase = await getSupabase();
+  if (!supabase) return [];
+  let allData: DeltaFundingTransaction[] = [];
+  let from = 0;
+  const pageSize = 1000;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('delta_wallet_transactions')
+      .select('external_transaction_id, transaction_type, amount, asset, product_id, product_symbol, occurred_at, raw')
+      .eq('user_id', userId)
+      .eq('transaction_type', 'funding')
+      .order('occurred_at', { ascending: true })
+      .range(from, from + pageSize - 1);
+
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+
+    allData = allData.concat((data as DeltaFundingTransaction[]).map((row) => ({
+      ...row,
+      amount: Number(row.amount || 0),
+      product_id: row.product_id ? Number(row.product_id) : undefined,
+    })));
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return allData;
+}
+
 export async function fetchAllTrades(userId: string): Promise<TradeRecord[]> {
   const supabase = await getSupabase();
   if (!supabase) return [];
@@ -122,6 +168,7 @@ export async function clearAllData(userId: string) {
   if (!supabase) return;
   await supabase.from('trade_orders').delete().eq('user_id', userId);
   await supabase.from('trades').delete().eq('user_id', userId);
+  await supabase.from('delta_wallet_transactions').delete().eq('user_id', userId);
   await supabase.from('trade_journal').delete().eq('user_id', userId);
   await supabase.from('daily_journal').delete().eq('user_id', userId);
 }

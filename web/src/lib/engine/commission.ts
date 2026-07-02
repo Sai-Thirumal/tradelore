@@ -412,6 +412,12 @@ export function isCurrentCommissionBreakdown(value: unknown): value is Commissio
 }
 
 export function withCurrentCommission<T extends TradeRecord>(trade: T): T {
+  if ((trade.broker || '').toLowerCase() === 'delta') {
+    const netPnl = Number(trade.pnl || 0) - Number(trade.commission || 0);
+    const result = netPnl > 0.005 ? 'win' : netPnl < -0.005 ? 'loss' : 'breakeven';
+    return trade.result === result ? trade : { ...trade, result };
+  }
+
   if (trade.commission !== undefined && trade.commission !== null && isCurrentCommissionBreakdown(trade.commission_breakdown)) {
     const netPnl = Number(trade.pnl || 0) - Number(trade.commission || 0);
     const result = netPnl > 0.005 ? 'win' : netPnl < -0.005 ? 'loss' : 'breakeven';

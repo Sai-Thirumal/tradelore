@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { fetchAllTrades, fetchAllTradeJournals } from '@/lib/db/supabase';
 import { withCurrentCommission } from '@/lib/engine/commission';
 import { requireAuthUser } from '@/lib/auth/session';
 import { getErrorMessage } from '@/lib/errors';
+import { filterTradesForScope, getScopeCurrency, type BrokerFilter, type SegmentFilter } from '@/lib/engine/trade-filters';
 import type { TradeRecord } from '@/lib/types/trading';
 
 interface OverviewStats {
@@ -13,7 +14,10 @@ interface OverviewStats {
   breakevenTrades: number;
 
   // P&L
+  currency: string;
+  grossPnl: number;
   netPnl: number;
+  fundingAdjustedNetPnl: number;
   largestProfit: number;
   largestLoss: number;
   avgTradePnl: number;
@@ -61,6 +65,7 @@ interface OverviewStats {
 
   // Misc
   totalCommissions: number;
+  funding: number;
   openTrades: number;
 }
 
@@ -79,15 +84,17 @@ function maxConsecutive(arr: boolean[], target: boolean): number {
   return max;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const { user, response } = await requireAuthUser();
     if (response) return response;
 
+    const broker = (request.nextUrl.searchParams.get('broker') || 'all') as BrokerFilter;
+    const segment = (request.nextUrl.searchParams.get('segment') || 'all').split(',') as SegmentFilter[];
     let trades = await fetchAllTrades(user.id);
     const journals = await fetchAllTradeJournals(user.id);
 
-    trades = trades.map((t): TradeRecord => withCurrentCommission(t));
+    trades = filterTradesForScope(trades.map((t): TradeRecord => withCurrentCommission(t)), broker, segment);
 
     if (!trades.length) {
       return NextResponse.json(null);
@@ -107,7 +114,9 @@ export async function GET() {
 
     const grossPnl = sorted.reduce((s, t) => s + (t.pnl || 0), 0);
     const totalCommission = sorted.reduce((s, t) => s + (t.commission || 0), 0);
+    const funding = sorted.reduce((s, t) => s + Number(t.funding || 0), 0);
     const netPnl = grossPnl - totalCommission;
+    const fundingAdjustedNetPnl = netPnl + funding;
     const totalWins = wins.reduce((s, t) => s + tradeNet(t), 0);
     const totalLosses = Math.abs(losses.reduce((s, t) => s + tradeNet(t), 0));
 
@@ -236,7 +245,10 @@ export async function GET() {
       losingTrades: losses.length,
       breakevenTrades: breakevens.length,
 
+      currency: getScopeCurrency(sorted),
+      grossPnl,
       netPnl,
+      fundingAdjustedNetPnl,
       largestProfit,
       largestLoss,
       avgTradePnl: netPnl / sorted.length,
@@ -275,6 +287,7 @@ export async function GET() {
       avgRealisedR,
 
       totalCommissions: totalCommission,
+      funding,
       openTrades: 0,       // no open trades concept yet
     };
 

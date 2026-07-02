@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS public.broker_connections (
   last_sync_at timestamptz,
   last_sync_status text DEFAULT '',
   last_sync_error text DEFAULT '',
+  last_sync_cursor text DEFAULT '',
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),
   UNIQUE(user_id, broker)
@@ -27,7 +28,8 @@ ALTER TABLE public.broker_connections
   ADD COLUMN IF NOT EXISTS api_key text DEFAULT '',
   ADD COLUMN IF NOT EXISTS encrypted_api_key text,
   ADD COLUMN IF NOT EXISTS encrypted_api_secret text,
-  ADD COLUMN IF NOT EXISTS credentials_saved_at timestamptz;
+  ADD COLUMN IF NOT EXISTS credentials_saved_at timestamptz,
+  ADD COLUMN IF NOT EXISTS last_sync_cursor text DEFAULT '';
 
 CREATE INDEX IF NOT EXISTS idx_broker_connections_user_broker
   ON public.broker_connections(user_id, broker);

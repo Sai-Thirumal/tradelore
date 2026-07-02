@@ -175,7 +175,7 @@ Reports tab
 ### Auth UI flow
 ```
 Logged-out visitor
-  → src/proxy.ts redirects protected pages to /login
+  → proxy.ts redirects protected pages to /login
   → sign up or log in
   → /auth/callback creates session for email/OAuth redirects
   → header shows Logout next to Import CSV

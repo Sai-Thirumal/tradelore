@@ -4,10 +4,18 @@
 
 CREATE TABLE public.trades (
   id          uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  broker      text DEFAULT 'zerodha',
+  market_type text DEFAULT '',
   symbol      text NOT NULL,
   exchange    text DEFAULT '',
   segment     text DEFAULT '',        -- e.g. 'FO', 'EQ'
   expiry_date text DEFAULT '',        -- options/futures expiry
+  product_id bigint,
+  product_symbol text DEFAULT '',
+  contract_type text DEFAULT '',
+  notional_type text DEFAULT '',
+  settlement_asset text DEFAULT '',
+  contract_value numeric,
   instrument_name text DEFAULT '',
   instrument_type text DEFAULT '',
   strike numeric DEFAULT 0,
@@ -26,12 +34,26 @@ CREATE TABLE public.trades (
   trade_date  date NOT NULL,
   result      text NOT NULL,          -- 'win', 'loss', or 'breakeven'
   orders      jsonb DEFAULT '[]',     -- individual order legs (for the Orders expand)
+  funding     numeric DEFAULT 0,
+  fee_amount  numeric DEFAULT 0,
+  pnl_currency text DEFAULT '',
   created_at  timestamptz DEFAULT now()
 );
 
 ALTER TABLE public.trades ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.trades ADD COLUMN IF NOT EXISTS commission NUMERIC DEFAULT 0;
 ALTER TABLE public.trades ADD COLUMN IF NOT EXISTS commission_breakdown JSONB;
+ALTER TABLE public.trades ADD COLUMN IF NOT EXISTS broker text DEFAULT 'zerodha';
+ALTER TABLE public.trades ADD COLUMN IF NOT EXISTS market_type text DEFAULT '';
+ALTER TABLE public.trades ADD COLUMN IF NOT EXISTS product_id bigint;
+ALTER TABLE public.trades ADD COLUMN IF NOT EXISTS product_symbol text DEFAULT '';
+ALTER TABLE public.trades ADD COLUMN IF NOT EXISTS contract_type text DEFAULT '';
+ALTER TABLE public.trades ADD COLUMN IF NOT EXISTS notional_type text DEFAULT '';
+ALTER TABLE public.trades ADD COLUMN IF NOT EXISTS settlement_asset text DEFAULT '';
+ALTER TABLE public.trades ADD COLUMN IF NOT EXISTS contract_value numeric;
+ALTER TABLE public.trades ADD COLUMN IF NOT EXISTS funding numeric DEFAULT 0;
+ALTER TABLE public.trades ADD COLUMN IF NOT EXISTS fee_amount numeric DEFAULT 0;
+ALTER TABLE public.trades ADD COLUMN IF NOT EXISTS pnl_currency text DEFAULT '';
 
 CREATE INDEX IF NOT EXISTS idx_trades_user_exit_time ON public.trades(user_id, exit_time);
 CREATE INDEX IF NOT EXISTS idx_trades_user_trade_date ON public.trades(user_id, trade_date);

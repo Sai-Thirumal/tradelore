@@ -32,6 +32,20 @@ interface ChartResponse {
   interval: string;
   candles?: ChartCandle[];
   referenceOnly?: boolean;
+  source?: string;
+}
+
+function deltaTimeToUnix(value: string): number {
+  if (!value) return 0;
+  const iso = value.includes('T') ? value : value.replace(' ', 'T');
+  const withZone = /(?:Z|[+-]\d{2}:?\d{2})$/.test(iso) ? iso : `${iso}Z`;
+  return new Date(withZone).getTime() / 1000;
+}
+
+function resolutionMinutes(interval: string) {
+  if (interval.endsWith('m')) return Number(interval.slice(0, -1)) || 5;
+  if (interval.endsWith('h')) return (Number(interval.slice(0, -1)) || 1) * 60;
+  return 24 * 60;
 }
 
 export default function TradeChart({ symbol, exchange = '', direction, avgEntry, avgExit, entryTime, exitTime, orders }: Props) {
@@ -74,13 +88,14 @@ export default function TradeChart({ symbol, exchange = '', direction, avgEntry,
           chartRef.current = null;
         }
 
-        const tz = 'Asia/Kolkata';
+        const isDelta = data.source === 'delta' || exchange.toUpperCase() === 'DELTA';
+        const tz = isDelta ? 'UTC' : 'Asia/Kolkata';
         let dateShown = false;
 
         const istTimeFormatter = (time: number) => {
           const d = new Date(time * 1000);
 
-          if (data.interval === '5m') {
+          if (data.interval !== '1d' && data.interval !== '1w') {
             const parts = new Intl.DateTimeFormat('en-IN', {
               timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
               hour: '2-digit', minute: '2-digit', hour12: false,
@@ -126,8 +141,8 @@ export default function TradeChart({ symbol, exchange = '', direction, avgEntry,
         });
         series.setData(data.candles);
 
-        const entryUnix = istToUnix(entryTime);
-        const exitUnix = istToUnix(exitTime);
+        const entryUnix = isDelta ? deltaTimeToUnix(entryTime) : istToUnix(entryTime);
+        const exitUnix = isDelta ? deltaTimeToUnix(exitTime) : istToUnix(exitTime);
         const isLong = direction === 'LONG';
 
         const markers: SeriesMarker<UTCTimestamp>[] = [];
@@ -138,11 +153,11 @@ export default function TradeChart({ symbol, exchange = '', direction, avgEntry,
           // markers inside the same candle where they can't be distinguished.
           // Marker time stays at the exact fill time; only the dedup key buckets.
           const bucket = (timeStr: string) => {
-            const d = new Date(timeStr.replace(' ', 'T') + '+05:30');
-            if (data.interval === '1d') return timeStr.substring(0, 10); // "2026-05-25"
-            // 5m: round down to nearest 5-min boundary
+            const d = new Date((isDelta ? timeStr.replace(' ', 'T') + 'Z' : timeStr.replace(' ', 'T') + '+05:30'));
+            if (data.interval === '1d' || data.interval === '1w') return timeStr.substring(0, 10); // "2026-05-25"
             const m = d.getUTCMinutes();
-            d.setUTCMinutes(Math.floor(m / 5) * 5, 0, 0);
+            const bucketMinutes = resolutionMinutes(data.interval);
+            d.setUTCMinutes(Math.floor(m / bucketMinutes) * bucketMinutes, 0, 0);
             const pad = (n: number) => String(n).padStart(2, '0');
             return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
           };
@@ -154,7 +169,7 @@ export default function TradeChart({ symbol, exchange = '', direction, avgEntry,
           }
 
           for (const o of seen.values()) {
-            const orderUnix = istToUnix(o.trade_time);
+            const orderUnix = isDelta ? deltaTimeToUnix(o.trade_time) : istToUnix(o.trade_time);
             if (orderUnix <= 0) continue;
 
             const isEntry = (isLong && o.type === 'BUY') || (!isLong && o.type === 'SELL');
@@ -216,7 +231,7 @@ export default function TradeChart({ symbol, exchange = '', direction, avgEntry,
       <h3 style={{marginBottom:'10px'}}>
         Chart · {meta?.underlying || symbol}
         <span style={{fontSize:'11px',color:'var(--text-secondary)',fontWeight:400,marginLeft:'8px'}}>
-          {meta?.interval === '5m' ? '5-min' : 'Daily'}
+          {meta?.interval === '1d' ? 'Daily' : meta?.interval === '1w' ? 'Weekly' : meta?.interval}
           {meta?.referenceOnly ? ' · global reference' : ''}
         </span>
       </h3>
