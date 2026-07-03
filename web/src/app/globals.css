@@ -2037,6 +2037,11 @@ body::before {
   border-radius: 10px;
   border: 1px solid var(--border);
 }
+.live-trade-note-header .posttrade-meta {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.35;
+}
 
 .posttrade-body {
   padding: 16px 20px 20px;

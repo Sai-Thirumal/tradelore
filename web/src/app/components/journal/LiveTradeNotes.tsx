@@ -67,7 +67,7 @@ export default function LiveTradeNotes() {
           const tid = getTradeId(trade);
           return (
             <div className="posttrade-form" key={tid}>
-              <div className="posttrade-header">
+              <div className="posttrade-header live-trade-note-header">
                 <div>
                   <div className="posttrade-symbol">{trade.symbol}</div>
                   <div className="posttrade-meta">
