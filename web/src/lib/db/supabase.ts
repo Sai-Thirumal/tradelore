@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DeltaFundingTransaction } from '@/lib/brokers/delta/funding';
-import { latestTradeMonths, tradeMonth } from '@/lib/engine/trade-retention';
+import { latestTradeRetentionKeysByBroker, tradeRetentionKey } from '@/lib/engine/trade-retention';
 import { createClient as createServerSupabaseClient } from '@/lib/supabase/server';
 import type { JsonRecord, PlaybookRecord, TradeJournalRecord, TradeOrder, TradeRecord } from '@/lib/types/trading';
 
@@ -63,10 +63,10 @@ export async function retainLatestTradeMonths(userId: string): Promise<TradeOrde
   const allOrders = await fetchAllOrders(userId);
   if (!supabase || allOrders.length === 0) return allOrders;
 
-  const retainedMonths = latestTradeMonths(allOrders);
-  const retainedOrders = allOrders.filter(order => retainedMonths.has(tradeMonth(order)));
+  const retainedKeys = latestTradeRetentionKeysByBroker(allOrders);
+  const retainedOrders = allOrders.filter(order => retainedKeys.has(tradeRetentionKey(order)));
   const staleUids = allOrders
-    .filter(order => !retainedMonths.has(tradeMonth(order)))
+    .filter(order => !retainedKeys.has(tradeRetentionKey(order)))
     .map(order => order.uid);
 
   for (let i = 0; i < staleUids.length; i += 1000) {
