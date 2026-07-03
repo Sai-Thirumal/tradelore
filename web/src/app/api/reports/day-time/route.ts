@@ -5,9 +5,9 @@ import { requireAuthUser } from '@/lib/auth/session';
 import { getErrorMessage } from '@/lib/errors';
 import {
   filterTradesForScope,
+  getDeltaInstrumentFamilyLabel,
   getScopeCurrency,
   getTradeBroker,
-  getTradeInstrumentLabel,
   type BrokerFilter,
   type SegmentFilter,
 } from '@/lib/engine/trade-filters';
@@ -38,7 +38,7 @@ const TRADING_DAYS_PER_MONTH = 21;
 
 // Extract base instrument: "NIFTY25N1324150PE" → "NIFTY (Options)"
 function getInstrument(t: TradeRecord): string {
-  if (getTradeBroker(t) === 'delta') return getTradeInstrumentLabel(t);
+  if (getTradeBroker(t) === 'delta') return getDeltaInstrumentFamilyLabel(t);
 
   const sym: string = t.symbol || '';
   const segment: string = t.segment || '';

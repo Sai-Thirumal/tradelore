@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   filterTradesForScope,
+  getDeltaInstrumentFamilyLabel,
   getScopeCurrency,
   getTradeInstrumentLabel,
   getTradeSegmentBucket,
@@ -26,13 +27,18 @@ function trade(overrides: Partial<TradeRecord>): TradeRecord {
   };
 }
 
-test('buckets Delta derivative segments and preserves product symbol labels', () => {
+test('buckets Delta derivative segments and labels exact symbols plus report families', () => {
   const perp = trade({ broker: 'delta', exchange: 'DELTA', segment: 'PERP', product_symbol: 'BTCUSDT' });
   const option = trade({ broker: 'delta', exchange: 'DELTA', segment: 'CALL_OPTION', product_symbol: 'C-BTC-50000-010126' });
+  const future = trade({ broker: 'delta', exchange: 'DELTA', segment: 'FUTURES', product_symbol: 'ETHUSD' });
 
   assert.equal(getTradeSegmentBucket(perp), 'delta_perp');
   assert.equal(getTradeSegmentBucket(option), 'delta_options');
   assert.equal(getTradeInstrumentLabel(perp), 'BTCUSDT');
+  assert.equal(getTradeInstrumentLabel(option), 'C-BTC-50000-010126');
+  assert.equal(getDeltaInstrumentFamilyLabel(perp), 'BTC Perpetuals');
+  assert.equal(getDeltaInstrumentFamilyLabel(option), 'BTC Options');
+  assert.equal(getDeltaInstrumentFamilyLabel(future), 'ETH Futures');
 });
 
 test('filters by broker and segment without changing legacy Zerodha defaults', () => {

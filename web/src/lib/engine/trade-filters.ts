@@ -51,3 +51,19 @@ export function getTradeInstrumentLabel(trade: TradeRecord): string {
   if (getTradeBroker(trade) === 'delta') return trade.product_symbol || trade.symbol || '';
   return trade.symbol || '';
 }
+
+function deltaBaseSymbol(symbol: string) {
+  return symbol.replace(/(?:USDT|USD|INR)$/i, '') || symbol;
+}
+
+export function getDeltaInstrumentFamilyLabel(trade: TradeRecord): string {
+  const symbol = (trade.product_symbol || trade.symbol || '').toUpperCase();
+  const option = symbol.match(/^[CP]-([A-Z0-9]+)-/);
+  if (option) return `${option[1]} Options`;
+
+  const base = deltaBaseSymbol(symbol);
+  const segment = getTradeSegmentBucket(trade);
+  if (segment === 'delta_perp') return `${base} Perpetuals`;
+  if (segment === 'delta_options') return `${base} Options`;
+  return `${base} Futures`;
+}
