@@ -93,8 +93,8 @@ export default function LandingPage() {
           <a href="#product">Product</a>
         </nav>
         <div className="landing-header-actions">
-          <Link className="landing-link-btn" href="/login">Log in</Link>
-          <Link className="landing-primary-btn small" href="/login?next=/dashboard">Start journaling</Link>
+          <Link className="landing-link-btn" href="/dashboard">Log in</Link>
+          <Link className="landing-primary-btn small" href="/dashboard">Start journaling</Link>
         </div>
       </header>
 
@@ -107,7 +107,7 @@ export default function LandingPage() {
             cost-aware P&L, journals, chart reviews, and performance reports so every session sharpens your edge.
           </p>
           <div className="landing-cta-row">
-            <Link className="landing-primary-btn" href="/login?next=/dashboard">Get started</Link>
+            <Link className="landing-primary-btn" href="/dashboard">Get started</Link>
             <a className="landing-secondary-btn" href="#product">See the product</a>
           </div>
         </div>
@@ -183,7 +183,7 @@ export default function LandingPage() {
             Review direction, quantity, entry, exit, order legs, and chart markers together. The outcome becomes easier
             to explain when the evidence sits in one place.
           </p>
-          <Link className="landing-primary-btn" href="/login?next=/dashboard">Open your journal</Link>
+          <Link className="landing-primary-btn" href="/dashboard">Open your journal</Link>
         </div>
         <div className="trade-detail-image">
           <Image
@@ -198,7 +198,7 @@ export default function LandingPage() {
       <section className="landing-final-cta">
         <span>Ready when the market closes.</span>
         <h2>Turn today’s trades into tomorrow’s playbook.</h2>
-        <Link className="landing-primary-btn" href="/login?next=/dashboard">Start with TradeLore</Link>
+        <Link className="landing-primary-btn" href="/dashboard">Start with TradeLore</Link>
       </section>
     </main>
   );
