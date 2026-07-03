@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { redirect } from 'next/navigation';
 import { BarChart3, BookOpenText, CandlestickChart, FileSpreadsheet, LineChart, ShieldCheck } from 'lucide-react';
+import { createClient } from '@/lib/supabase/server';
 
 const productShots = [
   {
@@ -81,7 +83,21 @@ function TradeLoreMark() {
   );
 }
 
-export default function LandingPage() {
+async function isSignedIn() {
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase.auth.getUser();
+    return Boolean(data.user);
+  } catch {
+    return false;
+  }
+}
+
+export default async function LandingPage() {
+  if (await isSignedIn()) {
+    redirect('/dashboard');
+  }
+
   return (
     <main className="landing-page">
       <header className="landing-header">
