@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { Suspense, useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Line, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Filler, Legend
@@ -33,6 +33,9 @@ type Stats = ReturnType<typeof computeStats>;
 type CalendarDay = number | null;
 type TradeWithIndex = TradeRecord & { originalIdx: number };
 type ActiveBrokerFilter = Exclude<BrokerFilter, 'all'>;
+type DashboardView = 'dashboard' | 'journal' | 'tradelog' | 'playbooks' | 'reports';
+
+const DASHBOARD_VIEWS: DashboardView[] = ['dashboard', 'journal', 'tradelog', 'playbooks', 'reports'];
 
 const SEGMENT_OPTIONS: { value: SegmentFilter; label: string; broker: ActiveBrokerFilter }[] = [
   { value: 'equity', label: 'Equity', broker: 'zerodha' },
@@ -90,13 +93,18 @@ interface SyncResult extends ImportResult {
   synced_at: string;
 }
 
-export default function Home() {
+function DashboardContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedView = searchParams.get('view');
+  const initialView = DASHBOARD_VIEWS.includes(requestedView as DashboardView)
+    ? requestedView as DashboardView
+    : 'dashboard';
   const [allTrades, setAllTrades] = useState<TradeRecord[]>([]);
   const [trades, setTrades] = useState<TradeRecord[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   
-  const [view, setView] = useState('dashboard');
+  const [view, setView] = useState<DashboardView>(initialView);
   const [journalTab, setJournalTab] = useState('premarket');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
@@ -128,6 +136,7 @@ export default function Home() {
   const segmentMenuRef = useRef<HTMLDivElement>(null);
   const cumChartRef = useRef<Chart<'line'> | null>(null);
   const dailyChartRef = useRef<Chart<'bar'> | null>(null);
+
   const autoZerodhaSyncRef = useRef(false);
   const autoDeltaSyncRef = useRef(false);
 
@@ -842,7 +851,7 @@ export default function Home() {
       </header>
 
       <nav className="nav">
-        {['dashboard', 'journal', 'tradelog', 'playbooks', 'reports'].map(v => (
+        {DASHBOARD_VIEWS.map(v => (
           <div key={v} className={`nav-tab ${view === v ? 'active' : ''}`} onClick={() => setView(v)}>
             {v === 'dashboard' ? 'Dashboard' : v === 'journal' ? 'Journal' : v === 'tradelog' ? 'Trade Log' : v === 'playbooks' ? 'Playbooks' : 'Reports'}
           </div>
@@ -1335,5 +1344,13 @@ export default function Home() {
         {toast && <div className={`toast-msg ${toast.type}`}>{toast.msg}</div>}
       </div>
     </>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <DashboardContent />
+    </Suspense>
   );
 }

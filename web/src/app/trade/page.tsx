@@ -267,7 +267,7 @@ export default function TradeDetailPage() {
     <div className="trade-detail-page">
       {/* Header — compact single row */}
       <div className="td-topbar">
-        <Link href="/" className="td-back">← TradeLore</Link>
+        <Link href="/dashboard?view=tradelog" className="td-back">← Trade Log</Link>
 
         {/* Same-day trade switcher */}
         <div className="popup-wrap td-trade-switcher" ref={switcherRef}>
