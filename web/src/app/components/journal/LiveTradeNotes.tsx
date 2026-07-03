@@ -86,8 +86,9 @@ export default function LiveTradeNotes() {
               <div className="posttrade-field">
                 <label>Live Notes</label>
                 <textarea
+                  className="posttrade-notes-textarea"
                   placeholder="Notes while this trade is open"
-                  rows={4}
+                  rows={6}
                   value={notes[tid] || ''}
                   onChange={e => setNotes(p => ({ ...p, [tid]: e.target.value }))}
                 />

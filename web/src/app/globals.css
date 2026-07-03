@@ -2079,6 +2079,10 @@ body::before {
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
+.posttrade-quick-grid {
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
+  align-items: end;
+}
 .posttrade-field {
   display: flex;
   flex-direction: column;
@@ -2113,6 +2117,10 @@ body::before {
 .posttrade-field textarea {
   resize: vertical;
   min-height: 52px;
+}
+.posttrade-field textarea.posttrade-notes-textarea {
+  min-height: 128px;
+  line-height: 1.45;
 }
 
 .posttrade-emotions {
@@ -2416,7 +2424,17 @@ tbody.day-group + tbody.day-group .day-header-row td {
 .td-journal-grid {
   display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 14px;
 }
+.td-journal-quick-grid {
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
+  align-items: end;
+}
 .td-journal-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+.td-journal-notes {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2px;
+  margin-bottom: 14px;
+}
 
 /* Field */
 .td-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
@@ -2438,6 +2456,10 @@ tbody.day-group + tbody.day-group .day-header-row td {
   outline: none; border-color: var(--brand);
 }
 .td-field textarea { resize: vertical; min-height: 48px; }
+.td-field textarea.td-notes-textarea {
+  min-height: 128px;
+  line-height: 1.45;
+}
 
 /* Emotions */
 .td-emotions { display: flex; flex-wrap: wrap; gap: 6px; }

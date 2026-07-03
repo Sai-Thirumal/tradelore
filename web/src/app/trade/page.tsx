@@ -456,7 +456,7 @@ export default function TradeDetailPage() {
           </button>
         </div>
 
-        <div className="td-journal-grid">
+        <div className="td-journal-grid td-journal-quick-grid">
           <div className="td-field">
             <label>Risk (₹)</label>
             <input type="number" placeholder="Amount risked" value={riskAmount} onChange={e => setRiskAmount(e.target.value)} />
@@ -473,28 +473,27 @@ export default function TradeDetailPage() {
             <label>Position sizing</label>
             <input type="text" placeholder="e.g. 2% of capital" value={positionSizing} onChange={e => setPositionSizing(e.target.value)} />
           </div>
+          <div className="td-field">
+            <label>Playbook</label>
+            <select value={playbookId} onChange={e => setPlaybookId(e.target.value)}>
+              <option value="">— Select —</option>
+              {playbooks.map((pb) => (<option key={pb.id} value={pb.id}>{pb.name}</option>))}
+            </select>
+          </div>
         </div>
 
-        <div className="td-field">
-          <label>Playbook</label>
-          <select value={playbookId} onChange={e => setPlaybookId(e.target.value)}>
-            <option value="">— Select —</option>
-            {playbooks.map((pb) => (<option key={pb.id} value={pb.id}>{pb.name}</option>))}
-          </select>
-        </div>
-
-        <div className="td-journal-grid td-journal-grid-3">
+        <div className="td-journal-notes">
           <div className="td-field">
             <label>What worked</label>
-            <textarea placeholder="What went well?" value={whatWorked} onChange={e => setWhatWorked(e.target.value)} rows={2} />
+            <textarea className="td-notes-textarea" placeholder="What went well?" value={whatWorked} onChange={e => setWhatWorked(e.target.value)} rows={5} />
           </div>
           <div className="td-field">
             <label>What didn&rsquo;t work</label>
-            <textarea placeholder="What could be better?" value={whatDidnt} onChange={e => setWhatDidnt(e.target.value)} rows={2} />
+            <textarea className="td-notes-textarea" placeholder="What could be better?" value={whatDidnt} onChange={e => setWhatDidnt(e.target.value)} rows={5} />
           </div>
           <div className="td-field">
             <label>Lessons learned</label>
-            <textarea placeholder="Key takeaways" value={lessonsLearned} onChange={e => setLessonsLearned(e.target.value)} rows={2} />
+            <textarea className="td-notes-textarea" placeholder="Key takeaways" value={lessonsLearned} onChange={e => setLessonsLearned(e.target.value)} rows={5} />
           </div>
         </div>
 
@@ -514,7 +513,7 @@ export default function TradeDetailPage() {
 
         <div className="td-field">
           <label>Live Trade Notes</label>
-          <textarea placeholder="Notes carried from the live trade" value={importantNotes} onChange={e => setImportantNotes(e.target.value)} rows={2} />
+          <textarea className="td-notes-textarea" placeholder="Notes carried from the live trade" value={importantNotes} onChange={e => setImportantNotes(e.target.value)} rows={5} />
         </div>
 
         <p className="td-autosave">Auto-saved locally · Syncs with Journal tab</p>

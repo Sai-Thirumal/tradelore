@@ -285,7 +285,7 @@ export default function JournalPostTrade({ trades, date }: { trades: Trade[]; da
                       <tr className="pt-journal-row">
                         <td colSpan={8}>
                           <div className="posttrade-form">
-                            <div className="posttrade-grid">
+                            <div className="posttrade-grid posttrade-quick-grid">
                               <div className="posttrade-field">
                                 <label>Risk on this trade (₹)</label>
                                 <input type="number" placeholder="Amount risked"
@@ -310,36 +310,35 @@ export default function JournalPostTrade({ trades, date }: { trades: Trade[]; da
                                   value={positionSizings[tid] || ''}
                                   onChange={e => setPositionSizings(p => ({ ...p, [tid]: e.target.value }))} />
                               </div>
-                            </div>
-
-                            <div className="posttrade-field">
-                              <label>Playbook used</label>
-                              <select value={playbookIds[tid] || ''}
-                                onChange={e => setPlaybookIds(p => ({ ...p, [tid]: e.target.value }))}>
-                                <option value="">— Select playbook —</option>
-                                {playbooks.map(pb => (
-                                  <option key={pb.id} value={pb.id}>{pb.name}</option>
-                                ))}
-                              </select>
+                              <div className="posttrade-field">
+                                <label>Playbook used</label>
+                                <select value={playbookIds[tid] || ''}
+                                  onChange={e => setPlaybookIds(p => ({ ...p, [tid]: e.target.value }))}>
+                                  <option value="">— Select playbook —</option>
+                                  {playbooks.map(pb => (
+                                    <option key={pb.id} value={pb.id}>{pb.name}</option>
+                                  ))}
+                                </select>
+                              </div>
                             </div>
 
                             <div className="posttrade-field">
                               <label>What worked</label>
-                              <textarea placeholder="What went well on this trade?" rows={2}
+                              <textarea className="posttrade-notes-textarea" placeholder="What went well on this trade?" rows={5}
                                 value={whatWorked[tid] || ''}
                                 onChange={e => setWhatWorked(p => ({ ...p, [tid]: e.target.value }))} />
                             </div>
 
                             <div className="posttrade-field">
                               <label>What didn&rsquo;t work</label>
-                              <textarea placeholder="What could have been better?" rows={2}
+                              <textarea className="posttrade-notes-textarea" placeholder="What could have been better?" rows={5}
                                 value={whatDidnt[tid] || ''}
                                 onChange={e => setWhatDidnt(p => ({ ...p, [tid]: e.target.value }))} />
                             </div>
 
                             <div className="posttrade-field">
                               <label>Lessons learned</label>
-                              <textarea placeholder="Key takeaways from this trade" rows={2}
+                              <textarea className="posttrade-notes-textarea" placeholder="Key takeaways from this trade" rows={5}
                                 value={lessonsLearned[tid] || ''}
                                 onChange={e => setLessonsLearned(p => ({ ...p, [tid]: e.target.value }))} />
                             </div>
@@ -363,7 +362,7 @@ export default function JournalPostTrade({ trades, date }: { trades: Trade[]; da
 
                             <div className="posttrade-field">
                               <label>Live Trade Notes</label>
-                              <textarea placeholder="Notes carried from the live trade" rows={2}
+                              <textarea className="posttrade-notes-textarea" placeholder="Notes carried from the live trade" rows={5}
                                 value={importantNotes[tid] || ''}
                                 onChange={e => setImportantNotes(p => ({ ...p, [tid]: e.target.value }))} />
                             </div>
