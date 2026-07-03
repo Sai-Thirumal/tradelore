@@ -32,6 +32,7 @@ export default function DeltaSettingsPage() {
   const [syncing, setSyncing] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [helpOpen, setHelpOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadStatus = useCallback(async () => {
@@ -149,7 +150,65 @@ export default function DeltaSettingsPage() {
             <h1>Delta Settings</h1>
             <p>Create a Delta Exchange API key with read/data permissions only. TradeLore does not place trades or withdraw funds.</p>
           </div>
+          <div className="zerodha-header-actions">
+            <button
+              className="settings-help-btn"
+              type="button"
+              aria-expanded={helpOpen}
+              aria-controls="delta-sync-help"
+              onClick={() => setHelpOpen(open => !open)}
+            >
+              {helpOpen ? 'Hide help' : 'Help'}
+            </button>
+          </div>
         </header>
+
+        <div className="zerodha-notice">
+          TradeLore only imports Delta fills, product metadata, and funding history for journaling and analytics. TradeLore does not place orders or withdraw funds.
+        </div>
+
+        {helpOpen && (
+          <section className="settings-panel zerodha-help-panel" id="delta-sync-help">
+            <div className="zerodha-help-header">
+              <div>
+                <h2>How to Sync Delta</h2>
+                <p className="settings-muted">Create a read-only Delta Exchange API key so TradeLore can import fills, products, and funding history.</p>
+              </div>
+              <button className="modal-close" type="button" aria-label="Close Delta sync help" onClick={() => setHelpOpen(false)}>x</button>
+            </div>
+
+            <ol className="zerodha-help-steps">
+              <li>
+                <strong>Open Delta API settings.</strong>
+                Sign in to Delta Exchange India, then open the account or profile area where API keys are managed.
+              </li>
+              <li>
+                <strong>Create a new API key.</strong>
+                Choose a recognizable name, such as TradeLore, so you can identify and revoke it later if needed.
+              </li>
+              <li>
+                <strong>Use read-only permissions.</strong>
+                Enable permissions needed to read account data, fills/trade history, products, and wallet transactions. Do not enable trading or withdrawals.
+              </li>
+              <li>
+                <strong>Review IP restrictions.</strong>
+                If you enable an IP allowlist, include the production server IPs used by TradeLore. Otherwise Delta may reject sync requests.
+              </li>
+              <li>
+                <strong>Save credentials in TradeLore.</strong>
+                Copy the API key and API secret, paste both values into Save API Credentials, then click Save credentials.
+              </li>
+              <li>
+                <strong>Sync or import trades.</strong>
+                Use Sync Delta for API import, or Import Delta CSV if you prefer uploading an export manually.
+              </li>
+            </ol>
+
+            <div className="zerodha-help-note">
+              Delta may show the API secret only once. Store it carefully until you save it in TradeLore, then revoke and recreate the key if it is ever exposed.
+            </div>
+          </section>
+        )}
 
         {message && <div className="auth-alert success">{message}</div>}
         {error && <div className="auth-alert error">{error}</div>}
@@ -235,45 +294,6 @@ export default function DeltaSettingsPage() {
           </form>
         </section>
 
-        <section className="settings-panel zerodha-help-panel">
-          <div className="zerodha-help-header">
-            <div>
-              <h2>How to Set Up Delta API Credentials</h2>
-              <p className="settings-muted">Create a read-only Delta Exchange API key so TradeLore can import fills, products, and funding history.</p>
-            </div>
-          </div>
-
-          <ol className="zerodha-help-steps">
-            <li>
-              <strong>Open Delta API settings.</strong>
-              Sign in to Delta Exchange India, then open the account or profile area where API keys are managed.
-            </li>
-            <li>
-              <strong>Create a new API key.</strong>
-              Choose a name you can recognize, such as TradeLore, so you can revoke it later without affecting other tools.
-            </li>
-            <li>
-              <strong>Use read-only permissions.</strong>
-              Enable permissions needed to read account data, fills/trade history, products, and wallet transactions. Do not enable trading or withdrawals.
-            </li>
-            <li>
-              <strong>Review IP restrictions.</strong>
-              If you enable an IP allowlist, include the production server IPs used by TradeLore. Otherwise Delta may reject sync requests.
-            </li>
-            <li>
-              <strong>Copy key and secret once.</strong>
-              Copy the API key and API secret when Delta shows them. The secret may not be visible again after you leave the page.
-            </li>
-            <li>
-              <strong>Save and sync in TradeLore.</strong>
-              Paste both values above, click Save credentials, then use Sync Delta or Import Delta CSV to load your trades.
-            </li>
-          </ol>
-
-          <div className="zerodha-help-note">
-            TradeLore stores credentials encrypted server-side and only uses them to read your Delta history. It does not place orders or move funds.
-          </div>
-        </section>
       </section>
     </main>
   );
