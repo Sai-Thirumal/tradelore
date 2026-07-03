@@ -42,7 +42,6 @@ function ZerodhaSettingsContent() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(initialMessage);
   const [error, setError] = useState('');
-  const [helpOpen, setHelpOpen] = useState(false);
 
   const loadStatus = useCallback(async () => {
     setLoading(true);
@@ -143,15 +142,6 @@ function ZerodhaSettingsContent() {
             <p>Use your own Zerodha Personal API app credentials for TradeLore sync.</p>
           </div>
           <div className="zerodha-header-actions">
-            <button
-              className="settings-help-btn"
-              type="button"
-              aria-expanded={helpOpen}
-              aria-controls="zerodha-sync-help"
-              onClick={() => setHelpOpen(open => !open)}
-            >
-              {helpOpen ? 'Hide help' : 'Help'}
-            </button>
             <button className="auth-header-btn" onClick={connect} disabled={saving || loading || !status?.credentials_configured}>
               Connect Zerodha
             </button>
@@ -161,49 +151,6 @@ function ZerodhaSettingsContent() {
         <div className="zerodha-notice">
           TradeLore only imports executed trades for journaling and analytics. TradeLore does not place, modify, or cancel orders.
         </div>
-
-        {helpOpen && (
-          <section className="settings-panel zerodha-help-panel" id="zerodha-sync-help">
-            <div className="zerodha-help-header">
-              <div>
-                <h2>How to Sync Zerodha</h2>
-                <p className="settings-muted">Follow these steps once to connect your Kite account, then reconnect daily when Zerodha&apos;s session expires.</p>
-              </div>
-              <button className="modal-close" type="button" aria-label="Close Zerodha sync help" onClick={() => setHelpOpen(false)}>x</button>
-            </div>
-
-            <ol className="zerodha-help-steps">
-              <li>
-                <strong>Create a Zerodha Personal app.</strong>
-                Open the Kite Connect developer console, create a Personal app, and copy its API key and API secret.
-              </li>
-              <li>
-                <strong>Set the redirect URL in Zerodha.</strong>
-                Copy the Redirect URL from the Personal App Setup section below and paste it into the app&apos;s Redirect URL field in Zerodha.
-              </li>
-              <li>
-                <strong>Save credentials in TradeLore.</strong>
-                Paste the API key and API secret into Save Personal API Credentials, then click Save credentials.
-              </li>
-              <li>
-                <strong>Connect Zerodha.</strong>
-                Click Connect Zerodha, approve the Kite login screen, and you will return to TradeLore once Zerodha authorizes the session.
-              </li>
-              <li>
-                <strong>Sync your trades.</strong>
-                After connecting, TradeLore imports your executed orders and matches them into trades for analytics and journaling.
-              </li>
-              <li>
-                <strong>Reconnect when needed.</strong>
-                Zerodha access tokens are short-lived. If TradeLore shows Reconnect, click Connect Zerodha again before syncing that day&apos;s trades.
-              </li>
-            </ol>
-
-            <div className="zerodha-help-note">
-              Use the API key and secret from your own Personal app. Shared app credentials or a mismatched redirect URL can cause connection failures.
-            </div>
-          </section>
-        )}
 
         {message && <div className="auth-alert success">{message}</div>}
         {error && <div className="auth-alert error">{error}</div>}
@@ -277,6 +224,46 @@ function ZerodhaSettingsContent() {
               {saving ? 'Saving...' : 'Save credentials'}
             </button>
           </form>
+        </section>
+
+        <section className="settings-panel zerodha-help-panel">
+          <div className="zerodha-help-header">
+            <div>
+              <h2>How to Set Up Zerodha API Credentials</h2>
+              <p className="settings-muted">Do this once for the API key and secret, then connect Zerodha whenever Kite asks for a fresh session.</p>
+            </div>
+          </div>
+
+          <ol className="zerodha-help-steps">
+            <li>
+              <strong>Open Kite Connect.</strong>
+              Sign in to the Zerodha Kite Connect developer console with the same Zerodha account you trade with.
+            </li>
+            <li>
+              <strong>Create a Personal app.</strong>
+              Choose the Personal app flow, enter the app details requested by Zerodha, and keep the app for your own account only.
+            </li>
+            <li>
+              <strong>Add the redirect URL.</strong>
+              Copy the Redirect URL from Personal App Setup below and paste it into the app&apos;s Redirect URL field in Kite Connect.
+            </li>
+            <li>
+              <strong>Copy the credentials.</strong>
+              From the Zerodha app page, copy the API key and API secret. Do not share these values with anyone else.
+            </li>
+            <li>
+              <strong>Save them in TradeLore.</strong>
+              Paste the API key and API secret into Save Personal API Credentials above, then click Save credentials.
+            </li>
+            <li>
+              <strong>Connect and sync.</strong>
+              Click Connect Zerodha, approve the Kite login screen, return to TradeLore, and sync/import trades for analytics.
+            </li>
+          </ol>
+
+          <div className="zerodha-help-note">
+            Zerodha sessions expire regularly. If TradeLore shows Not connected or Reconnect, click Connect Zerodha again before syncing new trades.
+          </div>
         </section>
 
         <section className="settings-panel">

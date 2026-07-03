@@ -1114,20 +1114,6 @@ body::before {
   font-weight: 700;
   text-decoration: none;
 }
-.settings-help-btn {
-  padding: 6px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-}
-.settings-help-btn:hover {
-  border-color: var(--brand);
-  background: var(--brand-light);
-}
 .zerodha-notice {
   padding: 12px 14px;
   border: 1px solid var(--brand);

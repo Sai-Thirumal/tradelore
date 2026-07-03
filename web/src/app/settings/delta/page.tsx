@@ -234,6 +234,46 @@ export default function DeltaSettingsPage() {
             )}
           </form>
         </section>
+
+        <section className="settings-panel zerodha-help-panel">
+          <div className="zerodha-help-header">
+            <div>
+              <h2>How to Set Up Delta API Credentials</h2>
+              <p className="settings-muted">Create a read-only Delta Exchange API key so TradeLore can import fills, products, and funding history.</p>
+            </div>
+          </div>
+
+          <ol className="zerodha-help-steps">
+            <li>
+              <strong>Open Delta API settings.</strong>
+              Sign in to Delta Exchange India, then open the account or profile area where API keys are managed.
+            </li>
+            <li>
+              <strong>Create a new API key.</strong>
+              Choose a name you can recognize, such as TradeLore, so you can revoke it later without affecting other tools.
+            </li>
+            <li>
+              <strong>Use read-only permissions.</strong>
+              Enable permissions needed to read account data, fills/trade history, products, and wallet transactions. Do not enable trading or withdrawals.
+            </li>
+            <li>
+              <strong>Review IP restrictions.</strong>
+              If you enable an IP allowlist, include the production server IPs used by TradeLore. Otherwise Delta may reject sync requests.
+            </li>
+            <li>
+              <strong>Copy key and secret once.</strong>
+              Copy the API key and API secret when Delta shows them. The secret may not be visible again after you leave the page.
+            </li>
+            <li>
+              <strong>Save and sync in TradeLore.</strong>
+              Paste both values above, click Save credentials, then use Sync Delta or Import Delta CSV to load your trades.
+            </li>
+          </ol>
+
+          <div className="zerodha-help-note">
+            TradeLore stores credentials encrypted server-side and only uses them to read your Delta history. It does not place orders or move funds.
+          </div>
+        </section>
       </section>
     </main>
   );
