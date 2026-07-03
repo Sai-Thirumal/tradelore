@@ -140,6 +140,20 @@ function DashboardContent() {
   const autoZerodhaSyncRef = useRef(false);
   const autoDeltaSyncRef = useRef(false);
 
+  const selectDashboardView = (nextView: DashboardView) => {
+    setView(nextView);
+
+    const params = new URLSearchParams(window.location.search);
+    if (nextView === 'dashboard') {
+      params.delete('view');
+    } else {
+      params.set('view', nextView);
+    }
+
+    const nextUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}${window.location.hash}`;
+    window.history.replaceState({}, '', nextUrl);
+  };
+
   /* Chart.js split-area plugin: green fill above zero, red fill below zero */
   const splitAreaPlugin: Plugin<'line'> = {
     id: 'splitArea',
@@ -864,7 +878,7 @@ function DashboardContent() {
 
       <nav className="nav">
         {DASHBOARD_VIEWS.map(v => (
-          <div key={v} className={`nav-tab ${view === v ? 'active' : ''}`} onClick={() => setView(v)}>
+          <div key={v} className={`nav-tab ${view === v ? 'active' : ''}`} onClick={() => selectDashboardView(v)}>
             {v === 'dashboard' ? 'Dashboard' : v === 'journal' ? 'Journal' : v === 'tradelog' ? 'Trade Log' : v === 'playbooks' ? 'Playbooks' : 'Reports'}
           </div>
         ))}
