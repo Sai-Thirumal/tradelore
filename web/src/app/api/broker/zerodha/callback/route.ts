@@ -9,9 +9,12 @@ import { decryptSecret, encryptSecret } from '@/lib/security/encryption';
 export const runtime = 'nodejs';
 
 const STATE_COOKIE = 'zerodha_oauth_state';
+const NEXT_COOKIE = 'zerodha_oauth_next';
 
-function redirectHome(request: NextRequest, status: string) {
-  return NextResponse.redirect(new URL(`/?zerodha=${encodeURIComponent(status)}`, request.nextUrl.origin));
+function redirectHome(request: NextRequest, status: string, nextPath = '/dashboard') {
+  const redirectUrl = new URL(nextPath, request.nextUrl.origin);
+  redirectUrl.searchParams.set('zerodha', status);
+  return NextResponse.redirect(redirectUrl);
 }
 
 export async function GET(request: NextRequest) {
@@ -22,19 +25,20 @@ export async function GET(request: NextRequest) {
   const returnedState = request.nextUrl.searchParams.get('state');
   const cookieStore = await cookies();
   const expectedState = cookieStore.get(STATE_COOKIE)?.value;
+  const nextPath = cookieStore.get(NEXT_COOKIE)?.value || '/dashboard';
 
   if (!requestToken) {
-    return redirectHome(request, 'missing_request_token');
+    return redirectHome(request, 'missing_request_token', nextPath);
   }
 
   if (!expectedState || !returnedState || expectedState !== returnedState) {
-    return redirectHome(request, 'state_error');
+    return redirectHome(request, 'state_error', nextPath);
   }
 
   try {
     const connection = await fetchBrokerConnection(user.id);
     if (!hasBrokerCredentials(connection)) {
-      return redirectHome(request, 'credentials_required');
+      return redirectHome(request, 'credentials_required', nextPath);
     }
 
     const token = await exchangeRequestToken(requestToken, {
@@ -51,8 +55,9 @@ export async function GET(request: NextRequest) {
       last_sync_error: '',
     });
 
-    const redirect = redirectHome(request, 'connected');
+    const redirect = redirectHome(request, 'connected', nextPath);
     redirect.cookies.delete(STATE_COOKIE);
+    redirect.cookies.delete(NEXT_COOKIE);
     return redirect;
   } catch (error) {
     if (
@@ -60,9 +65,9 @@ export async function GET(request: NextRequest) {
       && error.errorType === 'InputException'
       && error.message.toLowerCase().includes('not enabled for the app')
     ) {
-      return redirectHome(request, 'user_not_enabled');
+      return redirectHome(request, 'user_not_enabled', nextPath);
     }
 
-    return redirectHome(request, 'connect_failed');
+    return redirectHome(request, 'connect_failed', nextPath);
   }
 }

@@ -1,6 +1,7 @@
 import { randomBytes } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthUser } from '@/lib/auth/session';
+import { getInternalRedirectPath } from '@/lib/auth/redirect';
 import { createKiteLoginUrl } from '@/lib/brokers/zerodha/client';
 import { isZerodhaServerConfigured } from '@/lib/brokers/zerodha/config';
 import { fetchBrokerConnection, getBrokerApiKey, hasBrokerCredentials } from '@/lib/db/broker-connections';
@@ -8,6 +9,7 @@ import { fetchBrokerConnection, getBrokerApiKey, hasBrokerCredentials } from '@/
 export const runtime = 'nodejs';
 
 const STATE_COOKIE = 'zerodha_oauth_state';
+const NEXT_COOKIE = 'zerodha_oauth_next';
 
 export async function GET(request: NextRequest) {
   const { user, response } = await requireAuthUser();
@@ -25,10 +27,18 @@ export async function GET(request: NextRequest) {
     }
 
     const state = randomBytes(24).toString('base64url');
+    const nextPath = getInternalRedirectPath(request.nextUrl.searchParams.get('next') || '/dashboard');
     const loginUrl = createKiteLoginUrl(getBrokerApiKey(connection), state);
 
     const redirect = NextResponse.redirect(loginUrl);
     redirect.cookies.set(STATE_COOKIE, state, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/api/broker/zerodha',
+      maxAge: 10 * 60,
+    });
+    redirect.cookies.set(NEXT_COOKIE, nextPath, {
       httpOnly: true,
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',

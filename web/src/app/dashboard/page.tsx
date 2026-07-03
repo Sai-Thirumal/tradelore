@@ -583,6 +583,10 @@ function DashboardContent() {
     return <span className={`broker-status ${!zerodhaStatus.credentials_configured || zerodhaStatus.needs_reconnect ? 'warn' : 'ok'}`}>{label}</span>;
   };
 
+  const reconnectZerodha = () => {
+    window.location.href = '/api/broker/zerodha/login?next=/dashboard';
+  };
+
   // --- RENDER HELPERS ---
   const pf  = stats ? (isFinite(stats.profitFactor) ? stats.profitFactor.toFixed(2) : '∞') : '—';
   const awl = stats ? (isFinite(stats.avgWinLoss) ? stats.avgWinLoss.toFixed(2) : '∞') : '—';
@@ -783,6 +787,14 @@ function DashboardContent() {
         </div>
         <input type="file" ref={fileInputRef} accept=".csv" style={{display:'none'}} onChange={handleImport} />
         <div className="dashboard-broker-controls">
+          {zerodhaStatus?.server_configured && zerodhaStatus.credentials_configured && zerodhaStatus.needs_reconnect && (
+            <button
+              className="auth-header-btn dashboard-sync-btn dashboard-zerodha-reconnect-btn"
+              onClick={reconnectZerodha}
+            >
+              Reconnect Zerodha
+            </button>
+          )}
           {showDeltaSyncButton && (
             <button
               className="auth-header-btn dashboard-sync-btn"

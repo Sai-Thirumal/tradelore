@@ -256,6 +256,9 @@ body::before {
   align-items: center;
   gap: 8px;
 }
+.dashboard-zerodha-reconnect-btn {
+  white-space: nowrap;
+}
 .header-actions-menu {
   display: block;
   position: relative;
@@ -2797,6 +2800,9 @@ tbody.day-group + tbody.day-group .day-header-row td {
   .dashboard-sync-btn {
     padding: 4px 7px;
     font-size: 10px;
+  }
+  .dashboard-zerodha-reconnect-btn {
+    display: none;
   }
   .header-actions-menu {
     grid-column: 4;
