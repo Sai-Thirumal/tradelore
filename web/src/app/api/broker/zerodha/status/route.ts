@@ -3,10 +3,7 @@ import { requireAuthUser } from '@/lib/auth/session';
 import { getZerodhaConfig, isZerodhaServerConfigured } from '@/lib/brokers/zerodha/config';
 import { isTokenExpired, todayIstDate } from '@/lib/brokers/zerodha/session';
 import {
-  ZERODHA_BROKER,
   fetchBrokerConnection,
-  fetchBrokerConnections,
-  findOtherConfiguredBroker,
   getBrokerApiKey,
   hasBrokerCredentials,
   maskApiKey,
@@ -21,12 +18,7 @@ export async function GET(request: NextRequest) {
     if (response) return response;
 
     const serverConfigured = isZerodhaServerConfigured(request.nextUrl.origin);
-    const [connection, connections] = serverConfigured
-      ? await Promise.all([
-          fetchBrokerConnection(user.id),
-          fetchBrokerConnections(user.id),
-        ])
-      : [null, []];
+    const connection = serverConfigured ? await fetchBrokerConnection(user.id) : null;
     const credentialsConfigured = serverConfigured && hasBrokerCredentials(connection);
     const connected = credentialsConfigured && Boolean(connection?.encrypted_access_token);
     const tokenExpired = connected ? isTokenExpired(connection?.token_expires_at) : true;
@@ -41,7 +33,7 @@ export async function GET(request: NextRequest) {
       needs_reconnect: configured && (!connected || tokenExpired),
       api_key_masked: maskApiKey(apiKey),
       api_secret_saved: Boolean(connection?.encrypted_api_secret),
-      blocked_by_broker: findOtherConfiguredBroker(connections, ZERODHA_BROKER),
+      blocked_by_broker: '',
       credentials_saved_at: connection?.credentials_saved_at || null,
       redirect_url: getZerodhaConfig(request.nextUrl.origin).redirectUrl,
       token_expires_at: connection?.token_expires_at || null,

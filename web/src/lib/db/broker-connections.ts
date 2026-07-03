@@ -111,9 +111,6 @@ export async function saveBrokerCredentials(
   credentials: Pick<BrokerConnectionRecord, 'encrypted_api_key' | 'encrypted_api_secret'>,
   broker = ZERODHA_BROKER,
 ) {
-  const blockedByBroker = findOtherConfiguredBroker(await fetchBrokerConnections(userId), broker);
-  if (blockedByBroker) throw new BrokerSwitchRequiredError(blockedByBroker);
-
   return upsertBrokerConnection(userId, {
     api_key: '',
     encrypted_api_key: credentials.encrypted_api_key,

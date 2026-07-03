@@ -130,10 +130,17 @@ function DashboardContent() {
   const [deltaSyncing, setDeltaSyncing] = useState(false);
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   const [segmentMenuOpen, setSegmentMenuOpen] = useState(false);
+  const [brokerMenuOpen, setBrokerMenuOpen] = useState(false);
+  const [selectedBroker, setSelectedBroker] = useState<ActiveBrokerFilter>(() => {
+    if (typeof window === 'undefined') return 'zerodha';
+    const savedBroker = window.localStorage.getItem('tradelore_dashboard_broker');
+    return savedBroker === 'delta' ? 'delta' : 'zerodha';
+  });
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const actionsMenuRef = useRef<HTMLDivElement>(null);
   const segmentMenuRef = useRef<HTMLDivElement>(null);
+  const brokerMenuRef = useRef<HTMLDivElement>(null);
   const cumChartRef = useRef<Chart<'line'> | null>(null);
   const dailyChartRef = useRef<Chart<'bar'> | null>(null);
 
@@ -268,7 +275,10 @@ function DashboardContent() {
 
   const zerodhaAvailable = Boolean(zerodhaStatus?.credentials_configured || allTrades.some((trade) => (trade.broker || 'zerodha') !== 'delta'));
   const deltaAvailable = Boolean(deltaStatus?.credentials_configured || allTrades.some((trade) => (trade.broker || '').toLowerCase() === 'delta'));
-  const brokerFilter: ActiveBrokerFilter = deltaStatus?.credentials_configured
+  const hasBothBrokerCredentials = Boolean(zerodhaStatus?.credentials_configured && deltaStatus?.credentials_configured);
+  const brokerFilter: ActiveBrokerFilter = hasBothBrokerCredentials
+    ? selectedBroker
+    : deltaStatus?.credentials_configured
     ? 'delta'
     : zerodhaStatus?.credentials_configured
     ? 'zerodha'
@@ -478,10 +488,13 @@ function DashboardContent() {
       if (segmentMenuRef.current && !segmentMenuRef.current.contains(event.target as Node)) {
         setSegmentMenuOpen(false);
       }
+      if (brokerMenuRef.current && !brokerMenuRef.current.contains(event.target as Node)) {
+        setBrokerMenuOpen(false);
+      }
     };
-    if (actionsMenuOpen || segmentMenuOpen) document.addEventListener('mousedown', handler);
+    if (actionsMenuOpen || segmentMenuOpen || brokerMenuOpen) document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [actionsMenuOpen, segmentMenuOpen]);
+  }, [actionsMenuOpen, segmentMenuOpen, brokerMenuOpen]);
 
   useEffect(() => {
     void Promise.resolve().then(async () => {
@@ -587,13 +600,30 @@ function DashboardContent() {
     );
   };
 
-  const renderZerodhaStatus = () => {
+  const selectBroker = (broker: ActiveBrokerFilter) => {
+    setSelectedBroker(broker);
+    setSegmentFilter(['all']);
+    setBrokerMenuOpen(false);
+    window.localStorage.setItem('tradelore_dashboard_broker', broker);
+  };
+
+  const renderBrokerStatus = () => {
+    if (brokerFilter === 'delta') {
+      if (!deltaStatus?.server_configured) return null;
+      const label = !deltaStatus.credentials_configured
+        ? 'Delta setup needed'
+        : deltaStatus.connected
+        ? deltaStatus.last_sync_at ? 'Delta synced' : 'Delta connected'
+        : 'Delta disconnected';
+      return <span className={`broker-status ${deltaStatus.credentials_configured && deltaStatus.connected ? 'ok' : 'warn'}`}>{label}</span>;
+    }
+
     if (!zerodhaStatus?.server_configured) return null;
     const label = !zerodhaStatus.credentials_configured
-      ? 'Setup needed'
+      ? 'Zerodha setup needed'
       : zerodhaStatus.needs_reconnect
-      ? 'Needs reconnect'
-      : zerodhaStatus.last_sync_at ? 'Synced' : 'Connected';
+      ? 'Zerodha reconnect'
+      : zerodhaStatus.last_sync_at ? 'Zerodha synced' : 'Zerodha connected';
     return <span className={`broker-status ${!zerodhaStatus.credentials_configured || zerodhaStatus.needs_reconnect ? 'warn' : 'ok'}`}>{label}</span>;
   };
 
@@ -612,6 +642,11 @@ function DashboardContent() {
     ? 'All segments'
     : segmentOptions.find((option) => option.value === scopedSegmentFilter[0])?.label || 'All segments';
   const showDeltaSyncButton = Boolean(deltaStatus?.server_configured && deltaStatus.credentials_configured);
+  const showZerodhaConnectAction = Boolean(
+    zerodhaStatus?.server_configured
+    && zerodhaStatus.credentials_configured
+    && (!zerodhaStatus.connected || zerodhaStatus.needs_reconnect)
+  );
 
   // Calendars / Weekdays
   const renderCalendar = () => {
@@ -760,6 +795,37 @@ function DashboardContent() {
             onChange={(s, e) => { setCustomStart(s); setCustomEnd(e); }}
             onClear={() => { setCustomStart(''); setCustomEnd(''); }}
           />
+          {hasBothBrokerCredentials && (
+            <div className="segment-menu broker-menu" ref={brokerMenuRef}>
+              <button
+                className="segment-menu-trigger broker-menu-trigger"
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={brokerMenuOpen}
+                onClick={() => setBrokerMenuOpen(open => !open)}
+              >
+                {brokerFilter === 'delta' ? 'Delta Exchange' : 'Zerodha'}
+              </button>
+              <div className={`segment-menu-list ${brokerMenuOpen ? 'open' : ''}`} role="menu">
+                <button
+                  className={`segment-menu-item ${brokerFilter === 'zerodha' ? 'active' : ''}`}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => selectBroker('zerodha')}
+                >
+                  Zerodha
+                </button>
+                <button
+                  className={`segment-menu-item ${brokerFilter === 'delta' ? 'active' : ''}`}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => selectBroker('delta')}
+                >
+                  Delta Exchange
+                </button>
+              </div>
+            </div>
+          )}
           <div className="segment-menu" ref={segmentMenuRef}>
             <button
               className="segment-menu-trigger"
@@ -801,24 +867,7 @@ function DashboardContent() {
         </div>
         <input type="file" ref={fileInputRef} accept=".csv" style={{display:'none'}} onChange={handleImport} />
         <div className="dashboard-broker-controls">
-          {zerodhaStatus?.server_configured && zerodhaStatus.credentials_configured && zerodhaStatus.needs_reconnect && (
-            <button
-              className="auth-header-btn dashboard-sync-btn dashboard-zerodha-reconnect-btn"
-              onClick={reconnectZerodha}
-            >
-              Reconnect Zerodha
-            </button>
-          )}
-          {showDeltaSyncButton && (
-            <button
-              className="auth-header-btn dashboard-sync-btn"
-              onClick={() => void syncDelta()}
-              disabled={deltaSyncing}
-            >
-              {deltaSyncing ? 'Syncing...' : 'Sync Delta'}
-            </button>
-          )}
-          {renderZerodhaStatus()}
+          {renderBrokerStatus()}
         </div>
         <div className="header-actions-menu" ref={actionsMenuRef}>
           <button
@@ -830,6 +879,29 @@ function DashboardContent() {
             ⋮
           </button>
           <div className={`actions-menu ${actionsMenuOpen ? 'open' : ''}`}>
+            {showDeltaSyncButton && (
+              <button
+                className="actions-menu-item"
+                onClick={() => {
+                  setActionsMenuOpen(false);
+                  void syncDelta();
+                }}
+                disabled={deltaSyncing}
+              >
+                {deltaSyncing ? 'Syncing Delta...' : 'Sync Delta'}
+              </button>
+            )}
+            {showZerodhaConnectAction && (
+              <button
+                className="actions-menu-item"
+                onClick={() => {
+                  setActionsMenuOpen(false);
+                  reconnectZerodha();
+                }}
+              >
+                Zerodha Connect
+              </button>
+            )}
             <button
               className="actions-menu-item"
               title="Max upload: latest 6 months of trades."
@@ -841,6 +913,7 @@ function DashboardContent() {
               Import CSV
               <span className="actions-menu-hint">Max upload: latest 6 months</span>
             </button>
+            {renderBrokerMenuAction()}
             <button
               className="actions-menu-item"
               onClick={() => {
@@ -848,9 +921,8 @@ function DashboardContent() {
                 void handleClearData();
               }}
             >
-              Clear data
+              Clear
             </button>
-            {renderBrokerMenuAction()}
             {currentUser ? (
               <button
                 className="actions-menu-item"

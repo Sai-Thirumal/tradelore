@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { requireAuthUser } from '@/lib/auth/session';
 import { isDeltaServerConfigured } from '@/lib/brokers/delta/config';
 import {
-  BrokerSwitchRequiredError,
   DELTA_BROKER,
   saveBrokerCredentials,
 } from '@/lib/db/broker-connections';
@@ -40,9 +39,6 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     const validationResponse = validationErrorResponse(error);
     if (validationResponse) return validationResponse;
-    if (error instanceof BrokerSwitchRequiredError) {
-      return NextResponse.json({ error: error.message, blocked_by_broker: error.broker }, { status: 409 });
-    }
     return NextResponse.json({ error: getErrorMessage(error, 'Unable to save Delta credentials.') }, { status: 500 });
   }
 }

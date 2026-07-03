@@ -4,8 +4,6 @@ import { isDeltaServerConfigured } from '@/lib/brokers/delta/config';
 import {
   DELTA_BROKER,
   fetchBrokerConnection,
-  fetchBrokerConnections,
-  findOtherConfiguredBroker,
   getBrokerApiKey,
   hasBrokerCredentials,
   maskApiKey,
@@ -20,20 +18,20 @@ export async function GET() {
     if (response) return response;
 
     const serverConfigured = isDeltaServerConfigured();
-    const [connection, connections] = serverConfigured
-      ? await Promise.all([
-          fetchBrokerConnection(user.id, DELTA_BROKER),
-          fetchBrokerConnections(user.id),
-        ])
-      : [null, []];
+    const connection = serverConfigured ? await fetchBrokerConnection(user.id, DELTA_BROKER) : null;
     const credentialsConfigured = serverConfigured && hasBrokerCredentials(connection);
-    const otherBroker = findOtherConfiguredBroker(connections, DELTA_BROKER);
+    const syncStatus = (connection?.last_sync_status || '').trim().toLowerCase();
+    const connected = credentialsConfigured
+      && syncStatus !== ''
+      && syncStatus !== 'credentials_saved'
+      && syncStatus !== 'credentials_deleted'
+      && syncStatus !== 'disconnected';
 
     return NextResponse.json({
       server_configured: serverConfigured,
       credentials_configured: credentialsConfigured,
-      connected: credentialsConfigured,
-      blocked_by_broker: otherBroker,
+      connected,
+      blocked_by_broker: '',
       api_key_masked: credentialsConfigured ? maskApiKey(getBrokerApiKey(connection)) : '',
       api_secret_saved: Boolean(connection?.encrypted_api_secret),
       credentials_saved_at: connection?.credentials_saved_at || null,

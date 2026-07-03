@@ -163,6 +163,9 @@ body::before {
   white-space: nowrap;
   position: relative;
 }
+.segment-menu-trigger.broker-menu-trigger {
+  min-width: 128px;
+}
 .segment-menu-trigger::after {
   content: "";
   position: absolute;
@@ -2644,6 +2647,10 @@ tbody.day-group + tbody.day-group .day-header-row td {
     min-width: 122px;
     max-width: 150px;
   }
+  .broker-menu-trigger {
+    min-width: 116px;
+    max-width: 144px;
+  }
   .dashboard-broker-controls {
     grid-column: 4;
     justify-self: end;
@@ -2791,6 +2798,10 @@ tbody.day-group + tbody.day-group .day-header-row td {
     max-width: 112px;
     padding: 0 24px 0 8px;
     font-size: 11px;
+  }
+  .broker-menu-trigger {
+    min-width: 96px;
+    max-width: 116px;
   }
   .dashboard-broker-controls {
     grid-column: 3;
