@@ -123,11 +123,11 @@ export default function JournalPreMarket({ latestTradeDate }: { latestTradeDate:
             What are you looking for in today&rsquo;s market?
           </label>
           <textarea
-            className="premarket-textarea"
+            className="premarket-textarea premarket-notes-textarea"
             placeholder="Market conditions, sectors in play, global cues, your overall read…"
             value={marketOutlook}
             onChange={e => setMarketOutlook(e.target.value)}
-            rows={3}
+            rows={5}
           />
         </div>
 
@@ -163,11 +163,11 @@ export default function JournalPreMarket({ latestTradeDate }: { latestTradeDate:
         <div className="premarket-field">
           <label className="premarket-field-label">Key levels you&rsquo;re watching</label>
           <textarea
-            className="premarket-textarea"
+            className="premarket-textarea premarket-notes-textarea"
             placeholder="Support, resistance, supply/demand zones, open interest levels…"
             value={keyLevels}
             onChange={e => setKeyLevels(e.target.value)}
-            rows={2}
+            rows={5}
           />
         </div>
 
@@ -175,11 +175,11 @@ export default function JournalPreMarket({ latestTradeDate }: { latestTradeDate:
         <div className="premarket-field">
           <label className="premarket-field-label">News / events to be aware of</label>
           <textarea
-            className="premarket-textarea"
+            className="premarket-textarea premarket-notes-textarea"
             placeholder="Earnings, economic data, RBI policy, FOMC, geopolitical…"
             value={newsEvents}
             onChange={e => setNewsEvents(e.target.value)}
-            rows={2}
+            rows={5}
           />
         </div>
       </div>

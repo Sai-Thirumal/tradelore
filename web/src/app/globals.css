@@ -1940,6 +1940,10 @@ body::before {
   color: var(--text);
   transition: border-color 0.15s;
 }
+.premarket-textarea.premarket-notes-textarea {
+  min-height: 128px;
+  line-height: 1.45;
+}
 .premarket-textarea:focus { outline: none; border-color: var(--brand); }
 
 .premarket-input {
