@@ -2647,8 +2647,7 @@ tbody.day-group + tbody.day-group .day-header-row td {
     min-width: 0;
     max-width: 100%;
     width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow: visible;
   }
   .header-date-range .drp-root,
   .header-date-range .segment-menu {
@@ -2803,7 +2802,7 @@ tbody.day-group + tbody.day-group .day-header-row td {
     gap: 6px;
   }
   .header-date-range .drp-trigger {
-    max-width: 124px;
+    max-width: 118px;
     padding: 6px 8px;
     font-size: 11px;
     overflow: hidden;
@@ -2811,13 +2810,13 @@ tbody.day-group + tbody.day-group .day-header-row td {
   }
   .segment-menu-trigger {
     min-width: 92px;
-    max-width: 112px;
+    max-width: 106px;
     padding: 0 24px 0 8px;
     font-size: 11px;
   }
   .broker-menu-trigger {
     min-width: 96px;
-    max-width: 116px;
+    max-width: 110px;
   }
   .dashboard-broker-controls {
     grid-column: 2;
