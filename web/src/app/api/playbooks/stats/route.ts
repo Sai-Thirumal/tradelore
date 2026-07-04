@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { fetchAllTrades, fetchAllTradeJournals } from '@/lib/db/supabase';
 import { withCurrentCommission } from '@/lib/engine/commission';
 import { requireAuthUser } from '@/lib/auth/session';
-import { errorMessageIncludes, getErrorMessage, hasErrorCode } from '@/lib/errors';
+import { errorMessageIncludes, hasErrorCode, internalErrorResponse } from '@/lib/errors';
 import type { TradeRecord } from '@/lib/types/trading';
 
 interface PlaybookStats {
@@ -109,6 +109,6 @@ export async function GET() {
     if (errorMessageIncludes(error, 'relation') || hasErrorCode(error, '42P01')) {
       return NextResponse.json({});
     }
-    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+    return internalErrorResponse(error, 'Unable to load playbook stats.');
   }
 }

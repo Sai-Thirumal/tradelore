@@ -3,7 +3,7 @@ import { requireAuthUser } from '@/lib/auth/session';
 import { DeltaApiError } from '@/lib/brokers/delta/client';
 import { isDeltaServerConfigured } from '@/lib/brokers/delta/config';
 import { syncDeltaFills } from '@/lib/brokers/delta/sync';
-import { getErrorMessage } from '@/lib/errors';
+import { internalErrorResponse } from '@/lib/errors';
 
 export const runtime = 'nodejs';
 
@@ -24,11 +24,14 @@ export async function POST() {
           ? ` Delta rate limit resets at ${error.rateLimitReset}.`
           : ' Please retry in a minute.'
         : '';
+      if (error.statusCode !== 409 && error.errorType !== 'rate_limit') {
+        return internalErrorResponse(error, 'Unable to sync Delta trades.');
+      }
       return NextResponse.json({
-        error: `${error.message}${retry}`,
+        error: error.errorType === 'rate_limit' ? `Delta rate limit reached.${retry}` : 'Delta sync is already running for this account.',
         retry_after: error.rateLimitReset,
       }, { status: error.statusCode === 409 ? 409 : error.errorType === 'rate_limit' ? 429 : 500 });
     }
-    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+    return internalErrorResponse(error, 'Unable to sync Delta trades.');
   }
 }

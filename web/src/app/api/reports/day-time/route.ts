@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { fetchAllTrades, fetchAllTradeJournals, fetchPlaybooks } from '@/lib/db/supabase';
 import { withCurrentCommission } from '@/lib/engine/commission';
 import { requireAuthUser } from '@/lib/auth/session';
-import { getErrorMessage } from '@/lib/errors';
+import { internalErrorResponse } from '@/lib/errors';
 import {
   filterTradesForScope,
   getDeltaInstrumentFamilyLabel,
@@ -564,6 +564,6 @@ export async function GET(request: NextRequest) {
       bestWinRate: bestWinRate ? { ...bestWinRate } : null,
     });
   } catch (error: unknown) {
-    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+    return internalErrorResponse(error, 'Unable to load day/time report.');
   }
 }

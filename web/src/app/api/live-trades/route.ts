@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuthUser } from '@/lib/auth/session';
 import { fetchAllOrders } from '@/lib/db/supabase';
 import { findOpenTrades } from '@/lib/engine/trade-matcher';
-import { getErrorMessage } from '@/lib/errors';
+import { internalErrorResponse } from '@/lib/errors';
 
 const LIVE_EXCHANGES = new Set(['NSE', 'BSE', 'MCX']);
 
@@ -16,6 +16,6 @@ export async function GET() {
 
     return NextResponse.json(openTrades);
   } catch (error: unknown) {
-    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+    return internalErrorResponse(error, 'Unable to load live trades.');
   }
 }

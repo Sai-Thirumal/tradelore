@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAuthUser } from '@/lib/auth/session';
 import { DELTA_BROKER, disconnectBrokerConnection } from '@/lib/db/broker-connections';
-import { getErrorMessage } from '@/lib/errors';
+import { internalErrorResponse } from '@/lib/errors';
 
 export const runtime = 'nodejs';
 
@@ -13,6 +13,6 @@ export async function POST() {
     await disconnectBrokerConnection(user.id, DELTA_BROKER);
     return NextResponse.json({ disconnected: true });
   } catch (error: unknown) {
-    return NextResponse.json({ error: getErrorMessage(error, 'Unable to disconnect Delta.') }, { status: 500 });
+    return internalErrorResponse(error, 'Unable to disconnect Delta.');
   }
 }

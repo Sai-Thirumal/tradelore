@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { fetchDailyJournal, saveDailyJournal } from '@/lib/db/supabase';
 import { requireAuthUser } from '@/lib/auth/session';
-import { getErrorMessage } from '@/lib/errors';
+import { internalErrorResponse } from '@/lib/errors';
 import { validateDailyJournalPayload } from '@/lib/validation/journal';
 import { readJsonObject, validationErrorResponse } from '@/lib/validation/request';
 
@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     const entry = await fetchDailyJournal(date, user.id);
     return NextResponse.json(entry || null);
   } catch (error: unknown) {
-    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+    return internalErrorResponse(error, 'Unable to load daily journal.');
   }
 }
 
@@ -30,6 +30,6 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     const validationResponse = validationErrorResponse(error);
     if (validationResponse) return validationResponse;
-    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+    return internalErrorResponse(error, 'Unable to save daily journal.');
   }
 }

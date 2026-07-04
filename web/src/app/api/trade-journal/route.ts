@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { fetchTradeJournal, fetchAllTradeJournals, saveTradeJournal } from '@/lib/db/supabase';
 import { requireAuthUser } from '@/lib/auth/session';
-import { getErrorMessage } from '@/lib/errors';
+import { internalErrorResponse } from '@/lib/errors';
 import { validateTradeJournalPayload } from '@/lib/validation/journal';
 import { readJsonObject, validationErrorResponse } from '@/lib/validation/request';
 
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
     const entry = await fetchTradeJournal(tradeId, user.id);
     return NextResponse.json(entry || null);
   } catch (error: unknown) {
-    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+    return internalErrorResponse(error, 'Unable to load trade journal.');
   }
 }
 
@@ -48,6 +48,6 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     const validationResponse = validationErrorResponse(error);
     if (validationResponse) return validationResponse;
-    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+    return internalErrorResponse(error, 'Unable to save trade journal.');
   }
 }

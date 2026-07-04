@@ -4,7 +4,6 @@ import { matchTrades } from '@/lib/engine/trade-matcher';
 import { decryptSecret } from '@/lib/security/encryption';
 import { KiteApiError, fetchKiteTrades } from './client';
 import { kiteFillsToTradeOrders } from './normalize';
-import { safeBrokerErrorMessage } from './safe-errors';
 import { isTokenExpired } from './session';
 import { fetchInstrumentIndex, type DerivativesExchange } from './instruments';
 
@@ -78,11 +77,10 @@ export async function syncZerodhaTrades(userId: string): Promise<ZerodhaSyncResu
       synced_at: syncedAt,
     };
   } catch (error) {
-    const message = safeBrokerErrorMessage(error, 'Zerodha sync failed.');
     await updateBrokerSyncState(userId, {
       last_sync_at: new Date().toISOString(),
       last_sync_status: 'error',
-      last_sync_error: message.slice(0, 500),
+      last_sync_error: 'Zerodha sync failed.',
     });
     throw error;
   }

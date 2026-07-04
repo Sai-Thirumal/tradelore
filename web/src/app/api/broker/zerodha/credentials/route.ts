@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAuthUser } from '@/lib/auth/session';
 import { isZerodhaServerConfigured } from '@/lib/brokers/zerodha/config';
-import { safeBrokerErrorMessage } from '@/lib/brokers/zerodha/safe-errors';
+import { internalErrorResponse } from '@/lib/errors';
 import {
   deleteBrokerCredentials,
   saveBrokerCredentials,
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     const validationResponse = validationErrorResponse(error);
     if (validationResponse) return validationResponse;
-    return NextResponse.json({ error: safeBrokerErrorMessage(error, 'Unable to save Zerodha credentials.') }, { status: 500 });
+    return internalErrorResponse(error, 'Unable to save Zerodha credentials.');
   }
 }
 
@@ -54,6 +54,6 @@ export async function DELETE() {
     await deleteBrokerCredentials(user.id);
     return NextResponse.json({ deleted: true });
   } catch (error: unknown) {
-    return NextResponse.json({ error: safeBrokerErrorMessage(error, 'Unable to delete Zerodha credentials.') }, { status: 500 });
+    return internalErrorResponse(error, 'Unable to delete Zerodha credentials.');
   }
 }

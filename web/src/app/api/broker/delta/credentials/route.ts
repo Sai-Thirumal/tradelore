@@ -12,7 +12,7 @@ import {
   requiredString,
   validationErrorResponse,
 } from '@/lib/validation/request';
-import { getErrorMessage } from '@/lib/errors';
+import { internalErrorResponse } from '@/lib/errors';
 
 export const runtime = 'nodejs';
 
@@ -39,6 +39,6 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     const validationResponse = validationErrorResponse(error);
     if (validationResponse) return validationResponse;
-    return NextResponse.json({ error: getErrorMessage(error, 'Unable to save Delta credentials.') }, { status: 500 });
+    return internalErrorResponse(error, 'Unable to save Delta credentials.');
   }
 }

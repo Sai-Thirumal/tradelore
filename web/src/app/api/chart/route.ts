@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getUnderlying, toYahooSymbol, istToUnix } from '@/lib/engine/symbols';
 import { requireAuthUser } from '@/lib/auth/session';
-import { getErrorMessage } from '@/lib/errors';
+import { internalErrorResponse } from '@/lib/errors';
 import {
   chooseDeltaResolution,
   deltaDateTimeToUnix,
@@ -63,7 +63,7 @@ export async function GET(request: Request) {
         to: toStr,
       });
     } catch (error: unknown) {
-      return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+      return internalErrorResponse(error, 'Unable to load Delta chart data.');
     }
   }
 
@@ -144,6 +144,6 @@ export async function GET(request: Request) {
     });
 
   } catch (error: unknown) {
-    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+    return internalErrorResponse(error, 'Unable to load chart data.');
   }
 }

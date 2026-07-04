@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { fetchAllTrades } from '@/lib/db/supabase';
 import { withCurrentCommission } from '@/lib/engine/commission';
 import { requireAuthUser } from '@/lib/auth/session';
-import { getErrorMessage } from '@/lib/errors';
+import { internalErrorResponse } from '@/lib/errors';
 import type { TradeRecord } from '@/lib/types/trading';
 
 export async function GET() {
@@ -16,6 +16,6 @@ export async function GET() {
 
     return NextResponse.json(enrichedTrades);
   } catch (error: unknown) {
-    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+    return internalErrorResponse(error, 'Unable to load trades.');
   }
 }

@@ -32,7 +32,12 @@ function deltaSyncErrorMessage(error: unknown) {
       ? `Delta rate limit reached. Retry after ${error.rateLimitReset}.`
       : 'Delta rate limit reached. Please retry in a minute.';
   }
-  if (error instanceof DeltaApiError) return error.message;
+  if (error instanceof DeltaApiError && error.statusCode === 409) {
+    return 'Delta sync is already running for this account.';
+  }
+  if (error instanceof DeltaApiError && error.errorType === 'invalid_api_key') {
+    return 'Delta API credentials need attention.';
+  }
   return 'Delta sync failed.';
 }
 

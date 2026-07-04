@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getInternalRedirectPath } from '@/lib/auth/redirect';
+import { internalErrorResponse } from '@/lib/errors';
 import { hasSupabaseServiceRoleEnv } from '@/lib/supabase/env';
 import { createServiceClient } from '@/lib/supabase/service';
 import { createClient } from '@/lib/supabase/server';
@@ -47,10 +48,7 @@ export async function POST(request: NextRequest) {
   const { data: usersData, error: usersError } = await serviceClient.auth.admin.listUsers({ page: 1, perPage: 1 });
 
   if (usersError) {
-    return NextResponse.json(
-      { error: 'Unable to check launch signup availability.' },
-      { status: 500 },
-    );
+    return internalErrorResponse(usersError, 'Unable to check launch signup availability.');
   }
 
   const used = usersData.total ?? usersData.users.length;
@@ -71,7 +69,8 @@ export async function POST(request: NextRequest) {
   });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    console.error('Unable to sign up user.', error);
+    return NextResponse.json({ error: 'Unable to create account. Please check your details and try again.' }, { status: 400 });
   }
 
   return NextResponse.json({ session: Boolean(data.session) });

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchPlaybooks, fetchPlaybook, createPlaybook, updatePlaybook, deletePlaybook } from '@/lib/db/supabase';
 import { requireAuthUser } from '@/lib/auth/session';
-import { errorMessageIncludes, getErrorMessage, hasErrorCode } from '@/lib/errors';
+import { errorMessageIncludes, hasErrorCode, internalErrorResponse } from '@/lib/errors';
 import { validateCreatePlaybookPayload, validateUpdatePlaybookPayload } from '@/lib/validation/playbooks';
 import { readJsonObject, validationErrorResponse } from '@/lib/validation/request';
 
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     if (errorMessageIncludes(error, 'relation') || hasErrorCode(error, '42P01')) {
       return NextResponse.json([]);
     }
-    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+    return internalErrorResponse(error, 'Unable to load playbooks.');
   }
 }
 
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     const validationResponse = validationErrorResponse(error);
     if (validationResponse) return validationResponse;
-    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+    return internalErrorResponse(error, 'Unable to create playbook.');
   }
 }
 
@@ -54,7 +54,7 @@ export async function PUT(request: Request) {
   } catch (error: unknown) {
     const validationResponse = validationErrorResponse(error);
     if (validationResponse) return validationResponse;
-    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+    return internalErrorResponse(error, 'Unable to update playbook.');
   }
 }
 
@@ -69,6 +69,6 @@ export async function DELETE(request: NextRequest) {
     await deletePlaybook(id, user.id);
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
-    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+    return internalErrorResponse(error, 'Unable to delete playbook.');
   }
 }

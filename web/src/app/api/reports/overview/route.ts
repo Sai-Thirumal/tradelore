@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { fetchAllTrades, fetchAllTradeJournals } from '@/lib/db/supabase';
 import { withCurrentCommission } from '@/lib/engine/commission';
 import { requireAuthUser } from '@/lib/auth/session';
-import { getErrorMessage } from '@/lib/errors';
+import { internalErrorResponse } from '@/lib/errors';
 import { filterTradesForScope, getScopeCurrency, type BrokerFilter, type SegmentFilter } from '@/lib/engine/trade-filters';
 import type { TradeRecord } from '@/lib/types/trading';
 
@@ -293,6 +293,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(stats);
   } catch (error: unknown) {
-    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+    return internalErrorResponse(error, 'Unable to load overview report.');
   }
 }

@@ -8,7 +8,7 @@ import {
   hasBrokerCredentials,
   maskApiKey,
 } from '@/lib/db/broker-connections';
-import { getErrorMessage } from '@/lib/errors';
+import { internalErrorResponse } from '@/lib/errors';
 
 export const runtime = 'nodejs';
 
@@ -41,6 +41,6 @@ export async function GET() {
       last_sync_cursor: connection?.last_sync_cursor || '',
     });
   } catch (error: unknown) {
-    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+    return internalErrorResponse(error, 'Unable to load Delta status.');
   }
 }

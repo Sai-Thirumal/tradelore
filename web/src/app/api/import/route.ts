@@ -5,7 +5,7 @@ import { fetchCachedDeltaProducts } from '@/lib/brokers/delta/products';
 import { storeOrders, replaceTrades, retainLatestTradeMonths } from '@/lib/db/supabase';
 import { matchTrades } from '@/lib/engine/trade-matcher';
 import { requireAuthUser } from '@/lib/auth/session';
-import { getErrorMessage } from '@/lib/errors';
+import { internalErrorResponse } from '@/lib/errors';
 import { parseSupportedBroker, validateCsvUpload } from '@/lib/validation/csv';
 import { validationErrorResponse } from '@/lib/validation/request';
 
@@ -58,6 +58,6 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     const validationResponse = validationErrorResponse(error);
     if (validationResponse) return validationResponse;
-    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+    return internalErrorResponse(error, 'Unable to import trades.');
   }
 }
