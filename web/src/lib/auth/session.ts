@@ -9,12 +9,11 @@ export interface AuthUser {
 export async function getAuthUser(): Promise<AuthUser | null> {
   try {
     const supabase = await createClient();
-    const { data, error } = await supabase.auth.getClaims();
-    if (error || !data?.claims?.sub) return null;
-    const claims = data.claims as Record<string, unknown>;
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data?.user) return null;
     return {
-      id: String(claims.sub),
-      email: typeof claims.email === 'string' ? claims.email : undefined,
+      id: data.user.id,
+      email: data.user.email,
     };
   } catch {
     return null;

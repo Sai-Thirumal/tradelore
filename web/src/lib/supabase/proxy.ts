@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getSupabasePublishableKey, getSupabaseUrl } from './env';
 
 const PUBLIC_PATHS = new Set(['/', '/login', '/auth/callback']);
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.has(pathname);
@@ -15,10 +16,28 @@ function isAssetPath(pathname: string) {
     || /\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff2?)$/i.test(pathname);
 }
 
+function sameOrigin(request: NextRequest) {
+  const expectedOrigin = request.nextUrl.origin;
+  const source = request.headers.get('origin') || request.headers.get('referer') || '';
+
+  if (!source) return false;
+
+  try {
+    return new URL(source).origin === expectedOrigin;
+  } catch {
+    return false;
+  }
+}
+
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
   const url = getSupabaseUrl();
   const key = getSupabasePublishableKey();
+  const { pathname } = request.nextUrl;
+
+  if (pathname.startsWith('/api/') && !SAFE_METHODS.has(request.method) && !sameOrigin(request)) {
+    return NextResponse.json({ error: 'Invalid request origin' }, { status: 403 });
+  }
 
   if (!url || !key) {
     return response;
@@ -41,7 +60,6 @@ export async function updateSession(request: NextRequest) {
 
   const { data } = await supabase.auth.getClaims();
 
-  const { pathname } = request.nextUrl;
   const signedIn = Boolean(data?.claims?.sub);
 
   if (!signedIn && !isPublicPath(pathname) && !isAssetPath(pathname) && !pathname.startsWith('/api/')) {
