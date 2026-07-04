@@ -2625,13 +2625,15 @@ tbody.day-group + tbody.day-group .day-header-row td {
   .stat-pill .sp-viz svg { width: 36px; height: 36px; }
   .header {
     display: grid;
-    grid-template-columns: minmax(0, auto) 1fr minmax(0, auto) auto auto;
-    gap: 10px;
-    padding: 10px 14px;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    row-gap: 12px;
+    column-gap: 10px;
+    padding: 14px;
     overflow: visible;
   }
   .header .logo {
-    grid-column: 1;
+    grid-column: 1 / -1;
+    grid-row: 1;
     min-width: 0;
     overflow: hidden;
   }
@@ -2639,9 +2641,18 @@ tbody.day-group + tbody.day-group .day-header-row td {
     display: none;
   }
   .header-date-range {
-    grid-column: 3;
-    justify-self: end;
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: start;
     min-width: 0;
+    max-width: 100%;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .header-date-range .drp-root,
+  .header-date-range .segment-menu {
+    flex: 0 0 auto;
   }
   .segment-menu-trigger {
     min-width: 122px;
@@ -2652,11 +2663,13 @@ tbody.day-group + tbody.day-group .day-header-row td {
     max-width: 144px;
   }
   .dashboard-broker-controls {
-    grid-column: 4;
+    grid-column: 2;
+    grid-row: 2;
     justify-self: end;
   }
   .header-actions-menu {
-    grid-column: 5;
+    grid-column: 3;
+    grid-row: 2;
     justify-self: end;
   }
   .main { padding: 14px; }
@@ -2737,7 +2750,7 @@ tbody.day-group + tbody.day-group .day-header-row td {
   /* date picker */
   .drp-popover {
     position: fixed;
-    top: 66px;
+    top: 118px;
     left: 50%;
     right: auto;
     transform: translateX(-50%);
@@ -2766,14 +2779,17 @@ tbody.day-group + tbody.day-group .day-header-row td {
   }
 }
 
-/* Narrow phones: compact controls to keep the header on one row */
+/* Narrow phones: keep the logo on its own row and compact the controls below it */
 @media (max-width: 430px) {
   .header {
-    grid-template-columns: minmax(0, 1fr) minmax(104px, auto) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    row-gap: 10px;
     column-gap: 6px;
-    padding: 9px 10px;
+    padding: 12px 10px;
   }
   .header .logo {
+    grid-column: 1 / -1;
+    grid-row: 1;
     font-size: clamp(15px, 5vw, 18px);
     gap: 5px;
   }
@@ -2781,9 +2797,9 @@ tbody.day-group + tbody.day-group .day-header-row td {
     width: 16px;
   }
   .header-date-range {
-    grid-column: 2;
-    grid-row: 1;
-    justify-self: end;
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: start;
     gap: 6px;
   }
   .header-date-range .drp-trigger {
@@ -2804,8 +2820,8 @@ tbody.day-group + tbody.day-group .day-header-row td {
     max-width: 116px;
   }
   .dashboard-broker-controls {
-    grid-column: 3;
-    grid-row: 1;
+    grid-column: 2;
+    grid-row: 2;
     gap: 5px;
   }
   .header .broker-status {
@@ -2820,8 +2836,8 @@ tbody.day-group + tbody.day-group .day-header-row td {
     display: none;
   }
   .header-actions-menu {
-    grid-column: 4;
-    grid-row: 1;
+    grid-column: 3;
+    grid-row: 2;
   }
   .actions-menu-trigger {
     width: 30px;

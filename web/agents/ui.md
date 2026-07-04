@@ -200,7 +200,7 @@ Header states:
 - Status chip shows `Setup needed`, `Needs reconnect`, `Connected`, or `Synced` without a timestamp.
 
 Mobile header:
-- Below 768px, the header keeps the TradeLore logo, compact Date Range control, broker status chip, and overflow `...` menu on one row; below 430px, button/logo sizing tightens to avoid overlap on real phone browsers.
+- Below 768px, the header uses two rows: the TradeLore logo sits alone on the first row, and the compact Date Range, segment controls, broker status chip, and overflow `...` menu sit on the second row; below 430px, button/logo sizing tightens to avoid overlap on real phone browsers.
 - Mobile-only overflow menu contains Import CSV, Clear data, Zerodha connect/sync when needed, and Login/Logout. Desktop keeps the inline controls.
 - The Date Range calendar popover is viewport-centered on mobile, with a lower offset on narrow two-row headers.
 
