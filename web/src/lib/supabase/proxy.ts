@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { rateLimitRequest } from '@/lib/security/rate-limit';
 import { getSupabasePublishableKey, getSupabaseUrl } from './env';
 
 const PUBLIC_PATHS = new Set(['/', '/login', '/auth/callback']);
@@ -38,6 +39,9 @@ export async function updateSession(request: NextRequest) {
   if (pathname.startsWith('/api/') && !SAFE_METHODS.has(request.method) && !sameOrigin(request)) {
     return NextResponse.json({ error: 'Invalid request origin' }, { status: 403 });
   }
+
+  const rateLimitResponse = rateLimitRequest(request);
+  if (rateLimitResponse) return rateLimitResponse;
 
   if (!url || !key) {
     return response;
