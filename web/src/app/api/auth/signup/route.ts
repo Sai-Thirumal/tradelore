@@ -11,7 +11,6 @@ const STRONG_PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9
 interface SignupPayload {
   email?: unknown;
   password?: unknown;
-  joinedTelegram?: unknown;
   next?: unknown;
 }
 
@@ -19,7 +18,6 @@ export async function POST(request: NextRequest) {
   const payload = await request.json().catch(() => null) as SignupPayload | null;
   const email = typeof payload?.email === 'string' ? payload.email.trim() : '';
   const password = typeof payload?.password === 'string' ? payload.password : '';
-  const joinedTelegram = payload?.joinedTelegram === true;
   const next = getInternalRedirectPath(typeof payload?.next === 'string' ? payload.next : null);
 
   if (!email || !password) {
@@ -28,12 +26,6 @@ export async function POST(request: NextRequest) {
   if (!STRONG_PASSWORD_PATTERN.test(password)) {
     return NextResponse.json(
       { error: 'Password must be at least 8 characters and include lowercase, uppercase, digit, and symbol characters.' },
-      { status: 400 },
-    );
-  }
-  if (!joinedTelegram) {
-    return NextResponse.json(
-      { error: 'Please join the TradeLore Telegram community before signing up.' },
       { status: 400 },
     );
   }
@@ -54,7 +46,7 @@ export async function POST(request: NextRequest) {
   const used = usersData.total ?? usersData.users.length;
   if (used >= LAUNCH_SIGNUP_LIMIT) {
     return NextResponse.json(
-      { error: 'The first 100-user freemium launch is full. Join Telegram for the waitlist.' },
+      { error: 'The first 100-user freemium launch is full.' },
       { status: 403 },
     );
   }

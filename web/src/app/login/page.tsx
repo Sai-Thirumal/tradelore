@@ -7,18 +7,17 @@ import { createClient } from '@/lib/supabase/client';
 
 type Mode = 'signin' | 'signup';
 
-const TELEGRAM_COMMUNITY_URL = 'https://t.me/TradeloreCommunity';
 const LAUNCH_LIMIT_MESSAGE = 'Freemium launch is limited to the first 100 users.';
 const PASSWORD_REQUIREMENTS_MESSAGE = 'Password must be at least 8 characters and include lowercase, uppercase, digit, and symbol characters.';
 const STRONG_PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
-async function signUpWithHashedPasswordStorage(email: string, password: string, next: string, joinedTelegram: boolean) {
+async function signUpWithHashedPasswordStorage(email: string, password: string, next: string) {
   const res = await fetch('/api/auth/signup', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ email, password, next, joinedTelegram }),
+    body: JSON.stringify({ email, password, next }),
   });
 
   const result = await res.json().catch(() => null) as { session?: boolean; error?: string } | null;
@@ -57,7 +56,6 @@ export default function LoginPage() {
   const [mode, setMode] = useState<Mode>('signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [joinedTelegram, setJoinedTelegram] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -75,16 +73,11 @@ export default function LoginPage() {
           setError(PASSWORD_REQUIREMENTS_MESSAGE);
           return;
         }
-        if (!joinedTelegram) {
-          setError('Please join the TradeLore Telegram community before signing up.');
-          return;
-        }
 
         const { data, error: signUpError } = await signUpWithHashedPasswordStorage(
           email,
           password,
           next,
-          joinedTelegram,
         );
         if (signUpError) throw signUpError;
         setPassword('');
@@ -121,12 +114,7 @@ export default function LoginPage() {
         </div>
         <div className="auth-launch-card">
           <strong>{LAUNCH_LIMIT_MESSAGE}</strong>
-          <p>
-            {mode === 'signup'
-              ? 'Join the TradeLore Telegram community before creating your early-access account.'
-              : 'Join the TradeLore Telegram community for launch updates, support, and product notes.'}
-          </p>
-          <a href={TELEGRAM_COMMUNITY_URL} target="_blank" rel="noreferrer">Join Telegram Community</a>
+          <p>{mode === 'signup' ? 'Create your early-access account to start your trading journal.' : 'Log in with your TradeLore account to continue.'}</p>
         </div>
         <div className="auth-tabs">
           <button className={mode === 'signup' ? 'active' : ''} onClick={() => setMode('signup')}>Sign up</button>
@@ -157,17 +145,6 @@ export default function LoginPage() {
             />
             {mode === 'signup' && <p className="auth-help">{PASSWORD_REQUIREMENTS_MESSAGE}</p>}
           </div>
-          {mode === 'signup' && (
-            <label className="auth-checkbox">
-              <input
-                type="checkbox"
-                checked={joinedTelegram}
-                onChange={event => setJoinedTelegram(event.target.checked)}
-                required
-              />
-              <span>I have joined the TradeLore Telegram community.</span>
-            </label>
-          )}
 
           {error && <div className="auth-alert error">{error}</div>}
           {message && <div className="auth-alert success">{message}</div>}
