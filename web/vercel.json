@@ -10,7 +10,7 @@
         }
       ],
       "destination": "https://www.tradelore.co.in/:path*",
-      "permanent": false
+      "permanent": true
     }
   ]
 }
