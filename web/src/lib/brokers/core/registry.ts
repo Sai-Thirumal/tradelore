@@ -122,14 +122,14 @@ const dhanAdapter: BrokerAdapter<Awaited<ReturnType<typeof syncDhanTrades>>> = {
     const serverConfigured = isDhanServerConfigured();
     const connection = serverConfigured ? await fetchBrokerConnection(userId, DHAN_BROKER) : null;
     const credentialsConfigured = serverConfigured && hasBrokerCredentials(connection);
-    const connected = credentialsConfigured && Boolean(connection?.encrypted_access_token) && !isTokenExpired(connection?.token_expires_at);
+    const connected = credentialsConfigured && Boolean(connection?.encrypted_access_token);
 
     return {
       server_configured: serverConfigured,
       credentials_configured: credentialsConfigured,
       configured: credentialsConfigured,
       connected,
-      needs_reconnect: credentialsConfigured && !connected,
+      needs_reconnect: credentialsConfigured && !connection?.encrypted_access_token,
       api_key_masked: credentialsConfigured ? maskApiKey(getBrokerApiKey(connection)) : '',
       api_secret_saved: Boolean(connection?.encrypted_api_secret),
       credentials_saved_at: connection?.credentials_saved_at || null,
@@ -166,7 +166,7 @@ const dhanAdapter: BrokerAdapter<Awaited<ReturnType<typeof syncDhanTrades>>> = {
     }
     return null;
   },
-  isConnected: (connection) => hasBrokerCredentials(connection) && Boolean(connection.encrypted_access_token) && !isTokenExpired(connection.token_expires_at),
+  isConnected: (connection) => hasBrokerCredentials(connection) && Boolean(connection.encrypted_access_token),
 };
 
 const upstoxAdapter: BrokerAdapter<Awaited<ReturnType<typeof syncUpstoxTrades>>> = {
