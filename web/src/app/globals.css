@@ -2670,6 +2670,7 @@ tbody.day-group + tbody.day-group .day-header-row td {
   }
   .broker-menu-trigger {
     width: 100%;
+    min-width: 0;
   }
   .dashboard-broker-controls {
     grid-column: 2;
@@ -2833,6 +2834,8 @@ tbody.day-group + tbody.day-group .day-header-row td {
   }
   .broker-menu-trigger {
     width: 100%;
+    min-width: 0;
+    padding: 0 20px 0 8px;
   }
   .dashboard-broker-controls {
     grid-column: 2;
