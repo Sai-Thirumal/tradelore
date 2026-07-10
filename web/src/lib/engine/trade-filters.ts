@@ -1,11 +1,13 @@
 import type { TradeRecord } from '../types/trading.ts';
+import { KNOWN_BROKER_IDS, type KnownBrokerId } from '../brokers/core/types.ts';
 import { isMcxInstrument } from './mcx.ts';
 
-export type BrokerFilter = 'all' | 'zerodha' | 'delta';
+export type BrokerFilter = 'all' | KnownBrokerId;
 export type SegmentFilter = 'all' | 'equity' | 'fo' | 'mcx' | 'delta_perp' | 'delta_futures' | 'delta_options';
 
-export function getTradeBroker(trade: Pick<TradeRecord, 'broker'>): 'zerodha' | 'delta' {
-  return (trade.broker || 'zerodha').toLowerCase() === 'delta' ? 'delta' : 'zerodha';
+export function getTradeBroker(trade: Pick<TradeRecord, 'broker'>): KnownBrokerId {
+  const broker = (trade.broker || 'zerodha').trim().toLowerCase();
+  return (KNOWN_BROKER_IDS as readonly string[]).includes(broker) ? broker as KnownBrokerId : 'zerodha';
 }
 
 export function getTradeCurrency(trade: Pick<TradeRecord, 'broker' | 'pnl_currency' | 'settlement_asset'>): string {

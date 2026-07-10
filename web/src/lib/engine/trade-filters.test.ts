@@ -44,11 +44,13 @@ test('buckets Delta derivative segments and labels exact symbols plus report fam
 test('filters by broker and segment without changing legacy Zerodha defaults', () => {
   const trades = [
     trade({ symbol: 'RELIANCE', segment: 'EQ' }),
+    trade({ broker: 'dhan', symbol: 'HDFCBANK', segment: 'EQ' }),
     trade({ symbol: 'CRUDEOIL', exchange: 'MCX', segment: 'MCX-FUT' }),
     trade({ broker: 'delta', exchange: 'DELTA', segment: 'PERP', product_symbol: 'ETHUSDT' }),
   ];
 
   assert.deepEqual(filterTradesForScope(trades, 'zerodha', 'equity').map((t) => t.symbol), ['RELIANCE']);
+  assert.deepEqual(filterTradesForScope(trades, 'dhan', 'equity').map((t) => t.symbol), ['HDFCBANK']);
   assert.deepEqual(filterTradesForScope(trades, 'all', 'mcx').map((t) => t.symbol), ['CRUDEOIL']);
   assert.deepEqual(filterTradesForScope(trades, 'delta', 'delta_perp').map((t) => t.product_symbol), ['ETHUSDT']);
 });

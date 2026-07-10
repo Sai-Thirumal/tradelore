@@ -98,6 +98,12 @@ export async function saveBrokerCredentials(
   credentials: Pick<BrokerConnectionRecord, 'encrypted_api_key' | 'encrypted_api_secret'> & Pick<Partial<BrokerConnectionRecord>, 'broker_user_id'>,
   broker = ZERODHA_BROKER,
 ) {
+  const existingConnections = await fetchBrokerConnections(userId);
+  const configuredOtherBrokers = existingConnections.filter((connection) => connection.broker !== broker && hasBrokerCredentials(connection));
+  if (configuredOtherBrokers.length >= 2) {
+    throw new Error('You can connect up to 2 brokers at the same time. Delete one broker connection before adding another.');
+  }
+
   return upsertBrokerConnection(userId, {
     api_key: '',
     encrypted_api_key: credentials.encrypted_api_key,

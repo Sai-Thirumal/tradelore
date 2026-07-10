@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { Suspense, useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Line, Bar } from 'react-chartjs-2';
 import {
@@ -11,6 +11,8 @@ import { getErrorMessage } from '@/lib/errors';
 import { fmtMoney, fmtPrice, fmtDateLabel, fmtDateChart } from '@/lib/ui/format';
 import { computeStats, filterTradesByDateRange } from '@/lib/compute/stats';
 import { isDeltaAutoSyncDue } from '@/lib/brokers/crypto/delta/autosync';
+import { listBrokerCatalogEntries } from '@/lib/brokers/core/catalog';
+import type { KnownBrokerId } from '@/lib/brokers/core/types';
 import {
   filterTradesForScope,
   getScopeCurrency,
@@ -36,19 +38,22 @@ type ActiveBrokerFilter = Exclude<BrokerFilter, 'all'>;
 type DashboardView = 'dashboard' | 'journal' | 'tradelog' | 'playbooks' | 'reports';
 
 const DASHBOARD_VIEWS: DashboardView[] = ['dashboard', 'journal', 'tradelog', 'playbooks', 'reports'];
+const BROKERS = listBrokerCatalogEntries();
+const BROKER_BY_ID = new Map(BROKERS.map((broker) => [broker.id, broker]));
 
-const SEGMENT_OPTIONS: { value: SegmentFilter; label: string; broker: ActiveBrokerFilter }[] = [
-  { value: 'equity', label: 'Equity', broker: 'zerodha' },
-  { value: 'fo', label: 'F&O', broker: 'zerodha' },
-  { value: 'mcx', label: 'MCX', broker: 'zerodha' },
-  { value: 'delta_perp', label: 'Delta Perp', broker: 'delta' },
-  { value: 'delta_futures', label: 'Delta Futures', broker: 'delta' },
-  { value: 'delta_options', label: 'Delta Options', broker: 'delta' },
+const SEGMENT_OPTIONS: { value: SegmentFilter; label: string; market: 'india' | 'crypto' }[] = [
+  { value: 'equity', label: 'Equity', market: 'india' },
+  { value: 'fo', label: 'F&O', market: 'india' },
+  { value: 'mcx', label: 'MCX', market: 'india' },
+  { value: 'delta_perp', label: 'Delta Perp', market: 'crypto' },
+  { value: 'delta_futures', label: 'Delta Futures', market: 'crypto' },
+  { value: 'delta_options', label: 'Delta Options', market: 'crypto' },
 ];
 
 function segmentsForBroker(selected: SegmentFilter[], broker: ActiveBrokerFilter): SegmentFilter[] {
   if (selected.includes('all')) return ['all'];
-  const allowed = new Set(SEGMENT_OPTIONS.filter((option) => option.broker === broker).map((option) => option.value));
+  const market = BROKER_BY_ID.get(broker)?.market || 'india';
+  const allowed = new Set(SEGMENT_OPTIONS.filter((option) => option.market === market).map((option) => option.value));
   const filtered = selected.filter((segment) => allowed.has(segment));
   return filtered.length ? filtered : ['all'];
 }
@@ -94,8 +99,11 @@ interface SyncResult extends ImportResult {
 }
 
 interface BrokerAutoSyncStatus {
+  server_configured?: boolean;
   credentials_configured: boolean;
   connected?: boolean;
+  needs_reconnect?: boolean;
+  last_sync_at?: string | null;
 }
 
 function DashboardContent() {
@@ -133,13 +141,14 @@ function DashboardContent() {
   const [zerodhaSyncing, setZerodhaSyncing] = useState(false);
   const [deltaStatus, setDeltaStatus] = useState<DeltaStatus | null>(null);
   const [deltaSyncing, setDeltaSyncing] = useState(false);
+  const [brokerStatuses, setBrokerStatuses] = useState<Partial<Record<KnownBrokerId, BrokerAutoSyncStatus>>>({});
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   const [segmentMenuOpen, setSegmentMenuOpen] = useState(false);
   const [brokerMenuOpen, setBrokerMenuOpen] = useState(false);
   const [selectedBroker, setSelectedBroker] = useState<ActiveBrokerFilter>(() => {
     if (typeof window === 'undefined') return 'zerodha';
     const savedBroker = window.localStorage.getItem('tradelore_dashboard_broker');
-    return savedBroker === 'delta' ? 'delta' : 'zerodha';
+    return BROKER_BY_ID.has(savedBroker as KnownBrokerId) ? savedBroker as ActiveBrokerFilter : 'zerodha';
   });
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -149,11 +158,7 @@ function DashboardContent() {
   const cumChartRef = useRef<Chart<'line'> | null>(null);
   const dailyChartRef = useRef<Chart<'bar'> | null>(null);
 
-  const autoZerodhaSyncRef = useRef(false);
-  const autoDhanSyncRef = useRef(false);
-  const autoUpstoxSyncRef = useRef(false);
-  const autoAngelOneSyncRef = useRef(false);
-  const autoDeltaSyncRef = useRef(false);
+  const autoSyncedBrokersRef = useRef<Set<string>>(new Set());
 
   const selectDashboardView = (nextView: DashboardView) => {
     setView(nextView);
@@ -281,19 +286,14 @@ function DashboardContent() {
     setTimeout(() => setToast(null), 3500);
   }, []);
 
-  const zerodhaAvailable = Boolean(zerodhaStatus?.credentials_configured || allTrades.some((trade) => (trade.broker || 'zerodha') !== 'delta'));
-  const deltaAvailable = Boolean(deltaStatus?.credentials_configured || allTrades.some((trade) => (trade.broker || '').toLowerCase() === 'delta'));
-  const hasBothBrokerCredentials = Boolean(zerodhaStatus?.credentials_configured && deltaStatus?.credentials_configured);
-  const brokerFilter: ActiveBrokerFilter = hasBothBrokerCredentials
+  const brokerHasTrades = useCallback((broker: KnownBrokerId) => (
+    allTrades.some((trade) => ((trade.broker || 'zerodha').trim().toLowerCase() || 'zerodha') === broker)
+  ), [allTrades]);
+  const availableBrokers = BROKERS.filter((broker) => brokerStatuses[broker.id]?.credentials_configured || brokerHasTrades(broker.id));
+  const brokerFilter: ActiveBrokerFilter = availableBrokers.some((broker) => broker.id === selectedBroker)
     ? selectedBroker
-    : deltaStatus?.credentials_configured
-    ? 'delta'
-    : zerodhaStatus?.credentials_configured
-    ? 'zerodha'
-    : deltaAvailable && !zerodhaAvailable
-    ? 'delta'
-    : 'zerodha';
-  const scopedSegmentFilter = useMemo(() => segmentsForBroker(segmentFilter, brokerFilter), [segmentFilter, brokerFilter]);
+    : availableBrokers[0]?.id || selectedBroker;
+  const scopedSegmentFilter = segmentsForBroker(segmentFilter, brokerFilter);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -388,6 +388,7 @@ function DashboardContent() {
       }
       const data = await res.json() as ZerodhaStatus;
       setZerodhaStatus(data);
+      setBrokerStatuses((statuses) => ({ ...statuses, zerodha: data }));
       return data;
     } catch {
       setZerodhaStatus(null);
@@ -404,11 +405,32 @@ function DashboardContent() {
       }
       const data = await res.json() as DeltaStatus;
       setDeltaStatus(data);
+      setBrokerStatuses((statuses) => ({ ...statuses, delta: data }));
       return data;
     } catch {
       setDeltaStatus(null);
       return null;
     }
+  }, []);
+
+  const loadBrokerStatuses = useCallback(async () => {
+    const entries = await Promise.all(BROKERS.map(async (broker) => {
+      try {
+        const res = await fetch(broker.statusPath, { cache: 'no-store' });
+        return [broker.id, res.ok ? await res.json() as BrokerAutoSyncStatus : null] as const;
+      } catch {
+        return [broker.id, null] as const;
+      }
+    }));
+
+    const nextStatuses: Partial<Record<KnownBrokerId, BrokerAutoSyncStatus>> = {};
+    for (const [broker, status] of entries) {
+      if (status) nextStatuses[broker] = status;
+    }
+    setBrokerStatuses(nextStatuses);
+    setZerodhaStatus(nextStatuses.zerodha as ZerodhaStatus | undefined || null);
+    setDeltaStatus(nextStatuses.delta as DeltaStatus | undefined || null);
+    return nextStatuses;
   }, []);
 
   const syncZerodha = useCallback(async (silent = false) => {
@@ -458,7 +480,7 @@ function DashboardContent() {
     }
   }, [deltaSyncing, loadDeltaStatus, loadTrades, showToast]);
 
-  const autoSyncBroker = useCallback(async (broker: 'dhan' | 'upstox' | 'angelone', canSync: (status: BrokerAutoSyncStatus) => boolean) => {
+  const autoSyncBroker = useCallback(async (broker: KnownBrokerId, canSync: (status: BrokerAutoSyncStatus) => boolean) => {
     try {
       const statusResponse = await fetch(`/api/broker/${broker}/status`, { cache: 'no-store' });
       if (!statusResponse.ok) return;
@@ -466,11 +488,14 @@ function DashboardContent() {
       if (!canSync(status)) return;
 
       const syncResponse = await fetch(`/api/broker/${broker}/sync`, { method: 'POST' });
-      if (syncResponse.ok) await loadTrades();
+      if (syncResponse.ok) {
+        await loadTrades();
+        void loadBrokerStatuses();
+      }
     } catch {
       // silent autosync; settings pages show the stored sync error when needed.
     }
-  }, [loadTrades]);
+  }, [loadBrokerStatuses, loadTrades]);
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -503,6 +528,10 @@ function DashboardContent() {
   }, [loadCurrentUser]);
 
   useEffect(() => {
+    void Promise.resolve().then(() => loadBrokerStatuses());
+  }, [loadBrokerStatuses]);
+
+  useEffect(() => {
     const handler = (event: MouseEvent) => {
       if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target as Node)) {
         setActionsMenuOpen(false);
@@ -520,46 +549,30 @@ function DashboardContent() {
 
   useEffect(() => {
     void Promise.resolve().then(async () => {
-      const status = await loadZerodhaStatus();
-      if (!status || autoZerodhaSyncRef.current || !status.configured || !status.connected || status.needs_reconnect) return;
-      autoZerodhaSyncRef.current = true;
-      await syncZerodha(true);
-    });
-  }, [loadZerodhaStatus, syncZerodha]);
+      const connected = BROKERS
+        .filter((broker) => broker.syncPath)
+        .filter((broker) => {
+          const status = brokerStatuses[broker.id];
+          return status?.credentials_configured && status.connected !== false && !status.needs_reconnect;
+        })
+        .slice(0, 2);
 
-  useEffect(() => {
-    void Promise.resolve().then(async () => {
-      if (autoDhanSyncRef.current) return;
-      autoDhanSyncRef.current = true;
-      await autoSyncBroker('dhan', (status) => status.credentials_configured);
+      for (const broker of connected) {
+        if (autoSyncedBrokersRef.current.has(broker.id)) continue;
+        autoSyncedBrokersRef.current.add(broker.id);
+        if (broker.id === 'zerodha') {
+          await syncZerodha(true);
+        } else if (broker.id === 'delta') {
+          const status = brokerStatuses.delta;
+          if (status && isDeltaAutoSyncDue(status.last_sync_at || null)) {
+            await syncDelta(true);
+          }
+        } else {
+          await autoSyncBroker(broker.id, (status) => status.credentials_configured && status.connected !== false && !status.needs_reconnect);
+        }
+      }
     });
-  }, [autoSyncBroker]);
-
-  useEffect(() => {
-    void Promise.resolve().then(async () => {
-      if (autoUpstoxSyncRef.current) return;
-      autoUpstoxSyncRef.current = true;
-      await autoSyncBroker('upstox', (status) => status.credentials_configured && Boolean(status.connected));
-    });
-  }, [autoSyncBroker]);
-
-  useEffect(() => {
-    void Promise.resolve().then(async () => {
-      if (autoAngelOneSyncRef.current) return;
-      autoAngelOneSyncRef.current = true;
-      await autoSyncBroker('angelone', (status) => status.credentials_configured);
-    });
-  }, [autoSyncBroker]);
-
-  useEffect(() => {
-    void Promise.resolve().then(async () => {
-      const status = await loadDeltaStatus();
-      if (!status || autoDeltaSyncRef.current || !status.connected || !status.credentials_configured) return;
-      if (!isDeltaAutoSyncDue(status.last_sync_at)) return;
-      autoDeltaSyncRef.current = true;
-      await syncDelta(true);
-    });
-  }, [loadDeltaStatus, syncDelta]);
+  }, [autoSyncBroker, brokerStatuses, syncDelta, syncZerodha]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -625,7 +638,7 @@ function DashboardContent() {
   };
 
   const renderBrokerMenuAction = () => {
-    if (!zerodhaStatus?.server_configured && !deltaStatus?.server_configured) {
+    if (!Object.values(brokerStatuses).some((status) => status?.server_configured)) {
       return (
         <button className="actions-menu-item" title="Set BROKER_TOKEN_ENCRYPTION_KEY and SUPABASE_SERVICE_ROLE_KEY on the server" disabled>
           Brokers off
@@ -654,23 +667,15 @@ function DashboardContent() {
   };
 
   const renderBrokerStatus = () => {
-    if (brokerFilter === 'delta') {
-      if (!deltaStatus?.server_configured) return null;
-      const label = !deltaStatus.credentials_configured
-        ? 'Delta setup needed'
-        : deltaStatus.connected
-        ? deltaStatus.last_sync_at ? 'Delta synced' : 'Delta connected'
-        : 'Delta disconnected';
-      return <span className={`broker-status ${deltaStatus.credentials_configured && deltaStatus.connected ? 'ok' : 'warn'}`}>{label}</span>;
-    }
-
-    if (!zerodhaStatus?.server_configured) return null;
-    const label = !zerodhaStatus.credentials_configured
-      ? 'Zerodha setup needed'
-      : zerodhaStatus.needs_reconnect
-      ? 'Zerodha reconnect'
-      : zerodhaStatus.last_sync_at ? 'Zerodha synced' : 'Zerodha connected';
-    return <span className={`broker-status ${!zerodhaStatus.credentials_configured || zerodhaStatus.needs_reconnect ? 'warn' : 'ok'}`}>{label}</span>;
+    const broker = BROKER_BY_ID.get(brokerFilter);
+    const status = brokerStatuses[brokerFilter];
+    if (!broker || !status?.server_configured) return null;
+    const label = !status.credentials_configured
+      ? `${broker.displayName} setup needed`
+      : status.needs_reconnect
+      ? `${broker.displayName} reconnect`
+      : status.last_sync_at ? `${broker.displayName} synced` : `${broker.displayName} connected`;
+    return <span className={`broker-status ${!status.credentials_configured || status.needs_reconnect || status.connected === false ? 'warn' : 'ok'}`}>{label}</span>;
   };
 
   const reconnectZerodha = () => {
@@ -683,7 +688,7 @@ function DashboardContent() {
   const displayCurrency = getScopeCurrency(trades);
   const money = (n: number, showSign = true) => fmtMoney(n, displayCurrency, showSign);
   const tradeMoney = (trade: TradeRecord, n: number, showSign = true) => fmtMoney(n, getTradeCurrency(trade), showSign);
-  const segmentOptions = SEGMENT_OPTIONS.filter((option) => option.broker === brokerFilter);
+  const segmentOptions = SEGMENT_OPTIONS.filter((option) => option.market === (BROKER_BY_ID.get(brokerFilter)?.market || 'india'));
   const segmentLabel = scopedSegmentFilter.includes('all')
     ? 'All segments'
     : segmentOptions.find((option) => option.value === scopedSegmentFilter[0])?.label || 'All segments';
@@ -841,7 +846,7 @@ function DashboardContent() {
             onChange={(s, e) => { setCustomStart(s); setCustomEnd(e); }}
             onClear={() => { setCustomStart(''); setCustomEnd(''); }}
           />
-          {hasBothBrokerCredentials && (
+          {availableBrokers.length > 1 && (
             <div className="segment-menu broker-menu" ref={brokerMenuRef}>
               <button
                 className="segment-menu-trigger broker-menu-trigger"
@@ -850,25 +855,20 @@ function DashboardContent() {
                 aria-expanded={brokerMenuOpen}
                 onClick={() => setBrokerMenuOpen(open => !open)}
               >
-                {brokerFilter === 'delta' ? 'Delta Exchange' : 'Zerodha'}
+                {BROKER_BY_ID.get(brokerFilter)?.displayName || 'Broker'}
               </button>
               <div className={`segment-menu-list ${brokerMenuOpen ? 'open' : ''}`} role="menu">
-                <button
-                  className={`segment-menu-item ${brokerFilter === 'zerodha' ? 'active' : ''}`}
-                  type="button"
-                  role="menuitem"
-                  onClick={() => selectBroker('zerodha')}
-                >
-                  Zerodha
-                </button>
-                <button
-                  className={`segment-menu-item ${brokerFilter === 'delta' ? 'active' : ''}`}
-                  type="button"
-                  role="menuitem"
-                  onClick={() => selectBroker('delta')}
-                >
-                  Delta Exchange
-                </button>
+                {availableBrokers.map((broker) => (
+                  <button
+                    key={broker.id}
+                    className={`segment-menu-item ${brokerFilter === broker.id ? 'active' : ''}`}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => selectBroker(broker.id)}
+                  >
+                    {broker.displayName}
+                  </button>
+                ))}
               </div>
             </div>
           )}
