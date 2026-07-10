@@ -2668,7 +2668,7 @@ tbody.day-group + tbody.day-group .day-header-row td {
     min-width: 0;
     font-size: 11px;
   }
-  .broker-menu-trigger {
+  .segment-menu-trigger.broker-menu-trigger {
     width: 100%;
     min-width: 0;
   }
@@ -2832,7 +2832,7 @@ tbody.day-group + tbody.day-group .day-header-row td {
     padding: 0 24px 0 8px;
     font-size: 10px;
   }
-  .broker-menu-trigger {
+  .segment-menu-trigger.broker-menu-trigger {
     width: 100%;
     min-width: 0;
     padding: 0 20px 0 8px;
