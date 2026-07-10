@@ -95,7 +95,7 @@ export async function upsertBrokerConnection(
 
 export async function saveBrokerCredentials(
   userId: string,
-  credentials: Pick<BrokerConnectionRecord, 'encrypted_api_key' | 'encrypted_api_secret'>,
+  credentials: Pick<BrokerConnectionRecord, 'encrypted_api_key' | 'encrypted_api_secret'> & Pick<Partial<BrokerConnectionRecord>, 'broker_user_id'>,
   broker = ZERODHA_BROKER,
 ) {
   return upsertBrokerConnection(userId, {
@@ -103,7 +103,7 @@ export async function saveBrokerCredentials(
     encrypted_api_key: credentials.encrypted_api_key,
     encrypted_api_secret: credentials.encrypted_api_secret,
     credentials_saved_at: new Date().toISOString(),
-    broker_user_id: '',
+    broker_user_id: credentials.broker_user_id || '',
     broker_user_name: '',
     encrypted_access_token: null,
     token_expires_at: null,

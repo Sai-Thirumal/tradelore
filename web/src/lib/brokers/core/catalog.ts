@@ -38,7 +38,8 @@ export const BROKER_CATALOG = [
     statusPath: '/api/broker/dhan/status',
     disconnectPath: '/api/broker/dhan/disconnect',
     syncPath: '/api/broker/dhan/sync',
-    supportsOAuth: false,
+    loginPath: '/api/broker/dhan/login',
+    supportsOAuth: true,
     supportsCsvImport: false,
   },
   {

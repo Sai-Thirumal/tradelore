@@ -177,7 +177,13 @@ function ZerodhaSettingsContent() {
               </li>
               <li>
                 <strong>Set the redirect URL in Zerodha.</strong>
-                Copy the Redirect URL from the Personal App Setup section below and paste it into the app&apos;s Redirect URL field in Zerodha.
+                Paste this Redirect URL into the app&apos;s Redirect URL field in Zerodha:
+                <input
+                  className="settings-readonly-input"
+                  value={status?.redirect_url || ''}
+                  readOnly
+                  aria-label="Zerodha redirect URL"
+                />
               </li>
               <li>
                 <strong>Save credentials in TradeLore.</strong>

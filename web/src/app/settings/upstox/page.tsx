@@ -177,7 +177,13 @@ function UpstoxSettingsContent() {
               </li>
               <li>
                 <strong>Set the redirect URL.</strong>
-                Copy the Redirect URL from App Setup below and paste it into the Upstox app redirect URL field.
+                Paste this Redirect URL into the Upstox app redirect URL field:
+                <input
+                  className="settings-readonly-input"
+                  value={status?.redirect_url || ''}
+                  readOnly
+                  aria-label="Upstox redirect URL"
+                />
               </li>
               <li>
                 <strong>Save credentials in TradeLore.</strong>

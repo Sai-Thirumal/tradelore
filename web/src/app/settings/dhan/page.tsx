@@ -12,9 +12,13 @@ interface DhanStatus {
   api_key_masked: string;
   api_secret_saved: boolean;
   credentials_saved_at: string | null;
+  redirect_url?: string;
+  token_expires_at: string | null;
   last_sync_at: string | null;
   last_sync_status: string;
   last_sync_error: string;
+  broker_user_id?: string;
+  broker_user_name?: string;
 }
 
 async function readApiError(response: Response) {
@@ -25,7 +29,8 @@ async function readApiError(response: Response) {
 export default function DhanSettingsPage() {
   const [status, setStatus] = useState<DhanStatus | null>(null);
   const [clientId, setClientId] = useState('');
-  const [accessToken, setAccessToken] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [apiSecret, setApiSecret] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -61,19 +66,28 @@ export default function DhanSettingsPage() {
       const response = await fetch('/api/broker/dhan/credentials', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: clientId, api_secret: accessToken }),
+        body: JSON.stringify({ client_id: clientId, api_key: apiKey, api_secret: apiSecret }),
       });
       if (!response.ok) throw new Error(await readApiError(response));
 
       setClientId('');
-      setAccessToken('');
-      setMessage('Dhan client ID and access token saved securely.');
+      setApiKey('');
+      setApiSecret('');
+      setMessage('Dhan API credentials saved securely.');
       await loadStatus();
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Unable to save Dhan credentials.'));
     } finally {
       setSaving(false);
     }
+  };
+
+  const connect = () => {
+    if (!status?.credentials_configured) {
+      setError('Save your Dhan Client ID, API key, and API secret before connecting.');
+      return;
+    }
+    window.location.href = '/api/broker/dhan/login';
   };
 
   const disconnect = async () => {
@@ -120,7 +134,7 @@ export default function DhanSettingsPage() {
           <div>
             <Link className="settings-back-link" href="/dashboard">Back to dashboard</Link>
             <h1>Dhan Settings</h1>
-            <p>Save your Dhan Client ID and a 24-hour DhanHQ access token for read-only trade sync.</p>
+            <p>Use your DhanHQ API key and secret to reconnect through Dhan when the session expires.</p>
           </div>
           <div className="zerodha-header-actions">
             <button
@@ -131,6 +145,9 @@ export default function DhanSettingsPage() {
               onClick={() => setHelpOpen(open => !open)}
             >
               {helpOpen ? 'Hide help' : 'Help'}
+            </button>
+            <button className="auth-header-btn" onClick={connect} disabled={saving || loading || !status?.credentials_configured}>
+              Connect Dhan
             </button>
           </div>
         </header>
@@ -144,36 +161,46 @@ export default function DhanSettingsPage() {
             <div className="zerodha-help-header">
               <div>
                 <h2>How to Sync Dhan</h2>
-                <p className="settings-muted">Generate a DhanHQ access token, save it with your Client ID, then sync the trade book.</p>
+                <p className="settings-muted">Create DhanHQ app credentials, connect through Dhan, then sync the trade book.</p>
               </div>
               <button className="modal-close" type="button" aria-label="Close Dhan sync help" onClick={() => setHelpOpen(false)}>x</button>
             </div>
 
             <ol className="zerodha-help-steps">
               <li>
-                <strong>Open DhanHQ.</strong>
-                Sign in to DhanHQ and open the API access or token generation area.
+                <strong>Open DhanHQ API settings.</strong>
+                Visit Dhan Web Platform, click My Profile in the top right, and select Access DhanHQ APIs.
               </li>
               <li>
-                <strong>Copy your Client ID.</strong>
-                Use the Dhan Client ID shown in your account or DhanHQ profile.
-              </li>
-              <li>
-                <strong>Generate an access token.</strong>
-                Create a fresh DhanHQ access token. Dhan tokens are short-lived, so expect to refresh this periodically.
+                <strong>Generate credentials.</strong>
+                Toggle to the API Key tab, enter your Application Name, and paste this URL into both Redirect URL and Postback URL:
+                <input
+                  className="settings-readonly-input"
+                  value={status?.redirect_url || ''}
+                  readOnly
+                  aria-label="Dhan redirect and postback URL"
+                />
               </li>
               <li>
                 <strong>Save credentials in TradeLore.</strong>
-                Paste the Client ID and access token into Save Dhan Access, then click Save credentials.
+                Paste your Client ID, API key, and API secret into Save Dhan API Credentials, then click Save credentials.
+              </li>
+              <li>
+                <strong>Connect Dhan.</strong>
+                Click Connect Dhan, complete login/TOTP on Dhan, and Dhan will redirect back to TradeLore.
               </li>
               <li>
                 <strong>Sync your trades.</strong>
                 Click Sync Dhan. TradeLore imports Dhan trade fills and matches closed positions for analytics and journaling.
               </li>
+              <li>
+                <strong>Reconnect when needed.</strong>
+                Dhan access tokens are short-lived. Click Connect Dhan again when TradeLore shows reconnect.
+              </li>
             </ol>
 
             <div className="zerodha-help-note">
-              Save only your own Dhan token. If sync fails with an auth error, generate and save a fresh access token.
+              TradeLore stores your Dhan app credentials and daily access token. Your Dhan password, PIN, and TOTP stay on Dhan.
             </div>
           </section>
         )}
@@ -190,15 +217,19 @@ export default function DhanSettingsPage() {
               <dl className="settings-details">
                 <div>
                   <dt>Client ID</dt>
+                  <dd>{status?.broker_user_id || 'Not saved'}</dd>
+                </div>
+                <div>
+                  <dt>API key</dt>
                   <dd>{status?.api_key_masked || 'Not saved'}</dd>
                 </div>
                 <div>
-                  <dt>Access token</dt>
+                  <dt>API secret</dt>
                   <dd>{status?.api_secret_saved ? '********' : 'Not saved'}</dd>
                 </div>
                 <div>
                   <dt>Status</dt>
-                  <dd>{status?.credentials_configured ? (status.needs_reconnect ? 'Token saved' : 'Connected') : 'Not connected'}</dd>
+                  <dd>{status?.connected ? 'Connected' : status?.credentials_configured ? 'Credentials saved' : 'Not connected'}</dd>
                 </div>
                 <div>
                   <dt>Last sync</dt>
@@ -208,7 +239,7 @@ export default function DhanSettingsPage() {
             )}
 
             <div className="settings-actions">
-              <button className="auth-header-btn" onClick={syncDhan} disabled={syncing || saving || loading || !status?.credentials_configured}>
+              <button className="auth-header-btn" onClick={syncDhan} disabled={syncing || saving || loading || !status?.connected}>
                 {syncing ? 'Syncing...' : 'Sync Dhan'}
               </button>
               <button className="auth-header-btn" onClick={disconnect} disabled={saving || loading || !status?.credentials_configured}>
@@ -221,7 +252,7 @@ export default function DhanSettingsPage() {
           </div>
 
           <form className="settings-panel settings-form" onSubmit={saveCredentials}>
-            <h2>Save Dhan Access</h2>
+            <h2>Save Dhan API Credentials</h2>
             <div>
               <label>Client ID</label>
               <input
@@ -234,12 +265,23 @@ export default function DhanSettingsPage() {
               />
             </div>
             <div>
-              <label>Access token</label>
+              <label>API key</label>
+              <input
+                value={apiKey}
+                onChange={event => setApiKey(event.target.value)}
+                placeholder="Enter your Dhan API key"
+                autoComplete="off"
+                spellCheck={false}
+                required
+              />
+            </div>
+            <div>
+              <label>API secret</label>
               <input
                 type="password"
-                value={accessToken}
-                onChange={event => setAccessToken(event.target.value)}
-                placeholder="Enter your DhanHQ access token"
+                value={apiSecret}
+                onChange={event => setApiSecret(event.target.value)}
+                placeholder="Enter your Dhan API secret"
                 autoComplete="new-password"
                 spellCheck={false}
                 required
@@ -252,6 +294,16 @@ export default function DhanSettingsPage() {
               <p className="settings-muted">Broker credential encryption is not configured on the server.</p>
             )}
           </form>
+        </section>
+        <section className="settings-panel">
+          <h2>App Setup</h2>
+          <p className="settings-muted">Set this as the Redirect URL in your Dhan API key setup:</p>
+          <input
+            className="settings-readonly-input"
+            value={status?.redirect_url || ''}
+            readOnly
+            aria-label="Dhan redirect URL"
+          />
         </section>
       </section>
     </main>

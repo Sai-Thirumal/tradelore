@@ -27,7 +27,7 @@ export interface BrokerConnectionStatus {
 }
 
 export interface BrokerCredentialField {
-  key: 'api_key' | 'api_secret';
+  key: 'client_id' | 'api_key' | 'api_secret';
   label: string;
   maxChars: number;
 }

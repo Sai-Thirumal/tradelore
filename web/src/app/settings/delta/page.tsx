@@ -184,6 +184,10 @@ export default function DeltaSettingsPage() {
                 Choose a recognizable name, such as TradeLore, so you can identify and revoke it later if needed.
               </li>
               <li>
+                <strong>Redirect URL.</strong>
+                Not required for Delta API key sync.
+              </li>
+              <li>
                 <strong>Use read-only permissions.</strong>
                 Enable permissions needed to read account data, fills/trade history, products, and wallet transactions. Do not enable trading or withdrawals.
               </li>

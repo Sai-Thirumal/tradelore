@@ -155,6 +155,10 @@ export default function AngelOneSettingsPage() {
                 Sign in to Angel One SmartAPI and copy the API key for your app.
               </li>
               <li>
+                <strong>Redirect URL.</strong>
+                Not required for the current Angel One JWT token sync flow.
+              </li>
+              <li>
                 <strong>Generate a JWT token.</strong>
                 Use Angel One SmartAPI login with your client code, PIN/password, and TOTP to obtain a JWT token.
               </li>

@@ -3,7 +3,7 @@ import { isTokenExpired, todayIstDate } from '../india/kite/session.ts';
 import { KiteApiError } from '../india/kite/client.ts';
 import { syncZerodhaTrades } from '../india/kite/sync.ts';
 import { kiteFillsToTradeOrders } from '../india/kite/normalize.ts';
-import { isDhanServerConfigured } from '../india/dhan/config.ts';
+import { getDhanConfig, isDhanServerConfigured } from '../india/dhan/config.ts';
 import { DhanApiError, fetchDhanProfile } from '../india/dhan/client.ts';
 import { syncDhanTrades } from '../india/dhan/sync.ts';
 import { dhanTradesToTradeOrders } from '../india/dhan/normalize.ts';
@@ -37,8 +37,9 @@ const API_KEY_SECRET_FIELDS = [
 ] as const;
 
 const DHAN_CREDENTIAL_FIELDS = [
-  { key: 'api_key', label: 'Client ID', maxChars: 50 },
-  { key: 'api_secret', label: 'Access token', maxChars: 2000 },
+  { key: 'client_id', label: 'Client ID', maxChars: 50 },
+  { key: 'api_key', label: 'API key', maxChars: 200 },
+  { key: 'api_secret', label: 'API secret', maxChars: 500 },
 ] as const;
 
 const ANGELONE_CREDENTIAL_FIELDS = [
@@ -117,11 +118,11 @@ const dhanAdapter: BrokerAdapter<Awaited<ReturnType<typeof syncDhanTrades>>> = {
   broker: DHAN_BROKER,
   credentialFields: DHAN_CREDENTIAL_FIELDS,
   isServerConfigured: () => isDhanServerConfigured(),
-  async getStatus(userId: string) {
+  async getStatus(userId: string, context?: BrokerRuntimeContext) {
     const serverConfigured = isDhanServerConfigured();
     const connection = serverConfigured ? await fetchBrokerConnection(userId, DHAN_BROKER) : null;
     const credentialsConfigured = serverConfigured && hasBrokerCredentials(connection);
-    const connected = credentialsConfigured && isConnectedFromSyncStatus(connection?.last_sync_status);
+    const connected = credentialsConfigured && Boolean(connection?.encrypted_access_token) && !isTokenExpired(connection?.token_expires_at);
 
     return {
       server_configured: serverConfigured,
@@ -132,6 +133,7 @@ const dhanAdapter: BrokerAdapter<Awaited<ReturnType<typeof syncDhanTrades>>> = {
       api_key_masked: credentialsConfigured ? maskApiKey(getBrokerApiKey(connection)) : '',
       api_secret_saved: Boolean(connection?.encrypted_api_secret),
       credentials_saved_at: connection?.credentials_saved_at || null,
+      redirect_url: getDhanConfig(context?.origin).redirectUrl,
       token_expires_at: connection?.token_expires_at || null,
       last_sync_at: connection?.last_sync_at || null,
       last_sync_status: connection?.last_sync_status || '',
@@ -143,10 +145,10 @@ const dhanAdapter: BrokerAdapter<Awaited<ReturnType<typeof syncDhanTrades>>> = {
   async testConnection(userId: string) {
     const status = await this.getStatus(userId);
     const connection = await fetchBrokerConnection(userId, DHAN_BROKER);
-    if (hasBrokerCredentials(connection)) {
+    if (hasBrokerCredentials(connection) && connection.encrypted_access_token) {
       await fetchDhanProfile({
-        clientId: getBrokerApiKey(connection),
-        accessToken: decryptSecret(connection.encrypted_api_secret || ''),
+        clientId: connection.broker_user_id || '',
+        accessToken: decryptSecret(connection.encrypted_access_token),
       });
     }
     return status;
@@ -159,12 +161,12 @@ const dhanAdapter: BrokerAdapter<Awaited<ReturnType<typeof syncDhanTrades>>> = {
     if (error instanceof DhanApiError && (error.statusCode === 401 || error.statusCode === 403)) {
       return {
         status: 409,
-        body: { error: 'Dhan access token expired. Save a fresh Dhan access token.', needs_reconnect: true },
+        body: { error: 'Dhan session expired. Please reconnect Dhan.', needs_reconnect: true },
       };
     }
     return null;
   },
-  isConnected: (connection) => hasBrokerCredentials(connection) && isConnectedFromSyncStatus(connection.last_sync_status),
+  isConnected: (connection) => hasBrokerCredentials(connection) && Boolean(connection.encrypted_access_token) && !isTokenExpired(connection.token_expires_at),
 };
 
 const upstoxAdapter: BrokerAdapter<Awaited<ReturnType<typeof syncUpstoxTrades>>> = {

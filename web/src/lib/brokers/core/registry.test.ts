@@ -111,7 +111,7 @@ test('adapter sync errors map broker-specific retry responses', () => {
     dhan.mapSyncError?.(new DhanApiError('expired', 401, 'TokenException')),
     {
       status: 409,
-      body: { error: 'Dhan access token expired. Save a fresh Dhan access token.', needs_reconnect: true },
+      body: { error: 'Dhan session expired. Please reconnect Dhan.', needs_reconnect: true },
     },
   );
 

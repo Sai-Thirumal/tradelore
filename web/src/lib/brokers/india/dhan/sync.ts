@@ -2,7 +2,6 @@ import { runTradeOrderSyncPipeline } from '../../core/sync.ts';
 import {
   DHAN_BROKER,
   fetchBrokerConnection,
-  getBrokerApiKey,
   hasBrokerCredentials,
   updateBrokerSyncState,
 } from '../../../db/broker-connections.ts';
@@ -20,7 +19,7 @@ export interface DhanSyncResult {
 
 function dhanSyncErrorMessage(error: unknown) {
   if (error instanceof DhanApiError && (error.statusCode === 401 || error.statusCode === 403)) {
-    return 'Dhan access token expired or was rejected. Generate a new token and save it.';
+    return 'Dhan session expired or was rejected. Reconnect Dhan.';
   }
   return 'Dhan sync failed.';
 }
@@ -31,10 +30,13 @@ export async function syncDhanTrades(userId: string): Promise<DhanSyncResult> {
     if (!hasBrokerCredentials(connection)) {
       throw new DhanApiError('Dhan credentials are required before syncing.', 400, 'InputException');
     }
+    if (!connection.encrypted_access_token) {
+      throw new DhanApiError('Dhan access token is required before syncing.', 401, 'TokenException');
+    }
 
     const trades = await fetchDhanTrades({
-      clientId: getBrokerApiKey(connection),
-      accessToken: decryptSecret(connection.encrypted_api_secret || ''),
+      clientId: connection.broker_user_id || '',
+      accessToken: decryptSecret(connection.encrypted_access_token),
     });
     const newOrders = dhanTradesToTradeOrders(trades);
     const { total_orders, total_trades } = await runTradeOrderSyncPipeline({ userId, newOrders });

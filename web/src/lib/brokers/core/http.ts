@@ -35,6 +35,7 @@ export async function saveBrokerCredentialsFromRequest(
 
   const apiKeyField = broker.credentialFields.find((field) => field.key === 'api_key');
   const apiSecretField = broker.credentialFields.find((field) => field.key === 'api_secret');
+  const clientIdField = broker.credentialFields.find((field) => field.key === 'client_id');
 
   if (!apiKeyField || !apiSecretField) {
     throw new Error(`${broker.displayName} API key/secret credentials are not configured.`);
@@ -43,6 +44,7 @@ export async function saveBrokerCredentialsFromRequest(
   await saveBrokerCredentials(userId, {
     encrypted_api_key: encryptSecret(requiredString(body, apiKeyField.key, { maxChars: apiKeyField.maxChars })),
     encrypted_api_secret: encryptSecret(requiredString(body, apiSecretField.key, { maxChars: apiSecretField.maxChars })),
+    broker_user_id: clientIdField ? requiredString(body, clientIdField.key, { maxChars: clientIdField.maxChars }) : '',
   }, broker.id);
 }
 
