@@ -2655,6 +2655,9 @@ tbody.day-group + tbody.day-group .day-header-row td {
     flex: 1 1 0;
     min-width: 0;
   }
+  .header-date-range .broker-menu {
+    flex: 0 1 clamp(90px, 18vw, 128px);
+  }
   .header-date-range .drp-trigger {
     width: 100%;
     overflow: hidden;
@@ -2814,6 +2817,9 @@ tbody.day-group + tbody.day-group .day-header-row td {
     grid-row: 2;
     justify-self: start;
     gap: 6px;
+  }
+  .header-date-range .broker-menu {
+    flex-basis: clamp(72px, 22vw, 96px);
   }
   .header-date-range .drp-trigger {
     padding: 6px 8px;
