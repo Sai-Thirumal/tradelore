@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { applyDeltaFundingToTrades, normalizeDeltaFundingTransactions } from './funding.ts';
-import type { TradeRecord } from '../../types/trading.ts';
+import type { TradeRecord } from '@/lib/types/trading';
 
 function trade(overrides: Partial<TradeRecord>): TradeRecord {
   return {

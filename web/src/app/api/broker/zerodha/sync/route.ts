@@ -1,27 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthUser } from '@/lib/auth/session';
-import { KiteApiError } from '@/lib/brokers/zerodha/client';
-import { isZerodhaServerConfigured } from '@/lib/brokers/zerodha/config';
-import { syncZerodhaTrades } from '@/lib/brokers/zerodha/sync';
+import { requireBrokerAdapter } from '@/lib/brokers/core';
+import { ZERODHA_BROKER } from '@/lib/brokers/core';
 import { internalErrorResponse } from '@/lib/errors';
 
 export const runtime = 'nodejs';
+const broker = requireBrokerAdapter(ZERODHA_BROKER);
 
 export async function POST(request: NextRequest) {
   try {
     const { user, response } = await requireAuthUser();
     if (response) return response;
 
-    if (!isZerodhaServerConfigured(request.nextUrl.origin)) {
-      return NextResponse.json({ error: 'Zerodha broker sync is not configured on the server.' }, { status: 503 });
+    if (!broker.isServerConfigured({ origin: request.nextUrl.origin })) {
+      return NextResponse.json({ error: `${broker.displayName} broker sync is not configured on the server.` }, { status: 503 });
     }
 
-    const result = await syncZerodhaTrades(user.id);
+    if (!broker.sync) {
+      return NextResponse.json({ error: `${broker.displayName} sync is not supported.` }, { status: 405 });
+    }
+
+    const result = await broker.sync(user.id);
     return NextResponse.json(result);
   } catch (error: unknown) {
-    if (error instanceof KiteApiError && error.errorType === 'TokenException') {
-      return NextResponse.json({ error: 'Zerodha session expired. Please reconnect Zerodha.', needs_reconnect: true }, { status: 409 });
-    }
-    return internalErrorResponse(error, 'Unable to sync Zerodha trades.');
+    const mapped = broker.mapSyncError?.(error);
+    if (mapped) return NextResponse.json(mapped.body, { status: mapped.status });
+    return internalErrorResponse(error, `Unable to sync ${broker.displayName} trades.`);
   }
 }

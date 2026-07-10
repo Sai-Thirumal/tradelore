@@ -19,7 +19,6 @@ interface ZerodhaStatus {
   last_sync_at: string | null;
   last_sync_status: string;
   last_sync_error: string;
-  blocked_by_broker: string;
   broker_user_id: string;
   broker_user_name: string;
   today: string;
@@ -132,7 +131,6 @@ function ZerodhaSettingsContent() {
   };
 
   const connectedLabel = status?.connected && !status.needs_reconnect ? 'Connected' : 'Not connected';
-  const blockedByBroker = status?.blocked_by_broker || '';
   return (
     <main className="zerodha-settings-page">
       <section className="zerodha-settings-shell">
@@ -207,11 +205,6 @@ function ZerodhaSettingsContent() {
 
         {message && <div className="auth-alert success">{message}</div>}
         {error && <div className="auth-alert error">{error}</div>}
-        {blockedByBroker && (
-          <div className="auth-alert error">
-            You can only connect one broker at a time. Go to <Link href="/settings/broker">Broker Settings</Link> to switch from {blockedByBroker}.
-          </div>
-        )}
         <section className="settings-grid">
           <div className="settings-panel">
             <h2>Saved Credentials</h2>
@@ -273,7 +266,7 @@ function ZerodhaSettingsContent() {
                 required
               />
             </div>
-            <button className="auth-submit" type="submit" disabled={saving || loading || Boolean(blockedByBroker)}>
+            <button className="auth-submit" type="submit" disabled={saving || loading}>
               {saving ? 'Saving...' : 'Save credentials'}
             </button>
           </form>

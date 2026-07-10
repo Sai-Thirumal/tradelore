@@ -1,5 +1,5 @@
 import Papa from 'papaparse';
-import { enrichMcxMetadata } from '../../engine/mcx.ts';
+import { enrichMcxMetadata } from '../../../engine/mcx.ts';
 import type { CommodityClass, InstrumentType } from '@/lib/types/trading';
 
 export type DerivativesExchange = 'NFO' | 'BFO' | 'MCX';

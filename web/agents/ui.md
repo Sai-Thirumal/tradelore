@@ -12,7 +12,7 @@
 
 /dashboard                   Main authenticated dashboard (dashboard/page.tsx)
 ├── Dashboard tab            Stat pills, P&L charts, monthly calendar
-│   └── Header broker sync   Zerodha status chip + connect/sync button
+│   └── Header broker sync   Broker status chip + connect/sync/settings actions
 ├── Journal tab              PreMarket plan + PostTrade analysis
 │   ├── PreMarket            Date header, market outlook, bias, capital, key levels, news
 │   └── PostTrade            Expandable per-trade journal forms
@@ -23,6 +23,13 @@
 
 /login                      Focused Supabase auth page
 └── Auth panel               Sign up / Log in form, redirects to `/dashboard` by default
+
+/settings/broker            Broker picker, backed by `BROKER_CATALOG`
+├── Zerodha Settings         Personal API key/secret + Kite connect/sync + Help
+├── Dhan Settings            Client ID + access token sync + Help
+├── Upstox Settings          API key/secret + OAuth connect/sync + Help
+├── Angel One Settings       SmartAPI key + JWT token sync + Help
+└── Delta Settings           API key/secret sync + Help
 
 /trade?idx=N                Trade detail page (trade/page.tsx)
 ├── Header                   Back link, same-day trade switcher, result badge, P&L
@@ -181,27 +188,31 @@ Logged-out visitor
   → header shows Logout next to Import CSV
 ```
 
-### Zerodha day-to-day sync flow
+### Broker sync flow
 ```
 Dashboard mount
   → GET /api/broker/zerodha/status
-  → if Personal API credentials are missing, header shows Setup Zerodha
+  → GET /api/broker/delta/status
+  → if supported broker credentials exist, sync eligible brokers once quietly
   → if configured + connected + token valid, POST /api/broker/zerodha/sync once quietly
-  → sync stores Kite fills as raw trade_orders and reloads /api/trades
-  → if token expired, header shows Connect Zerodha
+  → for Dhan, Upstox, and Angel One, POST /api/broker/{broker}/sync once quietly when credentials/session state allows
+  → sync stores broker fills as raw trade_orders and reloads /api/trades
+  → if a session token expires, settings/status show the reconnect or refresh-token path for that broker
 ```
 
-Header states:
-- `Zerodha off`: server encryption/service-role env vars are missing; button disabled.
-- `Setup Zerodha`: user has not saved Personal API credentials.
-- `Connect Zerodha`: no stored token or token expired after Zerodha's daily 6 AM expiry.
-- `Sync Zerodha`: valid token exists but no successful sync is recorded yet.
+Header states for the active broker family:
+- `{Broker} off`: server encryption/service-role env vars are missing; button disabled.
+- `Setup {Broker}`: user has not saved required credentials.
+- `Connect {Broker}` / refresh-token messaging: no stored token or the broker session token expired.
+- `Sync {Broker}`: valid credentials/session exist but no successful sync is recorded yet.
 - After a successful sync, the action button is hidden and only the green `Synced` chip remains.
 - Status chip shows `Setup needed`, `Needs reconnect`, `Connected`, or `Synced` without a timestamp.
+- Broker Settings lists all registered brokers from `BROKER_CATALOG`, including Zerodha, Dhan, Upstox, Angel One, and Delta.
+- Each broker settings page exposes an expandable Help panel with setup and sync steps.
 
 Mobile header:
 - Below 768px, the header uses two rows: the TradeLore logo sits alone on the first row, and the compact Date Range, segment controls, broker status chip, and overflow `...` menu sit on the second row; below 430px, button/logo sizing tightens to avoid overlap on real phone browsers.
-- Mobile-only overflow menu contains Import CSV, Clear data, Zerodha connect/sync when needed, and Login/Logout. Desktop keeps the inline controls.
+- Mobile-only overflow menu contains Import CSV, Clear data, broker settings/connect/sync when needed, and Login/Logout. Desktop keeps the inline controls.
 - The Date Range calendar popover is viewport-centered on mobile, with a lower offset on narrow two-row headers.
 
 ### Trade ID generation

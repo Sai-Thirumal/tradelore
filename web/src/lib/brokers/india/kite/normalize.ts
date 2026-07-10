@@ -1,7 +1,7 @@
 import type { TradeOrder } from '@/lib/types/trading';
 import type { KiteTradeFill } from './client';
 import type { BrokerInstrumentIndex } from './instruments';
-import { enrichMcxMetadata } from '../../engine/mcx.ts';
+import { enrichMcxMetadata } from '../../../engine/mcx.ts';
 
 function normaliseDatetime(raw: string) {
   return raw.replace('T', ' ').split('.')[0];

@@ -1,11 +1,10 @@
-import { fetchBrokerConnection, getBrokerApiKey, hasBrokerCredentials, updateBrokerSyncState } from '@/lib/db/broker-connections';
-import { replaceTrades, retainLatestTradeMonths, storeOrders } from '@/lib/db/supabase';
-import { matchTrades } from '@/lib/engine/trade-matcher';
-import { decryptSecret } from '@/lib/security/encryption';
-import { KiteApiError, fetchKiteTrades } from './client';
-import { kiteFillsToTradeOrders } from './normalize';
-import { isTokenExpired } from './session';
-import { fetchInstrumentIndex, type DerivativesExchange } from './instruments';
+import { fetchBrokerConnection, getBrokerApiKey, hasBrokerCredentials, updateBrokerSyncState } from '../../../db/broker-connections.ts';
+import { runTradeOrderSyncPipeline } from '../../core/sync.ts';
+import { decryptSecret } from '../../../security/encryption.ts';
+import { KiteApiError, fetchKiteTrades } from './client.ts';
+import { kiteFillsToTradeOrders } from './normalize.ts';
+import { isTokenExpired } from './session.ts';
+import { fetchInstrumentIndex, type DerivativesExchange } from './instruments.ts';
 
 export interface ZerodhaSyncResult {
   imported_orders: number;
@@ -50,11 +49,10 @@ export async function syncZerodhaTrades(userId: string): Promise<ZerodhaSyncResu
     );
     const newOrders = kiteFillsToTradeOrders(fills, kiteUserId, instrumentIndexes);
 
-    await storeOrders(newOrders, userId);
-
-    const allOrders = await retainLatestTradeMonths(userId);
-    const allTrades = matchTrades(allOrders);
-    await replaceTrades(allTrades, userId);
+    const { allOrders, total_orders, total_trades } = await runTradeOrderSyncPipeline({
+      userId,
+      newOrders,
+    });
 
     const fillsWithOrderId = allOrders.filter(o => o.order_id).length;
     const uniqueOrderIds = new Set(allOrders.filter(o => o.order_id).map(o => o.order_id)).size;
@@ -68,8 +66,8 @@ export async function syncZerodhaTrades(userId: string): Promise<ZerodhaSyncResu
 
     return {
       imported_orders: newOrders.length,
-      total_orders: allOrders.length,
-      total_trades: allTrades.length,
+      total_orders,
+      total_trades,
       raw_fills: allOrders.length,
       fills_with_order_id: fillsWithOrderId,
       unique_order_ids: uniqueOrderIds,

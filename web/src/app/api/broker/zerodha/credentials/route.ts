@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAuthUser } from '@/lib/auth/session';
-import { isZerodhaServerConfigured } from '@/lib/brokers/zerodha/config';
+import { requireBrokerAdapter } from '@/lib/brokers/core';
+import { ZERODHA_BROKER } from '@/lib/brokers/core';
 import { internalErrorResponse } from '@/lib/errors';
 import {
   deleteBrokerCredentials,
@@ -17,14 +18,15 @@ import {
 export const runtime = 'nodejs';
 
 const CREDENTIAL_FIELDS = ['api_key', 'api_secret'] as const;
+const broker = requireBrokerAdapter(ZERODHA_BROKER);
 
 export async function POST(request: Request) {
   try {
     const { user, response } = await requireAuthUser();
     if (response) return response;
 
-    if (!isZerodhaServerConfigured(new URL(request.url).origin)) {
-      return NextResponse.json({ error: 'Zerodha broker sync is not configured on the server.' }, { status: 503 });
+    if (!broker.isServerConfigured({ origin: new URL(request.url).origin })) {
+      return NextResponse.json({ error: `${broker.displayName} broker sync is not configured on the server.` }, { status: 503 });
     }
 
     const body = await readJsonObject(request);
@@ -42,7 +44,7 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     const validationResponse = validationErrorResponse(error);
     if (validationResponse) return validationResponse;
-    return internalErrorResponse(error, 'Unable to save Zerodha credentials.');
+    return internalErrorResponse(error, `Unable to save ${broker.displayName} credentials.`);
   }
 }
 
@@ -51,9 +53,9 @@ export async function DELETE() {
     const { user, response } = await requireAuthUser();
     if (response) return response;
 
-    await deleteBrokerCredentials(user.id);
+    await deleteBrokerCredentials(user.id, broker.id);
     return NextResponse.json({ deleted: true });
   } catch (error: unknown) {
-    return internalErrorResponse(error, 'Unable to delete Zerodha credentials.');
+    return internalErrorResponse(error, `Unable to delete ${broker.displayName} credentials.`);
   }
 }

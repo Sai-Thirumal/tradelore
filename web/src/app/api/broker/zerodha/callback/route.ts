@@ -1,8 +1,8 @@
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthUser } from '@/lib/auth/session';
-import { KiteApiError, exchangeRequestToken } from '@/lib/brokers/zerodha/client';
-import { getNextKiteTokenExpiry } from '@/lib/brokers/zerodha/session';
+import { KiteApiError, exchangeRequestToken } from '@/lib/brokers/india/kite/client';
+import { getNextKiteTokenExpiry } from '@/lib/brokers/india/kite/session';
 import { fetchBrokerConnection, getBrokerApiKey, hasBrokerCredentials, upsertBrokerConnection } from '@/lib/db/broker-connections';
 import { decryptSecret, encryptSecret } from '@/lib/security/encryption';
 

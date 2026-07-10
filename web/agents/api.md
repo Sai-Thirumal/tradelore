@@ -9,11 +9,17 @@
 │   ├── logout/       POST  — Sign out current user
 │   └── signup/       POST  — First-100 launch signup gate
 ├── broker/
-│   └── zerodha/
-│       ├── login/    GET   — Start Kite Connect login flow
-│       ├── callback/ GET   — Exchange request_token and store encrypted daily token
-│       ├── status/   GET   — Zerodha connection metadata, no secrets
-│       └── sync/     POST  — Fetch today's Kite fills and rebuild completed trades
+│   ├── [broker]/
+│   │   ├── credentials/ POST|DELETE — Save/delete encrypted broker API credentials
+│   │   ├── disconnect/  POST        — Clear session token state while keeping credentials
+│   │   ├── status/      GET         — Broker connection metadata, no secrets
+│   │   └── sync/        POST        — Fetch broker fills and rebuild completed trades
+│   ├── zerodha/
+│   │   ├── login/       GET         — Start Kite Connect login flow
+│   │   └── callback/    GET         — Exchange request_token and store encrypted daily token
+│   └── upstox/
+│       ├── login/       GET         — Start Upstox OAuth login flow
+│       └── callback/    GET         — Exchange code and store encrypted access token
 ├── chart/            GET   — Fetch OHLC candles for underlying asset
 ├── clear/            DELETE — Wipe all trade data
 ├── daily-journal/    GET|POST — Pre-market plan by date
@@ -148,6 +154,24 @@ Deletes the saved API key, encrypted API secret, encrypted access token, and bro
 ### POST /api/broker/zerodha/disconnect
 Deletes only the encrypted access token and broker user metadata; keeps the saved API key and encrypted API secret.
 
+### Generic Broker Adapter Routes
+The adapter-backed routes support `zerodha`, `dhan`, `upstox`, `angelone`, and `delta` where each broker is registered in `lib/brokers/core/registry.ts`.
+
+- `GET /api/broker/[broker]/status` returns sanitized connection metadata.
+- `POST /api/broker/[broker]/credentials` saves encrypted credential fields defined by the broker adapter.
+- `DELETE /api/broker/[broker]/credentials` deletes saved credential/session fields.
+- `POST /api/broker/[broker]/disconnect` clears connected/session state while keeping saved credentials.
+- `POST /api/broker/[broker]/sync` runs the broker sync adapter, stores raw fills idempotently, runs `matchTrades()`, and replaces completed trades.
+
+Broker credential meanings:
+- Zerodha: API key + API secret; login/callback stores daily access token.
+- Dhan: Client ID + DhanHQ access token.
+- Upstox: API key + API secret; login/callback stores access token.
+- Angel One: SmartAPI key + JWT token.
+- Delta: API key + API secret.
+
+Angel One sync calls SmartAPI `getTradeBook`, normalizes fills into `TradeOrder[]`, and follows the common sync pipeline. It intentionally does not store Angel One PIN/TOTP; users provide a fresh JWT token when needed.
+
 **Response:** `Trade[]`
 ```json
 [{
@@ -162,12 +186,12 @@ Deletes only the encrypted access token and broker user metadata; keeps the save
 ```
 
 ### POST /api/import
-Upload a Zerodha/Kite tradebook CSV file. Full pipeline: parse → store orders → fetch all orders → match trades → replace trades.
+Upload a supported broker CSV file. Full pipeline: parse → store orders → fetch all orders → match trades → replace trades.
 
-**Request:** `multipart/form-data` with `broker=zerodha` and `file` field (CSV)
+**Request:** `multipart/form-data` with `broker=zerodha` or `broker=delta` and `file` field (CSV)
 
 **Validation:**
-- Supported broker: Zerodha only (`broker=zerodha`)
+- Supported CSV brokers: Zerodha and Delta only (`broker=zerodha|delta`)
 - Max file size: 10 MB (`413`)
 - Max data rows: 50,000 (`413`)
 - Required Zerodha columns: symbol, exchange, trade_date, trade_type, quantity, price, trade_id, order_id, and order_execution_time (`400`)

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { JsonRecord } from '../../types/trading.ts';
+import type { JsonRecord } from '@/lib/types/trading';
 import type { DeltaCredentials, DeltaProduct } from './client.ts';
 import { fetchDeltaProduct, fetchDeltaProducts } from './client.ts';
 
@@ -19,7 +19,7 @@ export interface DeltaProductMetadata {
 }
 
 async function getSupabase(): Promise<SupabaseClient> {
-  const { createServiceClient } = await import('../../supabase/service.ts');
+  const { createServiceClient } = await import('../../../supabase/service.ts');
   return createServiceClient();
 }
 

@@ -10,7 +10,7 @@ import type { Chart, Plugin, ScriptableLineSegmentContext } from 'chart.js';
 import { getErrorMessage } from '@/lib/errors';
 import { fmtMoney, fmtPrice, fmtDateLabel, fmtDateChart } from '@/lib/ui/format';
 import { computeStats, filterTradesByDateRange } from '@/lib/compute/stats';
-import { isDeltaAutoSyncDue } from '@/lib/brokers/delta/autosync';
+import { isDeltaAutoSyncDue } from '@/lib/brokers/crypto/delta/autosync';
 import {
   filterTradesForScope,
   getScopeCurrency,
@@ -93,6 +93,11 @@ interface SyncResult extends ImportResult {
   synced_at: string;
 }
 
+interface BrokerAutoSyncStatus {
+  credentials_configured: boolean;
+  connected?: boolean;
+}
+
 function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -145,6 +150,9 @@ function DashboardContent() {
   const dailyChartRef = useRef<Chart<'bar'> | null>(null);
 
   const autoZerodhaSyncRef = useRef(false);
+  const autoDhanSyncRef = useRef(false);
+  const autoUpstoxSyncRef = useRef(false);
+  const autoAngelOneSyncRef = useRef(false);
   const autoDeltaSyncRef = useRef(false);
 
   const selectDashboardView = (nextView: DashboardView) => {
@@ -450,6 +458,20 @@ function DashboardContent() {
     }
   }, [deltaSyncing, loadDeltaStatus, loadTrades, showToast]);
 
+  const autoSyncBroker = useCallback(async (broker: 'dhan' | 'upstox' | 'angelone', canSync: (status: BrokerAutoSyncStatus) => boolean) => {
+    try {
+      const statusResponse = await fetch(`/api/broker/${broker}/status`, { cache: 'no-store' });
+      if (!statusResponse.ok) return;
+      const status = await statusResponse.json() as BrokerAutoSyncStatus;
+      if (!canSync(status)) return;
+
+      const syncResponse = await fetch(`/api/broker/${broker}/sync`, { method: 'POST' });
+      if (syncResponse.ok) await loadTrades();
+    } catch {
+      // silent autosync; settings pages show the stored sync error when needed.
+    }
+  }, [loadTrades]);
+
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     router.push('/login');
@@ -504,6 +526,30 @@ function DashboardContent() {
       await syncZerodha(true);
     });
   }, [loadZerodhaStatus, syncZerodha]);
+
+  useEffect(() => {
+    void Promise.resolve().then(async () => {
+      if (autoDhanSyncRef.current) return;
+      autoDhanSyncRef.current = true;
+      await autoSyncBroker('dhan', (status) => status.credentials_configured);
+    });
+  }, [autoSyncBroker]);
+
+  useEffect(() => {
+    void Promise.resolve().then(async () => {
+      if (autoUpstoxSyncRef.current) return;
+      autoUpstoxSyncRef.current = true;
+      await autoSyncBroker('upstox', (status) => status.credentials_configured && Boolean(status.connected));
+    });
+  }, [autoSyncBroker]);
+
+  useEffect(() => {
+    void Promise.resolve().then(async () => {
+      if (autoAngelOneSyncRef.current) return;
+      autoAngelOneSyncRef.current = true;
+      await autoSyncBroker('angelone', (status) => status.credentials_configured);
+    });
+  }, [autoSyncBroker]);
 
   useEffect(() => {
     void Promise.resolve().then(async () => {

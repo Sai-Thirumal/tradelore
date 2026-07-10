@@ -1,11 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { DeltaFundingTransaction } from '@/lib/brokers/delta/funding';
-import { latestTradeRetentionKeysByBroker, tradeRetentionKey } from '@/lib/engine/trade-retention';
-import { createClient as createServerSupabaseClient } from '@/lib/supabase/server';
+import type { DeltaFundingTransaction } from '@/lib/brokers/crypto/delta/funding';
+import { latestTradeRetentionKeysByBroker, tradeRetentionKey } from '../engine/trade-retention.ts';
 import type { JsonRecord, PlaybookRecord, TradeJournalRecord, TradeOrder, TradeRecord } from '@/lib/types/trading';
 
 async function getSupabase(): Promise<SupabaseClient | null> {
   try {
+    const { createClient: createServerSupabaseClient } = await import('../supabase/server.ts');
     return await createServerSupabaseClient();
   } catch {
     return null;

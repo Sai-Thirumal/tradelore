@@ -2,14 +2,14 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { listBrokerCatalogEntries } from '@/lib/brokers/core/catalog';
+import type { KnownBrokerId } from '@/lib/brokers/core/types';
 
-const BROKER_LINKS = {
-  zerodha: '/settings/zerodha',
-  delta: '/settings/delta',
-} as const;
+const BROKERS = listBrokerCatalogEntries();
 
 export default function BrokerSettingsPage() {
-  const [broker, setBroker] = useState<keyof typeof BROKER_LINKS>('zerodha');
+  const [broker, setBroker] = useState<KnownBrokerId>('zerodha');
+  const selectedBroker = BROKERS.find((entry) => entry.id === broker) || BROKERS[0];
 
   return (
     <main className="zerodha-settings-page">
@@ -24,35 +24,25 @@ export default function BrokerSettingsPage() {
 
         <section
           className="settings-panel settings-form broker-settings-panel"
-          style={{ width: 'min(420px, 100%)', margin: '0 auto' }}
         >
           <h2>Select a Broker</h2>
           <div>
-            <label style={{ display: 'block', marginBottom: '6px' }}>Broker</label>
+            <label>Broker</label>
             <select
               className="broker-settings-select"
               value={broker}
-              onChange={(event) => setBroker(event.target.value as keyof typeof BROKER_LINKS)}
-              style={{
-                width: '100%',
-                height: '44px',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)',
-                padding: '0 12px',
-                background: 'var(--surface)',
-                color: 'var(--text)',
-                fontFamily: 'var(--font)',
-                fontSize: '14px',
-              }}
+              onChange={(event) => setBroker(event.target.value as KnownBrokerId)}
             >
-              <option value="zerodha">Zerodha</option>
-              <option value="delta">Delta Exchange</option>
+              {BROKERS.map((entry) => (
+                <option key={entry.id} value={entry.id}>
+                  {entry.displayName} - {entry.market === 'india' ? 'Indian Markets' : 'Crypto'}
+                </option>
+              ))}
             </select>
           </div>
           <Link
             className="auth-submit broker-settings-submit"
-            href={BROKER_LINKS[broker]}
-            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', textDecoration: 'none' }}
+            href={selectedBroker.settingsPath}
           >
             Continue
           </Link>

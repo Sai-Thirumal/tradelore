@@ -11,7 +11,6 @@ interface DeltaStatus {
   api_key_masked: string;
   api_secret_saved: boolean;
   credentials_saved_at: string | null;
-  blocked_by_broker: string;
   last_sync_at: string | null;
   last_sync_status: string;
   last_sync_error: string;
@@ -139,8 +138,6 @@ export default function DeltaSettingsPage() {
     }
   };
 
-  const blockedByBroker = status?.blocked_by_broker || '';
-
   return (
     <main className="zerodha-settings-page">
       <section className="zerodha-settings-shell">
@@ -212,11 +209,6 @@ export default function DeltaSettingsPage() {
 
         {message && <div className="auth-alert success">{message}</div>}
         {error && <div className="auth-alert error">{error}</div>}
-        {blockedByBroker && (
-          <div className="auth-alert error">
-            You can only connect one broker at a time. Go to <Link href="/settings/broker">Broker Settings</Link> to switch from {blockedByBroker}.
-          </div>
-        )}
         <section className="settings-grid">
           <div className="settings-panel">
             <h2>Connection</h2>
@@ -285,7 +277,7 @@ export default function DeltaSettingsPage() {
                 required
               />
             </div>
-            <button className="auth-submit" type="submit" disabled={saving || loading || !status?.server_configured || Boolean(blockedByBroker)}>
+            <button className="auth-submit" type="submit" disabled={saving || loading || !status?.server_configured}>
               {saving ? 'Saving...' : 'Save credentials'}
             </button>
             {!status?.server_configured && !loading && (

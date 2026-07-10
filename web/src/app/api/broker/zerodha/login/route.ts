@@ -2,8 +2,8 @@ import { randomBytes } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthUser } from '@/lib/auth/session';
 import { getInternalRedirectPath } from '@/lib/auth/redirect';
-import { createKiteLoginUrl } from '@/lib/brokers/zerodha/client';
-import { isZerodhaServerConfigured } from '@/lib/brokers/zerodha/config';
+import { createKiteLoginUrl } from '@/lib/brokers/india/kite/client';
+import { isZerodhaServerConfigured } from '@/lib/brokers/india/kite/config';
 import { fetchBrokerConnection, getBrokerApiKey, hasBrokerCredentials } from '@/lib/db/broker-connections';
 
 export const runtime = 'nodejs';

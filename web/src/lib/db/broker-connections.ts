@@ -1,9 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { createServiceClient } from '@/lib/supabase/service';
-import { decryptSecret } from '@/lib/security/encryption';
+import { createServiceClient } from '../supabase/service.ts';
+import { decryptSecret } from '../security/encryption.ts';
+import { ANGELONE_BROKER, ZERODHA_BROKER, DHAN_BROKER, UPSTOX_BROKER, DELTA_BROKER } from '../brokers/core/types.ts';
 
-export const ZERODHA_BROKER = 'zerodha';
-export const DELTA_BROKER = 'delta';
+export { ANGELONE_BROKER, ZERODHA_BROKER, DHAN_BROKER, UPSTOX_BROKER, DELTA_BROKER };
 
 export interface BrokerConnectionRecord {
   id?: string;
@@ -68,19 +68,6 @@ export async function fetchBrokerConnections(userId: string): Promise<BrokerConn
 
   if (error) throw error;
   return (data || []) as BrokerConnectionRecord[];
-}
-
-export function findOtherConfiguredBroker(connections: BrokerConnectionRecord[], broker: string) {
-  return connections.find((connection) =>
-    connection.broker !== broker
-    && Boolean(connection.encrypted_access_token || connection.encrypted_api_key || connection.api_key),
-  )?.broker || '';
-}
-
-export class BrokerSwitchRequiredError extends Error {
-  constructor(public broker: string) {
-    super(`You can only connect one broker at a time. Go to Broker Settings to switch from ${broker}.`);
-  }
 }
 
 export async function upsertBrokerConnection(

@@ -6,7 +6,7 @@ import {
   normalizeDeltaProduct,
   type DeltaProductMetadata,
 } from './products.ts';
-import type { TradeOrder } from '../../types/trading.ts';
+import type { TradeOrder } from '@/lib/types/trading';
 
 const HEADER_ALIASES: Record<string, string> = {
   id: 'id',

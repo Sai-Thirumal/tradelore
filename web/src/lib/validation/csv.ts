@@ -1,6 +1,6 @@
 import Papa from 'papaparse';
 import { RequestValidationError } from './request';
-import { isDeltaCsvHeaders } from '@/lib/brokers/delta/csv';
+import { isDeltaCsvHeaders } from '@/lib/brokers/crypto/delta/csv';
 
 export const MAX_CSV_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const MAX_CSV_ROWS = 50_000;

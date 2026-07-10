@@ -1,6 +1,6 @@
 # TradeLore
 
-A trading journal and analytics dashboard for Indian markets. Import broker CSV files, track P&L, journal every trade, build repeatable playbooks, and visualise performance — all in one place.
+A trading journal and analytics dashboard for Indian markets and crypto derivatives. Import broker files or sync supported broker APIs, track P&L, journal every trade, build repeatable playbooks, and visualise performance — all in one place.
 
 **Live:** [web-phi-one-12.vercel.app](https://web-phi-one-12.vercel.app)
 
@@ -25,12 +25,14 @@ A trading journal and analytics dashboard for Indian markets. Import broker CSV 
 
 ## How it works
 
-### 1. Import your broker CSV
-Sign in, then upload a Zerodha/Kite tradebook CSV. TradeLore parses every row, collapses partial exchange fills by order ID, runs a position tracker, and builds completed trades scoped to your account.
+### 1. Import or sync your broker data
+Sign in, then upload a supported broker CSV or connect a broker API. TradeLore parses every fill, collapses partial exchange fills by order ID, runs a position tracker, and builds completed trades scoped to your account.
 
 ```
-Broker CSV → Parse rows → Collapse fills → Position tracker → Completed trades
+Broker CSV/API fills → Parse rows → Collapse fills → Position tracker → Completed trades
 ```
+
+Supported broker surfaces include Zerodha, Dhan, Upstox, Angel One, and Delta. CSV import currently supports Zerodha and Delta.
 
 ### 2. Dashboard
 Real-time stats and charts that update when you filter by date range. Cumulative net P&L curve, daily net bar chart, monthly calendar heatmap with weekly P&L totals.
@@ -169,7 +171,7 @@ Run these SQL files in your Supabase SQL Editor (in order):
 1. `sql/setup-journal.sql` — creates all tables
 2. `sql/playbooks-migration.sql` — expands playbooks schema + seeds 3 examples
 3. `sql/multi-user-auth.sql` — adds `user_id`, per-user unique indexes, commission columns, and RLS policies
-4. `sql/broker-connections.sql` — encrypted per-user Zerodha connection metadata
+4. `sql/broker-connections.sql` — encrypted per-user broker connection metadata
 5. `sql/03_mcx_support.sql` — MCX instrument metadata, contract multipliers, and calculation warnings
 
 If old imported data does not need to be preserved, run `multi-user-auth.sql` as-is. The commented backfill block is only for assigning old rows to a first user. Existing projects should rerun the latest `multi-user-auth.sql` once to remove any legacy `Allow all` or `public_access` RLS policies.

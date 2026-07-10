@@ -214,7 +214,7 @@ CREATE UNIQUE INDEX idx_daily_journal_user_date ON public.daily_journal(user_id,
 ---
 
 ### `broker_connections`
-Per-user broker connection metadata. Zerodha Personal API secrets and daily access tokens are encrypted server-side; API responses return only masked/sanitized metadata.
+Per-user broker connection metadata. Broker API secrets/tokens are encrypted server-side; API responses return only masked/sanitized metadata.
 
 ```sql
 CREATE TABLE public.broker_connections (
@@ -222,6 +222,7 @@ CREATE TABLE public.broker_connections (
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   broker text NOT NULL,
   api_key text DEFAULT '',
+  encrypted_api_key text,
   encrypted_api_secret text,
   credentials_saved_at timestamptz,
   broker_user_id text DEFAULT '',
@@ -231,6 +232,7 @@ CREATE TABLE public.broker_connections (
   last_sync_at timestamptz,
   last_sync_status text DEFAULT '',
   last_sync_error text DEFAULT '',
+  last_sync_cursor text DEFAULT '',
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),
   UNIQUE(user_id, broker)
@@ -239,9 +241,10 @@ CREATE INDEX idx_broker_connections_user_broker ON public.broker_connections(use
 ```
 
 **Security invariants:**
-- `encrypted_api_secret` and `encrypted_access_token` are encrypted server-side with `BROKER_TOKEN_ENCRYPTION_KEY` using AES-256-GCM.
+- `encrypted_api_key`, `encrypted_api_secret`, and `encrypted_access_token` are encrypted server-side with `BROKER_TOKEN_ENCRYPTION_KEY` using AES-256-GCM.
 - Direct client access to `broker_connections` is revoked; server routes use the Supabase service role and filter by the authenticated user id.
 - API responses expose only masked API key, booleans, broker metadata, and sync state; never raw API secret or access token.
+- Registered broker IDs are `zerodha`, `dhan`, `upstox`, `angelone`, and `delta`.
 
 ---
 

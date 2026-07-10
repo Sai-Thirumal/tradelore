@@ -7,7 +7,7 @@ import {
   deltaDateTimeToUnix,
   fetchDeltaCandles,
   isDeltaChartExchange,
-} from '@/lib/brokers/delta/candles';
+} from '@/lib/brokers/crypto/delta/candles';
 
 interface YahooChartResult {
   timestamp?: number[];

@@ -1,17 +1,18 @@
+import { runTradeOrderSyncPipeline } from '../../core/sync.ts';
 import {
   DELTA_BROKER,
   fetchBrokerConnection,
   getBrokerApiKey,
   hasBrokerCredentials,
   updateBrokerSyncState,
-} from '@/lib/db/broker-connections';
-import { fetchDeltaFundingTransactions, replaceTrades, retainLatestTradeMonths, storeDeltaFundingTransactions, storeOrders } from '@/lib/db/supabase';
-import { matchTrades } from '@/lib/engine/trade-matcher';
-import { decryptSecret } from '@/lib/security/encryption';
-import { DeltaApiError, fetchDeltaFillsPage, fetchDeltaWalletTransactionsPage, paginateDeltaFills, paginateDeltaWalletTransactions } from './client';
-import { applyDeltaFundingToTrades, normalizeDeltaFundingTransactions } from './funding';
-import { deltaFillsToTradeOrders } from './normalize';
-import { loadDeltaProductCache } from './products';
+} from '../../../db/broker-connections.ts';
+import { fetchDeltaFundingTransactions, storeDeltaFundingTransactions } from '../../../db/supabase.ts';
+import { matchTrades } from '../../../engine/trade-matcher.ts';
+import { decryptSecret } from '../../../security/encryption.ts';
+import { DeltaApiError, fetchDeltaFillsPage, fetchDeltaWalletTransactionsPage, paginateDeltaFills, paginateDeltaWalletTransactions } from './client.ts';
+import { applyDeltaFundingToTrades, normalizeDeltaFundingTransactions } from './funding.ts';
+import { deltaFillsToTradeOrders } from './normalize.ts';
+import { loadDeltaProductCache } from './products.ts';
 
 // ponytail: process-local lock; use a DB advisory lock if multi-instance sync races matter.
 const activeSyncs = new Set<string>();
@@ -77,13 +78,16 @@ export async function syncDeltaFills(userId: string): Promise<DeltaSyncResult> {
     const fundingTransactions = await fetchFundingTransactions(credentials);
     const newOrders = deltaFillsToTradeOrders(fills, products);
 
-    await storeOrders(newOrders, userId);
     await storeDeltaFundingTransactions(fundingTransactions, userId);
 
-    const allOrders = await retainLatestTradeMonths(userId);
-    const allFunding = await fetchDeltaFundingTransactions(userId);
-    const allTrades = applyDeltaFundingToTrades(matchTrades(allOrders), allFunding);
-    await replaceTrades(allTrades, userId);
+    const { total_orders, total_trades } = await runTradeOrderSyncPipeline({
+      userId,
+      newOrders,
+      async buildTrades(allOrders) {
+        const allFunding = await fetchDeltaFundingTransactions(userId);
+        return applyDeltaFundingToTrades(matchTrades(allOrders), allFunding);
+      },
+    });
 
     const syncedAt = new Date().toISOString();
     await updateBrokerSyncState(userId, {
@@ -97,8 +101,8 @@ export async function syncDeltaFills(userId: string): Promise<DeltaSyncResult> {
       imported_orders: newOrders.length,
       imported_fills: fills.length,
       imported_funding_transactions: fundingTransactions.length,
-      total_orders: allOrders.length,
-      total_trades: allTrades.length,
+      total_orders,
+      total_trades,
       cursor,
       synced_at: syncedAt,
     };

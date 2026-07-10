@@ -1,4 +1,4 @@
-import { hasSupabaseServiceRoleEnv } from '@/lib/supabase/env';
+import { hasSupabaseServiceRoleEnv } from '../../../supabase/env.ts';
 
 export interface ZerodhaConfig {
   redirectUrl: string;

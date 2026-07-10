@@ -1,5 +1,5 @@
--- Broker connections for per-user Zerodha/Kite Personal API credentials.
--- API keys, API secrets, and daily access tokens are encrypted server-side before storage.
+-- Broker connections for per-user broker API credentials and session tokens.
+-- API keys, API secrets, access tokens, and JWT tokens are encrypted server-side before storage.
 -- Do not expose this table directly to clients; use server API routes that return
 -- sanitized metadata only.
 

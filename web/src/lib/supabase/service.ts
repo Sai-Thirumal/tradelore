@@ -1,5 +1,5 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import { getSupabaseServiceRoleKey, getSupabaseUrl } from './env';
+import { getSupabaseServiceRoleKey, getSupabaseUrl } from './env.ts';
 
 export function createServiceClient() {
   const url = getSupabaseUrl().trim();
