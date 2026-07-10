@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "web-phi-one-12.vercel.app"
+        }
+      ],
+      "destination": "https://www.tradelore.co.in/:path*",
+      "permanent": false
+    }
+  ]
+}
