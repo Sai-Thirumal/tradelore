@@ -104,6 +104,24 @@ function UpstoxSettingsContent() {
     }
   };
 
+  const deleteCredentials = async () => {
+    if (!confirm('Delete saved Upstox credentials and disconnect Upstox?')) return;
+    setSaving(true);
+    setMessage('');
+    setError('');
+
+    try {
+      const response = await fetch('/api/broker/upstox/credentials', { method: 'DELETE' });
+      if (!response.ok) throw new Error(await readApiError(response));
+      setMessage('Upstox credentials deleted.');
+      await loadStatus();
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Unable to delete Upstox credentials.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const connect = () => {
     if (!status?.credentials_configured) {
       setError('Save your Upstox API key and secret before connecting.');
@@ -240,6 +258,9 @@ function UpstoxSettingsContent() {
               </button>
               <button className="auth-header-btn" onClick={disconnect} disabled={saving || loading || !status?.credentials_configured}>
                 Disconnect Upstox
+              </button>
+              <button className="settings-danger-btn" onClick={deleteCredentials} disabled={saving || loading || !status?.credentials_configured}>
+                Delete credentials
               </button>
             </div>
             {status?.last_sync_status === 'error' && status.last_sync_error && (

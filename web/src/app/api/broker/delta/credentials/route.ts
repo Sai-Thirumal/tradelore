@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuthUser } from '@/lib/auth/session';
 import { requireBrokerAdapter } from '@/lib/brokers/core';
 import { DELTA_BROKER } from '@/lib/brokers/core';
-import { saveBrokerCredentials } from '@/lib/db/broker-connections';
+import { deleteBrokerCredentials, saveBrokerCredentials } from '@/lib/db/broker-connections';
 import { encryptSecret } from '@/lib/security/encryption';
 import {
   readJsonObject,
@@ -39,5 +39,17 @@ export async function POST(request: Request) {
     const validationResponse = validationErrorResponse(error);
     if (validationResponse) return validationResponse;
     return internalErrorResponse(error, `Unable to save ${broker.displayName} credentials.`);
+  }
+}
+
+export async function DELETE() {
+  try {
+    const { user, response } = await requireAuthUser();
+    if (response) return response;
+
+    await deleteBrokerCredentials(user.id, broker.id);
+    return NextResponse.json({ deleted: true });
+  } catch (error: unknown) {
+    return internalErrorResponse(error, `Unable to delete ${broker.displayName} credentials.`);
   }
 }

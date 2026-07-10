@@ -18,7 +18,7 @@ const RATE_LIMIT_RULES: Array<{ method: string; pattern: RegExp; name: string; r
   { method: 'DELETE', pattern: /^\/api\/clear$/, name: 'clear', rule: { limit: 3, windowMs: 60 * 60 * 1000 } },
   { method: 'POST', pattern: /^\/api\/broker\/(?:delta|zerodha|dhan|upstox|angelone)\/sync$/, name: 'broker-sync', rule: { limit: 10, windowMs: 10 * 60 * 1000 } },
   { method: 'POST', pattern: /^\/api\/broker\/(?:delta|zerodha|dhan|upstox|angelone)\/credentials$/, name: 'broker-credentials-save', rule: { limit: 10, windowMs: 60 * 60 * 1000 } },
-  { method: 'DELETE', pattern: /^\/api\/broker\/(?:zerodha|dhan|upstox|angelone)\/credentials$/, name: 'broker-credentials-delete', rule: { limit: 10, windowMs: 60 * 60 * 1000 } },
+  { method: 'DELETE', pattern: /^\/api\/broker\/(?:delta|zerodha|dhan|upstox|angelone)\/credentials$/, name: 'broker-credentials-delete', rule: { limit: 10, windowMs: 60 * 60 * 1000 } },
 ];
 
 function clientIp(request: NextRequest) {

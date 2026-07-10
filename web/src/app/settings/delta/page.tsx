@@ -78,15 +78,15 @@ export default function DeltaSettingsPage() {
   };
 
   const disconnect = async () => {
-    if (!confirm('Disconnect Delta and delete saved Delta credentials?')) return;
+    if (!confirm('Delete saved Delta credentials?')) return;
     setSaving(true);
     setMessage('');
     setError('');
 
     try {
-      const response = await fetch('/api/broker/delta/disconnect', { method: 'POST' });
+      const response = await fetch('/api/broker/delta/credentials', { method: 'DELETE' });
       if (!response.ok) throw new Error(await readApiError(response));
-      setMessage('Delta disconnected.');
+      setMessage('Delta credentials deleted.');
       await loadStatus();
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Unable to disconnect Delta.'));
@@ -247,8 +247,8 @@ export default function DeltaSettingsPage() {
               <button className="auth-header-btn" onClick={() => fileInputRef.current?.click()} disabled={syncing || saving || loading}>
                 Import Delta CSV
               </button>
-              <button className="auth-header-btn" onClick={disconnect} disabled={saving || loading || !status?.credentials_configured}>
-                Disconnect Delta
+              <button className="settings-danger-btn" onClick={disconnect} disabled={saving || loading || !status?.credentials_configured}>
+                Delete credentials
               </button>
             </div>
             {status?.last_sync_status === 'error' && status.last_sync_error && (

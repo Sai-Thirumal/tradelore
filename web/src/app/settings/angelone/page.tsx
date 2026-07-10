@@ -94,6 +94,24 @@ export default function AngelOneSettingsPage() {
     }
   };
 
+  const deleteCredentials = async () => {
+    if (!confirm('Delete saved Angel One credentials and disconnect Angel One?')) return;
+    setSaving(true);
+    setMessage('');
+    setError('');
+
+    try {
+      const response = await fetch('/api/broker/angelone/credentials', { method: 'DELETE' });
+      if (!response.ok) throw new Error(await readApiError(response));
+      setMessage('Angel One credentials deleted.');
+      await loadStatus();
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Unable to delete Angel One credentials.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const syncAngelOne = async () => {
     setSyncing(true);
     setMessage('');
@@ -217,6 +235,9 @@ export default function AngelOneSettingsPage() {
               </button>
               <button className="auth-header-btn" onClick={disconnect} disabled={saving || loading || !status?.credentials_configured}>
                 Disconnect Angel One
+              </button>
+              <button className="settings-danger-btn" onClick={deleteCredentials} disabled={saving || loading || !status?.credentials_configured}>
+                Delete credentials
               </button>
             </div>
             {status?.last_sync_status === 'error' && status.last_sync_error && (

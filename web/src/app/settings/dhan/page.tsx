@@ -73,7 +73,7 @@ export default function DhanSettingsPage() {
       setClientId('');
       setApiKey('');
       setApiSecret('');
-      setMessage('Dhan API credentials saved securely.');
+      setMessage('Dhan API credentials saved securely. Connect Dhan before syncing.');
       await loadStatus();
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Unable to save Dhan credentials.'));
@@ -88,6 +88,24 @@ export default function DhanSettingsPage() {
       return;
     }
     window.location.href = '/api/broker/dhan/login';
+  };
+
+  const deleteCredentials = async () => {
+    if (!confirm('Delete saved Dhan credentials and disconnect Dhan?')) return;
+    setSaving(true);
+    setMessage('');
+    setError('');
+
+    try {
+      const response = await fetch('/api/broker/dhan/credentials', { method: 'DELETE' });
+      if (!response.ok) throw new Error(await readApiError(response));
+      setMessage('Dhan credentials deleted.');
+      await loadStatus();
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Unable to delete Dhan credentials.'));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const disconnect = async () => {
@@ -244,6 +262,9 @@ export default function DhanSettingsPage() {
               </button>
               <button className="auth-header-btn" onClick={disconnect} disabled={saving || loading || !status?.credentials_configured}>
                 Disconnect Dhan
+              </button>
+              <button className="settings-danger-btn" onClick={deleteCredentials} disabled={saving || loading || !status?.credentials_configured}>
+                Delete credentials
               </button>
             </div>
             {status?.last_sync_status === 'error' && status.last_sync_error && (
