@@ -672,11 +672,11 @@ function DashboardContent() {
     const status = brokerStatuses[brokerFilter];
     if (!broker || !status?.server_configured) return null;
     const label = !status.credentials_configured
-      ? `${broker.displayName} setup needed`
+      ? 'setup needed'
       : status.needs_reconnect
-      ? `${broker.displayName} reconnect`
-      : status.last_sync_at ? `${broker.displayName} synced` : `${broker.displayName} connected`;
-    return <span className={`broker-status ${!status.credentials_configured || status.needs_reconnect || status.connected === false ? 'warn' : 'ok'}`}>{label}</span>;
+      ? 'reconnect'
+      : status.last_sync_at ? 'synced' : 'connected';
+    return <span className={`broker-status ${!status.credentials_configured || status.needs_reconnect || status.connected === false ? 'warn' : 'ok'}`}><span className="broker-status-name">{broker.displayName} </span>{label}</span>;
   };
 
   const reconnectZerodha = () => {
