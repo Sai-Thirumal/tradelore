@@ -2625,7 +2625,7 @@ tbody.day-group + tbody.day-group .day-header-row td {
   .stat-pill .sp-viz svg { width: 36px; height: 36px; }
   .header {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) 76px 34px;
     row-gap: 12px;
     column-gap: 10px;
     padding: 14px;
@@ -2653,19 +2653,30 @@ tbody.day-group + tbody.day-group .day-header-row td {
   .header-date-range .segment-menu {
     flex: 0 0 auto;
   }
+  .header-date-range .drp-trigger {
+    width: clamp(108px, 20vw, 150px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .segment-menu-trigger {
-    min-width: 122px;
-    max-width: 150px;
+    width: clamp(108px, 20vw, 150px);
     font-size: 11px;
   }
   .broker-menu-trigger {
-    min-width: 116px;
-    max-width: 144px;
+    width: clamp(88px, 18vw, 130px);
   }
   .dashboard-broker-controls {
     grid-column: 2;
     grid-row: 2;
     justify-self: end;
+    min-width: 0;
+  }
+  .header .broker-status {
+    display: block;
+    width: 76px;
+    overflow: hidden;
+    text-align: center;
+    text-overflow: ellipsis;
   }
   .header-actions-menu {
     grid-column: 3;
@@ -2782,7 +2793,7 @@ tbody.day-group + tbody.day-group .day-header-row td {
 /* Narrow phones: keep the logo on its own row and compact the controls below it */
 @media (max-width: 430px) {
   .header {
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) 62px 30px;
     row-gap: 10px;
     column-gap: 6px;
     padding: 12px 10px;
@@ -2803,21 +2814,19 @@ tbody.day-group + tbody.day-group .day-header-row td {
     gap: 6px;
   }
   .header-date-range .drp-trigger {
-    max-width: 118px;
+    width: clamp(86px, 26vw, 118px);
     padding: 6px 8px;
     font-size: 10px;
     overflow: hidden;
     text-overflow: ellipsis;
   }
   .segment-menu-trigger {
-    min-width: 92px;
-    max-width: 106px;
+    width: clamp(78px, 25vw, 106px);
     padding: 0 24px 0 8px;
     font-size: 10px;
   }
   .broker-menu-trigger {
-    min-width: 96px;
-    max-width: 110px;
+    width: clamp(64px, 20vw, 90px);
   }
   .dashboard-broker-controls {
     grid-column: 2;
@@ -2825,6 +2834,7 @@ tbody.day-group + tbody.day-group .day-header-row td {
     gap: 5px;
   }
   .header .broker-status {
+    width: 62px;
     padding: 4px 7px;
     font-size: 10px;
   }
