@@ -297,7 +297,8 @@ function DashboardContent() {
 
   useEffect(() => {
     queueMicrotask(() => {
-      const filtered = filterTradesForScope(filterTradesByDateRange(allTrades, customStart, customEnd), brokerFilter, scopedSegmentFilter);
+      const nextSegmentFilter = segmentsForBroker(segmentFilter, brokerFilter);
+      const filtered = filterTradesForScope(filterTradesByDateRange(allTrades, customStart, customEnd), brokerFilter, nextSegmentFilter);
       setTrades(filtered);
       setStats(computeStats(filtered));
       setExpandedTradeRow(null);
@@ -313,7 +314,7 @@ function DashboardContent() {
         }
       }
     });
-  }, [allTrades, customStart, customEnd, brokerFilter, scopedSegmentFilter]);
+  }, [allTrades, customStart, customEnd, brokerFilter, segmentFilter]);
 
   /* Apply gradient fills after chart renders */
   useEffect(() => {
