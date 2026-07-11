@@ -1,10 +1,7 @@
-import { NextResponse } from 'next/server';
+import { buildAuthMeResponse } from '@/lib/auth/me';
 import { getAuthUser } from '@/lib/auth/session';
+import { ensureNewUserTrial } from '@/lib/billing/entitlements.ts';
 
 export async function GET() {
-  const user = await getAuthUser();
-  if (!user) {
-    return NextResponse.json({ user: null }, { status: 401 });
-  }
-  return NextResponse.json({ user });
+  return buildAuthMeResponse({ getAuthUser, ensureNewUserTrial });
 }

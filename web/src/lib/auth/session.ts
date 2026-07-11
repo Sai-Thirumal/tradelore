@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 export interface AuthUser {
   id: string;
   email?: string;
+  createdAt?: string;
 }
 
 export async function getAuthUser(): Promise<AuthUser | null> {
@@ -14,6 +15,7 @@ export async function getAuthUser(): Promise<AuthUser | null> {
     return {
       id: data.user.id,
       email: data.user.email,
+      createdAt: data.user.created_at,
     };
   } catch {
     return null;
