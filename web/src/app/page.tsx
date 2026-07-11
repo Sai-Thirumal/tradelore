@@ -1,8 +1,81 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import { BarChart3, BookOpenText, CandlestickChart, FileSpreadsheet, LineChart, ShieldCheck } from 'lucide-react';
+import JsonLd from './components/JsonLd';
+import { socialImageAlt, socialImageSize } from './social-image';
 import { createClient } from '@/lib/supabase/server';
+
+const title = 'TradeLore — Your Trading Companion for Journaling & Analytics';
+const description = 'Plan, journal and review your trades while TradeLore turns your trading data into insights that help you improve.';
+const url = 'https://www.tradelore.co.in';
+const socialImage = {
+  url: `${url}/social/opengraph-image`,
+  ...socialImageSize,
+  alt: socialImageAlt,
+};
+const twitterImage = {
+  ...socialImage,
+  url: `${url}/social/twitter-image`,
+};
+
+export const metadata: Metadata = {
+  title: {
+    absolute: title,
+  },
+  description,
+  alternates: {
+    canonical: url,
+  },
+  openGraph: {
+    type: 'website',
+    siteName: 'TradeLore',
+    url,
+    title,
+    description,
+    images: [socialImage],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title,
+    description,
+    images: [twitterImage],
+  },
+};
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': `${url}/#organization`,
+      name: 'TradeLore',
+      url,
+    },
+    {
+      '@type': 'WebSite',
+      '@id': `${url}/#website`,
+      url,
+      name: 'TradeLore',
+      publisher: {
+        '@id': `${url}/#organization`,
+      },
+    },
+    {
+      '@type': 'SoftwareApplication',
+      '@id': `${url}/#software`,
+      name: 'TradeLore',
+      url,
+      applicationCategory: 'FinanceApplication',
+      operatingSystem: 'Web',
+      description,
+      publisher: {
+        '@id': `${url}/#organization`,
+      },
+    },
+  ],
+} as const;
 
 const productShots = [
   {
@@ -60,7 +133,7 @@ const features = [
   {
     icon: ShieldCheck,
     title: 'Private by design',
-    copy: 'Each account is scoped to its authenticated user, keeping journals and trades separated.',
+    copy: 'Broker data is used for journaling and analytics. TradeLore does not place, modify, or cancel orders.',
   },
 ];
 
@@ -100,6 +173,7 @@ export default async function LandingPage() {
 
   return (
     <main className="landing-page">
+      <JsonLd data={jsonLd} />
       <header className="landing-header">
         <Link className="landing-brand" href="/" aria-label="TradeLore home">
           <TradeLoreMark />
@@ -133,7 +207,7 @@ export default async function LandingPage() {
             <span />
             <span />
             <span />
-            <b>tradelore.app</b>
+            <b>tradelore.co.in</b>
           </div>
           <Image
             src="/tradelore-dashboard.png"

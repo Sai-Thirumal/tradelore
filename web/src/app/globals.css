@@ -935,6 +935,7 @@ body::before {
     var(--bg);
   box-shadow: var(--shadow-md);
 }
+.landing-final-cta h1,
 .landing-final-cta h2 {
   max-width: 720px;
   margin: 8px auto 18px;
