@@ -40,6 +40,7 @@ type DashboardView = 'dashboard' | 'journal' | 'tradelog' | 'playbooks' | 'repor
 const DASHBOARD_VIEWS: DashboardView[] = ['dashboard', 'journal', 'tradelog', 'playbooks', 'reports'];
 const BROKERS = listBrokerCatalogEntries();
 const BROKER_BY_ID = new Map(BROKERS.map((broker) => [broker.id, broker]));
+const CSV_BROKER_NAMES = BROKERS.map((broker) => broker.id).join(', ');
 
 const SEGMENT_OPTIONS: { value: SegmentFilter; label: string; market: 'india' | 'crypto' }[] = [
   { value: 'equity', label: 'Equity', market: 'india' },
@@ -122,10 +123,10 @@ function DashboardContent() {
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   const [segmentFilter, setSegmentFilter] = useState<SegmentFilter[]>(['all']);
-  const [csvBroker, setCsvBroker] = useState<BrokerFilter | ''>(() => {
+  const [csvBroker, setCsvBroker] = useState<ActiveBrokerFilter | ''>(() => {
     if (typeof window === 'undefined') return '';
     const savedBroker = window.localStorage.getItem('tradelore_csv_broker');
-    return savedBroker === 'zerodha' || savedBroker === 'delta' ? savedBroker : '';
+    return BROKER_BY_ID.has(savedBroker as KnownBrokerId) ? savedBroker as ActiveBrokerFilter : '';
   });
   
   const [expandedTradeRow, setExpandedTradeRow] = useState<string | null>(null);
@@ -610,13 +611,13 @@ function DashboardContent() {
     try {
       let broker = csvBroker;
       if (!broker) {
-        const answer = window.prompt('Import this CSV for which broker? Type "zerodha" or "delta".', 'zerodha')?.trim().toLowerCase();
-        if (answer !== 'zerodha' && answer !== 'delta') {
+        const answer = window.prompt(`Import this CSV for which broker? Type one of: ${CSV_BROKER_NAMES}.`, 'zerodha')?.trim().toLowerCase();
+        if (!answer || !BROKER_BY_ID.has(answer as KnownBrokerId)) {
           setImportStatus('');
-          showToast('CSV import cancelled. Choose zerodha or delta.', 'info');
+          showToast(`CSV import cancelled. Choose one of: ${CSV_BROKER_NAMES}.`, 'info');
           return;
         }
-        broker = answer;
+        broker = answer as ActiveBrokerFilter;
         setCsvBroker(broker);
         window.localStorage.setItem('tradelore_csv_broker', broker);
       }

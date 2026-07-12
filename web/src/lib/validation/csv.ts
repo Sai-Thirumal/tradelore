@@ -1,12 +1,13 @@
 import Papa from 'papaparse';
 import { RequestValidationError } from './request';
 import { isDeltaCsvHeaders } from '@/lib/brokers/crypto/delta/csv';
+import { KNOWN_BROKER_IDS, type KnownBrokerId } from '@/lib/brokers/core/types';
 
 export const MAX_CSV_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const MAX_CSV_ROWS = 50_000;
-export const SUPPORTED_BROKERS = ['zerodha', 'delta'] as const;
+export const SUPPORTED_BROKERS = KNOWN_BROKER_IDS;
 
-export type SupportedBroker = (typeof SUPPORTED_BROKERS)[number];
+export type SupportedBroker = KnownBrokerId;
 
 const HEADER_MAP: Record<string, string> = {
   symbol: 'symbol',
@@ -71,10 +72,10 @@ interface CsvPreview {
 }
 
 export function parseSupportedBroker(rawBroker: FormDataEntryValue | null): SupportedBroker {
-  if (rawBroker !== 'zerodha' && rawBroker !== 'delta') {
-    throw new RequestValidationError('Only Zerodha and Delta imports are supported');
+  if (typeof rawBroker !== 'string' || !(SUPPORTED_BROKERS as readonly string[]).includes(rawBroker)) {
+    throw new RequestValidationError(`Only ${SUPPORTED_BROKERS.join(', ')} imports are supported`);
   }
-  return rawBroker;
+  return rawBroker as SupportedBroker;
 }
 
 export function validateCsvUpload(file: File, text: string, broker: SupportedBroker) {

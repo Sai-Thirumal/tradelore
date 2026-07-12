@@ -40,7 +40,7 @@ export const BROKER_CATALOG = [
     syncPath: '/api/broker/dhan/sync',
     loginPath: '/api/broker/dhan/login',
     supportsOAuth: true,
-    supportsCsvImport: false,
+    supportsCsvImport: true,
   },
   {
     id: UPSTOX_BROKER,
@@ -53,7 +53,7 @@ export const BROKER_CATALOG = [
     syncPath: '/api/broker/upstox/sync',
     loginPath: '/api/broker/upstox/login',
     supportsOAuth: true,
-    supportsCsvImport: false,
+    supportsCsvImport: true,
   },
   {
     id: ANGELONE_BROKER,
@@ -65,7 +65,7 @@ export const BROKER_CATALOG = [
     disconnectPath: '/api/broker/angelone/disconnect',
     syncPath: '/api/broker/angelone/sync',
     supportsOAuth: false,
-    supportsCsvImport: false,
+    supportsCsvImport: true,
   },
   {
     id: DELTA_BROKER,

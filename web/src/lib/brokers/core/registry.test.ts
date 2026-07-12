@@ -68,9 +68,9 @@ test('broker options expose stable UI metadata without server-only hooks', () =>
     })),
     [
       { id: ZERODHA_BROKER, market: 'india', supportsCsvImport: true },
-      { id: DHAN_BROKER, market: 'india', supportsCsvImport: false },
-      { id: UPSTOX_BROKER, market: 'india', supportsCsvImport: false },
-      { id: ANGELONE_BROKER, market: 'india', supportsCsvImport: false },
+      { id: DHAN_BROKER, market: 'india', supportsCsvImport: true },
+      { id: UPSTOX_BROKER, market: 'india', supportsCsvImport: true },
+      { id: ANGELONE_BROKER, market: 'india', supportsCsvImport: true },
       { id: DELTA_BROKER, market: 'crypto', supportsCsvImport: true },
     ],
   );
