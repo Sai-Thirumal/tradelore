@@ -52,8 +52,9 @@ function TradeLoreMark() {
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const modeParam = searchParams.get('mode') === 'signin' ? 'signin' : 'signup';
   const next = getInternalRedirectPath(searchParams.get('next'));
-  const [mode, setMode] = useState<Mode>('signup');
+  const [mode, setMode] = useState<Mode>(modeParam);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
