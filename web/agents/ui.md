@@ -208,11 +208,12 @@ Header states for the active broker family:
 - After a successful sync, the action button is hidden and only the green `Synced` chip remains.
 - Status chip shows `Setup needed`, `Needs reconnect`, `Connected`, or `Synced` without a timestamp.
 - Broker Settings lists all registered brokers from `BROKER_CATALOG`, including Zerodha, Dhan, Upstox, Angel One, and Delta.
+- Billing is reachable from the dashboard overflow/profile menu and opens `/settings/billing`.
 - Each broker settings page exposes an expandable Help panel with setup and sync steps.
 
 Mobile header:
 - Below 768px, the header uses two rows: the TradeLore logo sits alone on the first row, and the compact Date Range, segment controls, broker status chip, and overflow `...` menu sit on the second row; below 430px, button/logo sizing tightens to avoid overlap on real phone browsers.
-- Mobile-only overflow menu contains Import CSV, Clear data, broker settings/connect/sync when needed, and Login/Logout. Desktop keeps the inline controls.
+- Mobile-only overflow menu contains Import CSV, Clear data, billing, broker settings/connect/sync when needed, and Login/Logout. Desktop keeps the inline controls.
 - The Date Range calendar popover is viewport-centered on mobile, with a lower offset on narrow two-row headers.
 
 ### Trade ID generation
