@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   description,
   icons: {
     icon: [
-      { url: "/tradelore-icon.svg", type: "image/svg+xml" },
+      { url: "/tradelore-icon.png", type: "image/png", sizes: "512x512" },
       { url: "/favicon.ico", sizes: "32x32" },
     ],
   },

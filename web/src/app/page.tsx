@@ -52,7 +52,7 @@ const jsonLd = {
       '@id': `${url}/#organization`,
       name: 'TradeLore',
       url,
-      logo: `${url}/tradelore-icon.svg`,
+      logo: `${url}/tradelore-icon.png`,
     },
     {
       '@type': 'WebSite',
