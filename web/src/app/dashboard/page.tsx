@@ -965,6 +965,15 @@ function DashboardContent() {
               className="actions-menu-item"
               onClick={() => {
                 setActionsMenuOpen(false);
+                router.push('/settings/billing');
+              }}
+            >
+              Billing
+            </button>
+            <button
+              className="actions-menu-item"
+              onClick={() => {
+                setActionsMenuOpen(false);
                 void handleClearData();
               }}
             >
