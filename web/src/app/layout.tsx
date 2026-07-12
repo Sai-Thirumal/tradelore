@@ -13,6 +13,12 @@ export const metadata: Metadata = {
     template: "%s | TradeLore",
   },
   description,
+  icons: {
+    icon: [
+      { url: "/tradelore-icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "32x32" },
+    ],
+  },
 };
 
 export default function RootLayout({
