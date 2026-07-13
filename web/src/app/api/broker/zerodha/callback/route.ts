@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuthUser } from '@/lib/auth/session';
+import { requireActiveEntitlement } from '@/lib/auth/session';
 import { KiteApiError, exchangeRequestToken } from '@/lib/brokers/india/kite/client';
 import { getNextKiteTokenExpiry } from '@/lib/brokers/india/kite/session';
 import { fetchBrokerConnection, getBrokerApiKey, hasBrokerCredentials, upsertBrokerConnection } from '@/lib/db/broker-connections';
@@ -18,7 +18,7 @@ function redirectHome(request: NextRequest, status: string, nextPath = '/dashboa
 }
 
 export async function GET(request: NextRequest) {
-  const { user, response } = await requireAuthUser();
+  const { user, response } = await requireActiveEntitlement();
   if (response) return response;
 
   const requestToken = request.nextUrl.searchParams.get('request_token');

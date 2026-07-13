@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireAuthUser } from '@/lib/auth/session';
+import { requireActiveEntitlement } from '@/lib/auth/session';
 import { internalErrorResponse } from '@/lib/errors';
 import { disconnectBrokerConnection } from '@/lib/db/broker-connections';
 import { requireBrokerAdapter } from '@/lib/brokers/core';
@@ -10,7 +10,7 @@ const broker = requireBrokerAdapter(ZERODHA_BROKER);
 
 export async function POST() {
   try {
-    const { user, response } = await requireAuthUser();
+    const { user, response } = await requireActiveEntitlement();
     if (response) return response;
 
     await disconnectBrokerConnection(user.id, broker.id);

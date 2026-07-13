@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireAuthUser } from '@/lib/auth/session';
+import { requireActiveEntitlement } from '@/lib/auth/session';
 import { requireBrokerAdapter } from '@/lib/brokers/core';
 import { DELTA_BROKER } from '@/lib/brokers/core';
 import { deleteBrokerCredentials, saveBrokerCredentials } from '@/lib/db/broker-connections';
@@ -19,7 +19,7 @@ const broker = requireBrokerAdapter(DELTA_BROKER);
 
 export async function POST(request: Request) {
   try {
-    const { user, response } = await requireAuthUser();
+    const { user, response } = await requireActiveEntitlement();
     if (response) return response;
 
     if (!broker.isServerConfigured()) {
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
 
 export async function DELETE() {
   try {
-    const { user, response } = await requireAuthUser();
+    const { user, response } = await requireActiveEntitlement();
     if (response) return response;
 
     await deleteBrokerCredentials(user.id, broker.id);

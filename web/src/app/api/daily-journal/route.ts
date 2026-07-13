@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { fetchDailyJournal, saveDailyJournal } from '@/lib/db/supabase';
-import { requireAuthUser } from '@/lib/auth/session';
+import { requireActiveEntitlement } from '@/lib/auth/session';
 import { internalErrorResponse } from '@/lib/errors';
 import { validateDailyJournalPayload } from '@/lib/validation/journal';
 import { readJsonObject, validationErrorResponse } from '@/lib/validation/request';
 
 export async function GET(request: Request) {
   try {
-    const { user, response } = await requireAuthUser();
+    const { user, response } = await requireActiveEntitlement();
     if (response) return response;
 
     const { searchParams } = new URL(request.url);
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { user, response } = await requireAuthUser();
+    const { user, response } = await requireActiveEntitlement();
     if (response) return response;
 
     const body = validateDailyJournalPayload(await readJsonObject(request));

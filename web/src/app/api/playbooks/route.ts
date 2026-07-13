@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchPlaybooks, fetchPlaybook, createPlaybook, updatePlaybook, deletePlaybook } from '@/lib/db/supabase';
-import { requireAuthUser } from '@/lib/auth/session';
+import { requireActiveEntitlement } from '@/lib/auth/session';
 import { errorMessageIncludes, hasErrorCode, internalErrorResponse } from '@/lib/errors';
 import { validateCreatePlaybookPayload, validateUpdatePlaybookPayload } from '@/lib/validation/playbooks';
 import { readJsonObject, validationErrorResponse } from '@/lib/validation/request';
 
 export async function GET(request: NextRequest) {
   try {
-    const { user, response } = await requireAuthUser();
+    const { user, response } = await requireActiveEntitlement();
     if (response) return response;
 
     const { searchParams } = new URL(request.url);
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: Request) {
   try {
-    const { user, response } = await requireAuthUser();
+    const { user, response } = await requireActiveEntitlement();
     if (response) return response;
 
     const body = validateCreatePlaybookPayload(await readJsonObject(request));
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const { user, response } = await requireAuthUser();
+    const { user, response } = await requireActiveEntitlement();
     if (response) return response;
 
     const body = validateUpdatePlaybookPayload(await readJsonObject(request));
@@ -60,7 +60,7 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { user, response } = await requireAuthUser();
+    const { user, response } = await requireActiveEntitlement();
     if (response) return response;
 
     const { searchParams } = new URL(request.url);

@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { fetchTradeJournal, fetchAllTradeJournals, saveTradeJournal } from '@/lib/db/supabase';
-import { requireAuthUser } from '@/lib/auth/session';
+import { requireActiveEntitlement } from '@/lib/auth/session';
 import { internalErrorResponse } from '@/lib/errors';
 import { validateTradeJournalPayload } from '@/lib/validation/journal';
 import { readJsonObject, validationErrorResponse } from '@/lib/validation/request';
 
 export async function GET(request: Request) {
   try {
-    const { user, response } = await requireAuthUser();
+    const { user, response } = await requireActiveEntitlement();
     if (response) return response;
 
     const { searchParams } = new URL(request.url);
@@ -39,7 +39,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { user, response } = await requireAuthUser();
+    const { user, response } = await requireActiveEntitlement();
     if (response) return response;
 
     const body = validateTradeJournalPayload(await readJsonObject(request));

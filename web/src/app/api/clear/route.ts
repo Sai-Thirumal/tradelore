@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { clearAllData } from '@/lib/db/supabase';
-import { requireAuthUser } from '@/lib/auth/session';
+import { requireActiveEntitlement } from '@/lib/auth/session';
 
 export async function DELETE() {
   try {
-    const { user, response } = await requireAuthUser();
+    const { user, response } = await requireActiveEntitlement();
     if (response) return response;
 
     await clearAllData(user.id);

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getUnderlying, toYahooSymbol, istToUnix } from '@/lib/engine/symbols';
-import { requireAuthUser } from '@/lib/auth/session';
+import { requireActiveEntitlement } from '@/lib/auth/session';
 import { internalErrorResponse } from '@/lib/errors';
 import {
   chooseDeltaResolution,
@@ -29,7 +29,7 @@ interface YahooChartResponse {
 }
 
 export async function GET(request: Request) {
-  const { response } = await requireAuthUser();
+  const { response } = await requireActiveEntitlement();
   if (response) return response;
 
   const { searchParams } = new URL(request.url);

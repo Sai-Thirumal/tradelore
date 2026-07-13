@@ -8,6 +8,12 @@
 │   ├── me/           GET   — Current authenticated user
 │   ├── logout/       POST  — Sign out current user
 │   └── signup/       POST  — First-100 launch signup gate
+├── billing/
+│   ├── status/       GET   — Current trial/subscription entitlement
+│   └── subscriptions/
+│       ├── route     POST  — Create Razorpay subscription checkout
+│       ├── verify/   POST  — Verify Razorpay Checkout signature
+│       └── cancel/   POST  — Cancel subscription at period end
 ├── broker/
 │   ├── [broker]/
 │   │   ├── credentials/ POST|DELETE — Save/delete encrypted broker API credentials
@@ -30,7 +36,9 @@
 │   ├── overview/     GET   — Full report overview metrics
 │   └── day-time/     GET   — Grouped performance by day/month/time/duration/instrument
 ├── trade-journal/    GET|POST — Per-trade post-market analysis
-└── trades/           GET   — All completed trades
+├── trades/           GET   — All completed trades
+└── webhooks/
+    └── razorpay/     POST  — Razorpay billing webhook receiver
 ```
 
 ---
@@ -40,7 +48,7 @@
 ### GET /api/trades
 Returns all completed trades from Supabase. Paginated (no 1000-row cap). If a legacy trade has no stored commission, the route computes `commission` and `commission_breakdown` on the fly.
 
-All app APIs require Supabase Auth. Handlers call `requireAuthUser()` and pass `user.id` to data-access functions. A missing session returns `401`.
+Product APIs require Supabase Auth plus an active billing entitlement. Handlers call `requireActiveEntitlement()` and pass `user.id` to data-access functions. A missing session returns `401`; an expired trial/no active subscription returns `402 { "code": "payment_required" }`. Auth, billing, and Razorpay webhook routes remain auth/payment bootstrap routes and do not require an active product entitlement.
 
 Production Auth URL configuration in Supabase:
 ```
@@ -81,6 +89,76 @@ Returns the authenticated user claims used by the header control.
 Signs out the current Supabase session and clears auth cookies.
 
 **Response:** `{ "success": true }`
+
+### GET /api/billing/status
+Returns the signed-in user's current billing entitlement. It combines manual/trial entitlements from `user_entitlements` with paid subscription periods from `billing_subscriptions`.
+
+**Response:**
+```json
+{
+  "hasAccess": true,
+  "entitlementSource": "new_user_trial",
+  "trialStatus": "active",
+  "trialExpiresAt": "2026-08-11T00:00:00.000Z",
+  "subscriptionStatus": "none",
+  "internalPlanKey": null,
+  "displayPrice": null,
+  "currentPeriodEnd": null,
+  "cancelAtPeriodEnd": false,
+  "launchPriceActive": true
+}
+```
+
+### POST /api/billing/subscriptions
+Creates a bounded Razorpay monthly subscription for the requested internal plan and records the provider subscription in `billing_subscriptions`.
+
+Requires Supabase Auth. Request is rate limited by `billing-subscribe`.
+
+**Request:**
+```json
+{ "plan": "pro_launch_monthly" }
+```
+
+**Response:**
+```json
+{
+  "keyId": "rzp_live_public_key",
+  "providerSubscriptionId": "sub_...",
+  "planDisplayName": "TradeLore Pro Launch",
+  "displayPrice": "₹199/month",
+  "prefill": { "email": "trader@example.com" }
+}
+```
+
+### POST /api/billing/subscriptions/verify
+Verifies the Razorpay Checkout signature for the signed-in user's subscription and marks the local row `authenticated`. Webhooks remain authoritative for paid period dates and final subscription state.
+
+Requires Supabase Auth. Request is rate limited by `billing-verify`.
+
+**Request:** Razorpay Checkout response fields:
+```json
+{
+  "razorpay_payment_id": "pay_...",
+  "razorpay_subscription_id": "sub_...",
+  "razorpay_signature": "hex_hmac"
+}
+```
+
+**Response:** `{ "verified": true, "authoritative": false }`
+
+### POST /api/billing/subscriptions/cancel
+Cancels the signed-in user's latest active/authenticated/pending/halted Razorpay subscription at period end and marks `cancel_at_period_end`.
+
+Requires Supabase Auth. Request is rate limited by `billing-cancel`.
+
+**Response:** `{ "cancelledAtPeriodEnd": true }`
+
+### POST /api/webhooks/razorpay
+Receives Razorpay subscription and payment webhooks. The route verifies `x-razorpay-signature` against the exact raw body, parses subscription/payment payloads, and writes through `process_razorpay_billing_webhook` for idempotency and event ordering.
+
+Known events: `subscription.authenticated`, `subscription.activated`, `subscription.charged`, `subscription.pending`, `subscription.halted`, `subscription.cancelled`, `subscription.completed`, and `payment.failed`.
+
+**Response:** `{ "received": true }`
 
 ### GET /api/broker/zerodha/login
 Starts the Kite Connect login flow for the signed-in TradeLore user.

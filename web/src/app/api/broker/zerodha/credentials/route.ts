@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireAuthUser } from '@/lib/auth/session';
+import { requireActiveEntitlement } from '@/lib/auth/session';
 import { requireBrokerAdapter } from '@/lib/brokers/core';
 import { ZERODHA_BROKER } from '@/lib/brokers/core';
 import { internalErrorResponse } from '@/lib/errors';
@@ -22,7 +22,7 @@ const broker = requireBrokerAdapter(ZERODHA_BROKER);
 
 export async function POST(request: Request) {
   try {
-    const { user, response } = await requireAuthUser();
+    const { user, response } = await requireActiveEntitlement();
     if (response) return response;
 
     if (!broker.isServerConfigured({ origin: new URL(request.url).origin })) {
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
 
 export async function DELETE() {
   try {
-    const { user, response } = await requireAuthUser();
+    const { user, response } = await requireActiveEntitlement();
     if (response) return response;
 
     await deleteBrokerCredentials(user.id, broker.id);

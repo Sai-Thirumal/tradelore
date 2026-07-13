@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuthUser } from '@/lib/auth/session';
+import { requireActiveEntitlement } from '@/lib/auth/session';
 import { requireBrokerAdapter } from '@/lib/brokers/core';
 import { ZERODHA_BROKER } from '@/lib/brokers/core';
 import { internalErrorResponse } from '@/lib/errors';
@@ -9,7 +9,7 @@ const broker = requireBrokerAdapter(ZERODHA_BROKER);
 
 export async function GET(request: NextRequest) {
   try {
-    const { user, response } = await requireAuthUser();
+    const { user, response } = await requireActiveEntitlement();
     if (response) return response;
 
     return NextResponse.json(await broker.getStatus(user.id, { origin: request.nextUrl.origin }));

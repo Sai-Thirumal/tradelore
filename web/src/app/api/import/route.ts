@@ -4,14 +4,14 @@ import { parseDeltaCsv } from '@/lib/brokers/crypto/delta/csv';
 import { fetchCachedDeltaProducts } from '@/lib/brokers/crypto/delta/products';
 import { storeOrders, replaceTrades, retainLatestTradeMonths } from '@/lib/db/supabase';
 import { matchTrades } from '@/lib/engine/trade-matcher';
-import { requireAuthUser } from '@/lib/auth/session';
+import { requireActiveEntitlement } from '@/lib/auth/session';
 import { internalErrorResponse } from '@/lib/errors';
 import { parseSupportedBroker, validateCsvUpload } from '@/lib/validation/csv';
 import { validationErrorResponse } from '@/lib/validation/request';
 
 export async function POST(request: Request) {
   try {
-    const { user, response } = await requireAuthUser();
+    const { user, response } = await requireActiveEntitlement();
     if (response) return response;
 
     const formData = await request.formData();

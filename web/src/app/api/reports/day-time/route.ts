@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchAllTrades, fetchAllTradeJournals, fetchPlaybooks } from '@/lib/db/supabase';
 import { withCurrentCommission } from '@/lib/engine/commission';
-import { requireAuthUser } from '@/lib/auth/session';
+import { requireActiveEntitlement } from '@/lib/auth/session';
 import { internalErrorResponse } from '@/lib/errors';
 import {
   filterTradesForScope,
@@ -387,7 +387,7 @@ function sortStats(stats: GroupStats[], group: Group): GroupStats[] {
 
 export async function GET(request: NextRequest) {
   try {
-    const { user, response } = await requireAuthUser();
+    const { user, response } = await requireActiveEntitlement();
     if (response) return response;
 
     const group = (request.nextUrl.searchParams.get('group') || 'days') as Group;

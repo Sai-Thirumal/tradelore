@@ -1,4 +1,4 @@
-import { requireAuthUser } from '@/lib/auth/session';
+import { requireActiveEntitlement } from '@/lib/auth/session';
 import {
   brokerCredentialsDeleteResponse,
   brokerCredentialsPostResponse,
@@ -14,7 +14,7 @@ export async function POST(request: Request, context: { params: Promise<{ broker
   if (!broker) return unsupportedBrokerResponse();
 
   try {
-    const { user, response } = await requireAuthUser();
+    const { user, response } = await requireActiveEntitlement();
     if (response) return response;
 
     return brokerCredentialsPostResponse(broker, user.id, request);
@@ -28,7 +28,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ bro
   if (!broker) return unsupportedBrokerResponse();
 
   try {
-    const { user, response } = await requireAuthUser();
+    const { user, response } = await requireActiveEntitlement();
     if (response) return response;
 
     return brokerCredentialsDeleteResponse(broker, user.id);

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { ensureNewUserTrial, getUserEntitlement } from '@/lib/billing/entitlements.ts';
 import { createClient } from '@/lib/supabase/server';
 
 export interface AuthUser {
@@ -31,4 +32,24 @@ export async function requireAuthUser() {
     };
   }
   return { user, response: null };
+}
+
+export async function requireActiveEntitlement() {
+  const { user, response } = await requireAuthUser();
+  if (response || !user) return { user, response, entitlement: null };
+
+  await ensureNewUserTrial(user.id, user.createdAt);
+  const entitlement = await getUserEntitlement(user.id);
+  if (!entitlement.hasAccess) {
+    return {
+      user,
+      entitlement,
+      response: NextResponse.json(
+        { error: 'TradeLore Pro subscription required.', code: 'payment_required' },
+        { status: 402 },
+      ),
+    };
+  }
+
+  return { user, response: null, entitlement };
 }

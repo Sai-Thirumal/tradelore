@@ -1,6 +1,6 @@
 import { randomBytes } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuthUser } from '@/lib/auth/session';
+import { requireActiveEntitlement } from '@/lib/auth/session';
 import { getInternalRedirectPath } from '@/lib/auth/redirect';
 import { createKiteLoginUrl } from '@/lib/brokers/india/kite/client';
 import { isZerodhaServerConfigured } from '@/lib/brokers/india/kite/config';
@@ -12,7 +12,7 @@ const STATE_COOKIE = 'zerodha_oauth_state';
 const NEXT_COOKIE = 'zerodha_oauth_next';
 
 export async function GET(request: NextRequest) {
-  const { user, response } = await requireAuthUser();
+  const { user, response } = await requireActiveEntitlement();
   if (response) return response;
 
   const origin = request.nextUrl.origin;

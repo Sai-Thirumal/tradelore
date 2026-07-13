@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { fetchAllTrades, fetchAllTradeJournals } from '@/lib/db/supabase';
 import { withCurrentCommission } from '@/lib/engine/commission';
-import { requireAuthUser } from '@/lib/auth/session';
+import { requireActiveEntitlement } from '@/lib/auth/session';
 import { errorMessageIncludes, hasErrorCode, internalErrorResponse } from '@/lib/errors';
 import type { TradeRecord } from '@/lib/types/trading';
 
@@ -19,7 +19,7 @@ interface PlaybookStats {
 
 export async function GET() {
   try {
-    const { user, response } = await requireAuthUser();
+    const { user, response } = await requireActiveEntitlement();
     if (response) return response;
 
     const [trades, journals] = await Promise.all([

@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuthUser } from '@/lib/auth/session';
+import { requireActiveEntitlement } from '@/lib/auth/session';
 import { exchangeUpstoxCode } from '@/lib/brokers/india/upstox/client';
 import { getUpstoxConfig } from '@/lib/brokers/india/upstox/config';
 import { UPSTOX_BROKER, fetchBrokerConnection, getBrokerApiKey, hasBrokerCredentials, upsertBrokerConnection } from '@/lib/db/broker-connections';
@@ -18,7 +18,7 @@ function redirectHome(request: NextRequest, status: string, nextPath = '/dashboa
 }
 
 export async function GET(request: NextRequest) {
-  const { user, response } = await requireAuthUser();
+  const { user, response } = await requireActiveEntitlement();
   if (response) return response;
 
   const code = request.nextUrl.searchParams.get('code');

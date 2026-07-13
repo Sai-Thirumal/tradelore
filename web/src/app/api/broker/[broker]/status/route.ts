@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { requireAuthUser } from '@/lib/auth/session';
+import { requireActiveEntitlement } from '@/lib/auth/session';
 import {
   brokerRouteErrorResponse,
   brokerStatusResponse,
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ bro
   if (!broker) return unsupportedBrokerResponse();
 
   try {
-    const { user, response } = await requireAuthUser();
+    const { user, response } = await requireActiveEntitlement();
     if (response) return response;
 
     return brokerStatusResponse(broker, user.id, request);

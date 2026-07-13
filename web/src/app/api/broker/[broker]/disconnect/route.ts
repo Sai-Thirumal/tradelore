@@ -1,4 +1,4 @@
-import { requireAuthUser } from '@/lib/auth/session';
+import { requireActiveEntitlement } from '@/lib/auth/session';
 import {
   brokerDisconnectResponse,
   brokerRouteErrorResponse,
@@ -13,7 +13,7 @@ export async function POST(_request: Request, context: { params: Promise<{ broke
   if (!broker) return unsupportedBrokerResponse();
 
   try {
-    const { user, response } = await requireAuthUser();
+    const { user, response } = await requireActiveEntitlement();
     if (response) return response;
 
     return brokerDisconnectResponse(broker, user.id);

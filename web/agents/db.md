@@ -8,6 +8,97 @@
 
 ## Tables
 
+### `user_entitlements`
+Manual, founding-trader, and trial access grants. One row is an entitlement window; active windows grant Pro access even without a paid subscription.
+
+```sql
+CREATE TABLE public.user_entitlements (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  source text NOT NULL CHECK (source IN ('new_user_trial', 'founding_trader', 'paid_subscription', 'manual_admin')),
+  status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'expired', 'revoked')),
+  starts_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz,
+  revoked_at timestamptz,
+  reason text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+**Indexes/RLS:**
+- `idx_user_entitlements_user` on `user_id`
+- `idx_user_entitlements_active` on `(user_id, status, starts_at, expires_at)`
+- `idx_user_entitlements_trial_once` ensures one `new_user_trial` per user
+- RLS allows authenticated users to read only their own entitlement rows; writes are service-role/admin only
+
+---
+
+### `billing_subscriptions`
+Razorpay subscription state for paid plans. Webhooks are the authoritative source for provider status and billing period dates; checkout verification only records the payment ID and authenticated status.
+
+```sql
+CREATE TABLE public.billing_subscriptions (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  provider text NOT NULL CHECK (provider = 'razorpay'),
+  provider_subscription_id text NOT NULL UNIQUE,
+  provider_customer_id text,
+  provider_plan_id text NOT NULL,
+  internal_plan_key text NOT NULL CHECK (internal_plan_key IN ('pro_launch_monthly', 'pro_standard_monthly')),
+  billing_interval text NOT NULL CHECK (billing_interval = 'monthly'),
+  status text NOT NULL CHECK (status IN ('created', 'authenticated', 'active', 'pending', 'halted', 'cancelled', 'completed', 'expired')),
+  current_period_start timestamptz,
+  current_period_end timestamptz,
+  cancel_at_period_end boolean NOT NULL DEFAULT false,
+  cancellation_requested_at timestamptz,
+  cancelled_at timestamptz,
+  ended_at timestamptz,
+  latest_payment_id text,
+  provider_created_at timestamptz,
+  last_provider_event_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+**Indexes/RLS:**
+- `idx_billing_subscriptions_user` on `user_id`
+- `idx_billing_subscriptions_provider_subscription` on `provider_subscription_id`
+- `idx_billing_subscriptions_status` on `status`
+- `idx_billing_subscriptions_one_open_per_user` allows one open subscription per user for `created`, `authenticated`, `active`, `pending`, or `halted`
+- RLS allows authenticated users to read only their own subscription rows; writes are server/service-role only
+
+---
+
+### `billing_webhook_events`
+Idempotency and processing log for Razorpay billing webhooks.
+
+```sql
+CREATE TABLE public.billing_webhook_events (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  provider text NOT NULL CHECK (provider = 'razorpay'),
+  event_key text NOT NULL UNIQUE,
+  event_type text NOT NULL,
+  provider_object_id text,
+  processing_status text NOT NULL CHECK (processing_status IN ('processing', 'processed', 'ignored', 'failed')),
+  provider_event_created_at timestamptz,
+  processed_at timestamptz,
+  safe_error_code text,
+  safe_error_message text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+**Processing:**
+- `process_razorpay_billing_webhook(...)` is a `SECURITY DEFINER` RPC granted only to `service_role`
+- duplicate processed/ignored `event_key` values return without rewriting subscription state
+- unknown events and events without a subscription id are logged as ignored
+- known events for unknown subscriptions are marked failed so Razorpay can retry
+- subscription rows are updated only when the provider event timestamp is not older than `last_provider_event_at`
+
+---
+
 ### `trade_orders`
 Raw broker fills. One row = one exchange execution. Not a trade — multiple fills per order.
 

@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { fetchAllTrades } from '@/lib/db/supabase';
 import { withCurrentCommission } from '@/lib/engine/commission';
-import { requireAuthUser } from '@/lib/auth/session';
+import { requireActiveEntitlement } from '@/lib/auth/session';
 import { internalErrorResponse } from '@/lib/errors';
 import type { TradeRecord } from '@/lib/types/trading';
 
 export async function GET() {
   try {
-    const { user, response } = await requireAuthUser();
+    const { user, response } = await requireActiveEntitlement();
     if (response) return response;
 
     const trades = await fetchAllTrades(user.id);

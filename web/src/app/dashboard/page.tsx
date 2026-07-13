@@ -107,6 +107,10 @@ interface BrokerAutoSyncStatus {
   last_sync_at?: string | null;
 }
 
+interface BillingStatus {
+  hasAccess: boolean;
+}
+
 function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -138,6 +142,7 @@ function DashboardContent() {
   const [toast, setToast] = useState<{ msg: string, type: string } | null>(null);
   const [journaledTradeIds, setJournaledTradeIds] = useState<Set<string>>(new Set());
   const [currentUser, setCurrentUser] = useState<{ email?: string } | null>(null);
+  const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
   const [zerodhaStatus, setZerodhaStatus] = useState<ZerodhaStatus | null>(null);
   const [zerodhaSyncing, setZerodhaSyncing] = useState(false);
   const [deltaStatus, setDeltaStatus] = useState<DeltaStatus | null>(null);
@@ -381,6 +386,19 @@ function DashboardContent() {
     }
   }, []);
 
+  const loadBillingStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/billing/status', { cache: 'no-store' });
+      if (!res.ok) {
+        setBillingStatus(null);
+        return;
+      }
+      setBillingStatus(await res.json() as BillingStatus);
+    } catch {
+      setBillingStatus(null);
+    }
+  }, []);
+
   const loadZerodhaStatus = useCallback(async () => {
     try {
       const res = await fetch('/api/broker/zerodha/status');
@@ -522,16 +540,20 @@ function DashboardContent() {
   };
 
   useEffect(() => {
-    void Promise.resolve().then(() => loadTrades());
-  }, [loadTrades]);
+    if (billingStatus?.hasAccess) void Promise.resolve().then(() => loadTrades());
+  }, [billingStatus?.hasAccess, loadTrades]);
 
   useEffect(() => {
     void Promise.resolve().then(() => loadCurrentUser());
   }, [loadCurrentUser]);
 
   useEffect(() => {
-    void Promise.resolve().then(() => loadBrokerStatuses());
-  }, [loadBrokerStatuses]);
+    void Promise.resolve().then(() => loadBillingStatus());
+  }, [loadBillingStatus]);
+
+  useEffect(() => {
+    if (billingStatus?.hasAccess) void Promise.resolve().then(() => loadBrokerStatuses());
+  }, [billingStatus?.hasAccess, loadBrokerStatuses]);
 
   useEffect(() => {
     const handler = (event: MouseEvent) => {
@@ -550,6 +572,7 @@ function DashboardContent() {
   }, [actionsMenuOpen, segmentMenuOpen, brokerMenuOpen]);
 
   useEffect(() => {
+    if (!billingStatus?.hasAccess) return;
     void Promise.resolve().then(async () => {
       const connected = BROKERS
         .filter((broker) => broker.syncPath)
@@ -574,7 +597,7 @@ function DashboardContent() {
         }
       }
     });
-  }, [autoSyncBroker, brokerStatuses, syncDelta, syncZerodha]);
+  }, [autoSyncBroker, billingStatus?.hasAccess, brokerStatuses, syncDelta, syncZerodha]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -827,6 +850,7 @@ function DashboardContent() {
   };
 
   const modalTrade = modalTradeIdx !== null ? trades[modalTradeIdx] : null;
+  const showBillingExpired = billingStatus?.hasAccess === false;
 
   return (
     <>
@@ -1004,6 +1028,29 @@ function DashboardContent() {
           </div>
         </div>
       </header>
+
+      {showBillingExpired && (
+        <div className="billing-expired-overlay" role="dialog" aria-modal="true" aria-labelledby="billing-expired-title">
+          <section className="billing-expired-card">
+            <h1 id="billing-expired-title">Your TradeLore free trial has ended</h1>
+            <p>
+              We hope TradeLore has helped you better understand your trading performance,
+              identify mistakes, and make more informed decisions.
+            </p>
+            <p>
+              To continue accessing your journal, analytics, reports, and trade insights,
+              subscribe to <strong>TradeLore Pro - Launch Plan</strong>.
+            </p>
+            <button
+              className="auth-submit billing-expired-action"
+              type="button"
+              onClick={() => router.push('/settings/billing')}
+            >
+              View Launch Plan
+            </button>
+          </section>
+        </div>
+      )}
 
       <nav className="nav">
         {DASHBOARD_VIEWS.map(v => (

@@ -209,6 +209,7 @@ Header states for the active broker family:
 - Status chip shows `Setup needed`, `Needs reconnect`, `Connected`, or `Synced` without a timestamp.
 - Broker Settings lists all registered brokers from `BROKER_CATALOG`, including Zerodha, Dhan, Upstox, Angel One, and Delta.
 - Billing is reachable from the dashboard overflow/profile menu and opens `/settings/billing`.
+- When `/api/billing/status` returns `hasAccess: false`, Dashboard shows an expired-trial popup with a `View Launch Plan` button linking to `/settings/billing`.
 - Each broker settings page exposes an expandable Help panel with setup and sync steps.
 
 Mobile header:

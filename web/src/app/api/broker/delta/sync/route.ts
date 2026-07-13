@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireAuthUser } from '@/lib/auth/session';
+import { requireActiveEntitlement } from '@/lib/auth/session';
 import { requireBrokerAdapter } from '@/lib/brokers/core';
 import { DELTA_BROKER } from '@/lib/brokers/core';
 import { internalErrorResponse } from '@/lib/errors';
@@ -9,7 +9,7 @@ const broker = requireBrokerAdapter(DELTA_BROKER);
 
 export async function POST() {
   try {
-    const { user, response } = await requireAuthUser();
+    const { user, response } = await requireActiveEntitlement();
     if (response) return response;
 
     if (!broker.isServerConfigured()) {

@@ -7,7 +7,6 @@ import { createClient } from '@/lib/supabase/client';
 
 type Mode = 'signin' | 'signup';
 
-const LAUNCH_LIMIT_MESSAGE = 'Freemium launch is limited to the first 100 users.';
 const PASSWORD_REQUIREMENTS_MESSAGE = 'Password must be at least 8 characters and include lowercase, uppercase, digit, and symbol characters.';
 const STRONG_PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
@@ -114,8 +113,7 @@ export default function LoginPage() {
           <p>{mode === 'signup' ? 'Start importing trades, journaling decisions, and finding your edge.' : 'Log in to open your dashboard.'}</p>
         </div>
         <div className="auth-launch-card">
-          <strong>{LAUNCH_LIMIT_MESSAGE}</strong>
-          <p>{mode === 'signup' ? 'Create your early-access account to start your trading journal.' : 'Log in with your TradeLore account to continue.'}</p>
+          <p>{mode === 'signup' ? 'Create your account to start your trading journal.' : 'Log in with your TradeLore account to continue.'}</p>
         </div>
         <div className="auth-tabs">
           <button className={mode === 'signup' ? 'active' : ''} onClick={() => setMode('signup')}>Sign up</button>
