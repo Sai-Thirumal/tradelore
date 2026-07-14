@@ -187,7 +187,13 @@ BEGIN
 
   UPDATE public.billing_subscriptions
   SET
-    status = COALESCE(p_status, status),
+    status = CASE
+      WHEN p_status = 'authenticated'
+        AND status = 'active'
+        AND last_provider_event_at = p_provider_event_created_at
+      THEN status
+      ELSE COALESCE(p_status, status)
+    END,
     provider_customer_id = COALESCE(p_provider_customer_id, provider_customer_id),
     current_period_start = COALESCE(p_current_period_start, current_period_start),
     current_period_end = COALESCE(p_current_period_end, current_period_end),

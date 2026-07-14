@@ -17,3 +17,7 @@ test('webhook processing RPC is locked down to service role', () => {
   assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.process_razorpay_billing_webhook/);
   assert.match(sql, /TO service_role/);
 });
+
+test('same-timestamp authenticated webhook cannot downgrade active subscription', () => {
+  assert.match(sql, /WHEN p_status = 'authenticated'[\s\S]+AND status = 'active'[\s\S]+AND last_provider_event_at = p_provider_event_created_at[\s\S]+THEN status/);
+});
