@@ -81,8 +81,11 @@ const jsonLd = {
 } as const;
 
 const brokers = [
-  { name: 'Zerodha', short: 'Z' },
-  { name: 'Delta Exchange', short: 'D' },
+  { name: 'Zerodha', image: '/brokers/kite.png' },
+  { name: 'Upstox', image: '/brokers/upstox.png' },
+  { name: 'Dhan', image: '/brokers/dhan.png' },
+  { name: 'Angel One', image: '/brokers/angel-one.png' },
+  { name: 'Delta Exchange', image: '/brokers/delta-exchange.png' },
 ];
 
 const products = ['Automated broker sync', 'Journaling', 'Trade replays', 'Analytics'];
@@ -151,8 +154,8 @@ export default async function LandingPage() {
         <div className="landing-broker-logos">
           {brokers.map((broker) => (
             <span className="landing-broker" key={broker.name}>
-              <i aria-hidden="true">{broker.short}</i>
-              {broker.name}
+              <Image className="landing-broker-logo" src={broker.image} alt="" width={58} height={58} />
+              <span>{broker.name}</span>
             </span>
           ))}
           <span className="landing-broker muted">+ more coming</span>
