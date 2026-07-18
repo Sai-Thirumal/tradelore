@@ -608,14 +608,17 @@ body::before {
 /* ── Public Landing Page ── */
 .landing-page {
   min-height: 100vh;
-  background:
-    radial-gradient(circle at 18% 8%, rgba(249,115,22,0.10), transparent 26%),
-    radial-gradient(circle at 88% 52%, rgba(22,163,74,0.08), transparent 28%),
-    linear-gradient(180deg, #ffffff 0%, #f7f5ef 48%, #ffffff 100%);
   color: var(--text);
+  /* Subtle orange gradient flowing through the whole page (fixed so it stays continuous while scrolling). */
+  background:
+    radial-gradient(1100px 620px at 12% -6%, rgba(249,115,22,0.10), transparent 60%),
+    radial-gradient(900px 640px at 108% 16%, rgba(249,115,22,0.06), transparent 58%),
+    radial-gradient(1000px 820px at -12% 84%, rgba(249,115,22,0.05), transparent 60%),
+    linear-gradient(180deg, #fffaf4 0%, #faf6ef 34%, #fbf5ee 64%, #fffaf4 100%);
+  background-attachment: fixed;
 }
 .landing-header {
-  width: min(1180px, calc(100% - 40px));
+  width: min(2160px, calc(100% - 96px));
   margin: 0 auto;
   padding: 18px 0;
   display: flex;
@@ -699,13 +702,13 @@ body::before {
   background: var(--brand-light);
 }
 .landing-hero {
-  width: min(1180px, calc(100% - 40px));
+  width: min(2160px, calc(100% - 96px));
   margin: 0 auto;
   padding: 46px 0 76px;
   display: grid;
-  grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr);
-  align-items: start;
-  gap: 48px;
+  grid-template-columns: minmax(0, 1.02fr) minmax(0, 1.06fr);
+  align-items: center;
+  gap: 40px;
 }
 .landing-pill,
 .landing-section-heading span,
@@ -842,7 +845,7 @@ body::before {
   color: var(--green);
 }
 .landing-section {
-  width: min(1180px, calc(100% - 40px));
+  width: min(2160px, calc(100% - 96px));
   margin: 0 auto;
   padding: 70px 0;
 }
@@ -924,7 +927,7 @@ body::before {
   box-shadow: 0 24px 70px rgba(26,26,26,0.12);
 }
 .landing-final-cta {
-  width: min(1180px, calc(100% - 40px));
+  width: min(2160px, calc(100% - 96px));
   margin: 10px auto 0;
   padding: 44px 32px;
   text-align: center;
@@ -3088,5 +3091,527 @@ tbody.day-group + tbody.day-group .day-header-row td {
   }
   .report-table {
     min-width: 640px;
+  }
+}
+
+/* ============================================================
+   LANDING REDESIGN
+   Nav dropdowns, horizontal hero, brokers strip, "Four products.
+   One hub." section, numbered scroll-motion workflow, and footer.
+   ============================================================ */
+
+/* ── Hero: more horizontal title + image nudged right (Tradezella-style) ── */
+.landing-hero h1 {
+  font-size: clamp(38px, 4.4vw, 60px);
+  line-height: 1.04;
+  letter-spacing: -0.5px;
+  max-width: 15ch;
+}
+.landing-hero-visual {
+  margin-left: 24px;
+  margin-right: -18px;
+  margin-top: 0;
+}
+
+/* ── Nav dropdowns + mobile menu ── */
+.landing-nav {
+  gap: 6px;
+}
+.nav-item {
+  position: relative;
+}
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color 0.18s ease, background 0.18s ease;
+}
+.nav-link:hover,
+.nav-item:hover .nav-trigger {
+  color: var(--brand);
+  background: var(--brand-light);
+}
+.nav-chevron {
+  transition: transform 0.2s ease;
+}
+.nav-item:hover .nav-chevron {
+  transform: rotate(180deg);
+}
+.nav-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 268px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: var(--shadow-hover);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px);
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+  z-index: 120;
+}
+.nav-item:hover .nav-menu,
+.nav-item:focus-within .nav-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+.nav-menu::before {
+  /* Bridge the gap so hover doesn't drop while moving to the menu. */
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 0;
+  right: 0;
+  height: 10px;
+}
+.nav-menu-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+.nav-menu-item:hover {
+  background: var(--brand-light);
+}
+.nav-menu-item-label {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+}
+.nav-menu-item-desc {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.nav-hamburger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  margin-left: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--text);
+  cursor: pointer;
+}
+.nav-mobile-panel {
+  display: none;
+}
+
+/* ── Brokers strip (replaces the 6 feature cards) ── */
+.landing-brokers {
+  width: min(2160px, calc(100% - 96px));
+  margin: 0 auto;
+  padding: 26px 0 8px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px 22px;
+  border-top: 1px solid var(--border);
+}
+.landing-brokers-label {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.landing-broker-logos {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 14px;
+}
+.landing-broker {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 15px 9px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: var(--shadow);
+}
+.landing-broker i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--brand-light);
+  color: var(--brand);
+  font-style: normal;
+  font-size: 14px;
+  font-weight: 900;
+}
+.landing-broker.muted {
+  padding: 9px 15px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  background: transparent;
+  box-shadow: none;
+  border-style: dashed;
+}
+
+/* ── "Four products. One hub." ── */
+.landing-hub {
+  width: min(2160px, calc(100% - 96px));
+  margin: 0 auto;
+  padding: 74px 0 20px;
+  text-align: center;
+}
+.landing-hub-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.landing-hub-eyebrow::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand);
+}
+.landing-hub h2 {
+  margin: 14px auto 0;
+  font-family: var(--font-display);
+  font-size: clamp(34px, 5vw, 62px);
+  line-height: 1.02;
+  letter-spacing: -1px;
+}
+.landing-hub h2 em {
+  font-style: normal;
+  background: linear-gradient(100deg, var(--brand) 0%, #fb923c 55%, #ea580c 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.landing-hub p {
+  max-width: 620px;
+  margin: 16px auto 0;
+  color: var(--text-secondary);
+  font-size: 17px;
+  line-height: 1.6;
+}
+.landing-hub-chips {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+.landing-hub-chip {
+  padding: 9px 16px;
+  border: 1px solid rgba(249, 115, 22, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 247, 237, 0.7);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* ── Scroll-reveal motion primitive ── */
+.reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.7s cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0s);
+  will-change: opacity, transform;
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ── Numbered motion workflow rows ── */
+.workflow-showcase {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+.workflow-row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  align-items: center;
+  gap: 44px;
+  padding: 30px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.62);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(6px);
+}
+.workflow-row.is-reversed .workflow-copy {
+  order: 2;
+}
+.workflow-row.is-reversed .workflow-visual {
+  order: 1;
+}
+.workflow-copy {
+  position: relative;
+  padding-top: 8px;
+}
+.workflow-number {
+  display: block;
+  font-family: var(--font-display);
+  font-size: clamp(64px, 8vw, 104px);
+  font-weight: 800;
+  line-height: 0.8;
+  letter-spacing: -3px;
+  background: linear-gradient(160deg, rgba(249, 115, 22, 0.9), rgba(249, 115, 22, 0.28));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  opacity: 0.9;
+}
+.workflow-eyebrow {
+  display: inline-flex;
+  margin-top: 8px;
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.workflow-copy h3 {
+  margin: 12px 0 12px;
+  font-family: var(--font-display);
+  font-size: clamp(26px, 2.6vw, 36px);
+  line-height: 1.08;
+  letter-spacing: -0.5px;
+}
+.workflow-copy p {
+  max-width: 46ch;
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1.65;
+}
+.workflow-copy .landing-primary-btn {
+  margin-top: 20px;
+}
+.workflow-visual {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  box-shadow: 0 22px 60px rgba(26, 26, 26, 0.12);
+}
+.workflow-visual img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+
+/* ── Footer ── */
+.landing-footer {
+  margin-top: 70px;
+  background: #141414;
+  color: #d8d5cf;
+}
+.landing-footer-inner {
+  width: min(2160px, calc(100% - 96px));
+  margin: 0 auto;
+  padding: 56px 0 32px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.6fr);
+  gap: 44px;
+}
+.landing-footer-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  text-decoration: none;
+}
+.landing-footer-disclaimer {
+  max-width: 42ch;
+  margin: 16px 0 20px;
+  color: #8f8b83;
+  font-size: 13px;
+  line-height: 1.65;
+}
+.landing-footer-socials {
+  display: flex;
+  gap: 10px;
+}
+.landing-footer-socials a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid #2e2e2e;
+  border-radius: var(--radius-sm);
+  color: #d8d5cf;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+.landing-footer-socials a:hover {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #ffffff;
+}
+.landing-footer-cols {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px;
+}
+.landing-footer-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.landing-footer-col-title {
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.landing-footer-link {
+  color: #a19d95;
+  font-size: 14px;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+.landing-footer-link:hover {
+  color: var(--brand);
+}
+.landing-footer-bar {
+  border-top: 1px solid #262626;
+}
+.landing-footer-bar {
+  width: min(2160px, calc(100% - 96px));
+  margin: 0 auto;
+  padding: 20px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #6f6b64;
+  font-size: 13px;
+}
+.landing-footer-bar-link {
+  color: #a19d95;
+  text-decoration: none;
+}
+.landing-footer-bar-link:hover {
+  color: var(--brand);
+}
+
+/* ── Landing redesign responsive ── */
+@media (max-width: 980px) {
+  .landing-nav {
+    display: none;
+  }
+  .nav-hamburger {
+    display: inline-flex;
+  }
+  .landing-header-actions {
+    margin-left: 0;
+  }
+  .landing-hero-visual {
+    margin-left: 0;
+    margin-right: 0;
+  }
+  .nav-mobile-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    width: 100%;
+    margin-top: 6px;
+    padding: 18px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow: var(--shadow-md);
+  }
+  .nav-mobile-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .nav-mobile-group-label {
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .nav-mobile-link {
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .workflow-row {
+    grid-template-columns: 1fr;
+    gap: 22px;
+    padding: 22px;
+  }
+  .workflow-row.is-reversed .workflow-copy {
+    order: 1;
+  }
+  .workflow-row.is-reversed .workflow-visual {
+    order: 2;
+  }
+  .landing-footer-inner {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+}
+
+@media (max-width: 720px) {
+  .landing-header {
+    position: relative;
+  }
+  .landing-brokers {
+    padding: 22px 0 6px;
+  }
+  .landing-hub {
+    padding-top: 54px;
+  }
+  .landing-footer-cols {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

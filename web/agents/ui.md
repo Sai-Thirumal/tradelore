@@ -4,11 +4,24 @@
 
 ```
 /                           Public marketing landing page (page.tsx)
-├── Hero                     Product-positioning copy + dashboard screenshot preview
-├── Feature strip            CSV import, journaling, analytics, chart review, reports, privacy
-├── Product tour             Dashboard, Journal, Trade Log, and Reports screenshot sections
-├── Workflow                 Import → journal → study process
-└── Trade replay             Trade detail screenshot and CTA
+├── LandingNav               Tradezella-style nav: Products/Solutions/Resources dropdowns,
+│                            Supported Brokers, Pricing, Log in, Get Started + mobile hamburger
+│                            (components/landing/LandingNav.tsx, client)
+├── Hero                     Horizontal title + dashboard screenshot nudged right
+├── Brokers strip            "Auto-syncs with" Zerodha + Delta Exchange (replaces old 6 cards)
+├── Four products. One hub.  Eyebrow + gradient heading + product chips
+├── Workflow showcase        4 numbered scroll-reveal product blocks (broker sync, journaling,
+│                            trade replay, analytics); WorkflowShowcase.tsx uses Reveal.tsx
+│                            (IntersectionObserver fade+slide). Trade replay is block #3.
+├── Final CTA                #get-started
+└── LandingFooter            Dark footer: link columns + risk disclaimer + X/Instagram
+                             (components/landing/LandingFooter.tsx; update social handles)
+
+Landing motion: `components/landing/Reveal.tsx` is a client wrapper that adds
+`is-visible` when an element scrolls into view (honors prefers-reduced-motion).
+All `.landing-*` / `.workflow-*` / `.reveal` styles live in globals.css under the
+"LANDING REDESIGN" block. The whole page uses one subtle fixed orange gradient
+(`.landing-page` background).
 
 /dashboard                   Main authenticated dashboard (dashboard/page.tsx)
 ├── Dashboard tab            Stat pills, P&L charts, monthly calendar
