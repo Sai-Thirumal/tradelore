@@ -1,102 +1,21 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { BarChart3, BookOpenText, CandlestickChart, FileSpreadsheet, LineChart, ShieldCheck } from 'lucide-react';
+import LandingNav from './components/landing/LandingNav';
+import WorkflowShowcase from './components/landing/WorkflowShowcase';
+import LandingFooter from './components/landing/LandingFooter';
 
-const productShots = [
-  {
-    title: 'Dashboard',
-    eyebrow: 'Know the month in one glance',
-    copy: 'Net P&L, win rate, profit factor, daily bars, cumulative curves, and a calendar that makes good and bad periods obvious.',
-    image: '/tradelore-dashboard.png',
-  },
-  {
-    title: 'Journal',
-    eyebrow: 'Plan before, review after',
-    copy: 'Capture bias, capital, levels, news, post-market notes, risk, sizing, emotions, and playbook usage right beside the trades.',
-    image: '/tradelore-journal.png',
-  },
-  {
-    title: 'Trade Log',
-    eyebrow: 'Every execution, organized',
-    copy: 'Broker CSV imports become clean month, day, and trade groupings with average entry, exit, net P&L, orders, and journal links.',
-    image: '/tradelore-trade-log.png',
-  },
-  {
-    title: 'Reports',
-    eyebrow: 'Find your repeatable edge',
-    copy: 'Spot best days, weak sessions, win-rate pockets, instrument behavior, duration patterns, and risk habits without spreadsheet work.',
-    image: '/tradelore-reports.png',
-  },
+// The brokers TradeLore auto-syncs with today. Kept factual — no invented metrics.
+const brokers = [
+  { name: 'Zerodha', short: 'Z' },
+  { name: 'Delta Exchange', short: 'Δ' },
 ];
 
-const features = [
-  {
-    icon: FileSpreadsheet,
-    title: 'CSV to clarity',
-    copy: 'Import broker files and let TradeLore match fills into completed trades with costs included.',
-  },
-  {
-    icon: BookOpenText,
-    title: 'Built-in journaling',
-    copy: 'Pre-market plans and post-market reviews stay attached to the trades they explain.',
-  },
-  {
-    icon: LineChart,
-    title: 'Cost-aware analytics',
-    copy: 'Track net P&L, win rate, profit factor, averages, streaks, and day-by-day performance.',
-  },
-  {
-    icon: CandlestickChart,
-    title: 'Trade replay context',
-    copy: 'Review entries and exits on the chart with order legs and journal context in one view.',
-  },
-  {
-    icon: BarChart3,
-    title: 'Pattern reports',
-    copy: 'Understand what works by weekday, month, trade time, holding duration, instrument, and playbook.',
-  },
-  {
-    icon: ShieldCheck,
-    title: 'Private by design',
-    copy: 'Each account is scoped to its authenticated user, keeping journals and trades separated.',
-  },
-];
-
-function TradeLoreMark() {
-  return (
-    <svg
-      width="20"
-      height="24"
-      viewBox="0 0 20 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className="landing-logo-mark"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <line x1="10" y1="2" x2="10" y2="7" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M3 7H12.5L17 11.5V17H3V7Z" fill="#f97316" />
-      <line x1="10" y1="17" x2="10" y2="22" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
+const products = ['Automated broker sync', 'Journaling', 'Trade replays', 'Analytics'];
 
 export default function LandingPage() {
   return (
     <main className="landing-page">
-      <header className="landing-header">
-        <Link className="landing-brand" href="/" aria-label="TradeLore home">
-          <TradeLoreMark />
-          <span>TradeLore</span>
-        </Link>
-        <nav className="landing-nav" aria-label="Landing navigation">
-          <a href="#product">Product</a>
-        </nav>
-        <div className="landing-header-actions">
-          <Link className="landing-link-btn" href="/login">Log in</Link>
-          <Link className="landing-primary-btn small" href="/login?next=/dashboard">Start journaling</Link>
-        </div>
-      </header>
+      <LandingNav />
 
       <section className="landing-hero">
         <div className="landing-hero-copy">
@@ -104,7 +23,7 @@ export default function LandingPage() {
           <h1>The perfect trading companion to build your edge.</h1>
           <p>
             Sync your broker to auto-log the day&apos;s trades, or import CSVs whenever you need. TradeLore pairs
-            cost-aware P&L, journals, chart reviews, and performance reports so every session sharpens your edge.
+            cost-aware P&amp;L, journals, chart reviews, and performance reports so every session sharpens your edge.
           </p>
           <div className="landing-cta-row">
             <Link className="landing-primary-btn" href="/login?next=/dashboard">Get started</Link>
@@ -137,69 +56,48 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="landing-section landing-feature-strip" aria-label="TradeLore features">
-        {features.map((feature) => {
-          const Icon = feature.icon;
-          return (
-            <article key={feature.title} className="landing-feature-card">
-              <Icon size={22} aria-hidden="true" />
-              <h2>{feature.title}</h2>
-              <p>{feature.copy}</p>
-            </article>
-          );
-        })}
+      <section className="landing-brokers" id="brokers" aria-label="Brokers integrated">
+        <span className="landing-brokers-label">Auto-syncs with</span>
+        <div className="landing-broker-logos">
+          {brokers.map((broker) => (
+            <span className="landing-broker" key={broker.name}>
+              <i aria-hidden="true">{broker.short}</i>
+              {broker.name}
+            </span>
+          ))}
+          <span className="landing-broker muted">+ more coming</span>
+        </div>
       </section>
 
-      <section className="landing-section landing-showcase" id="product">
+      <section className="landing-hub" id="hub">
+        <span className="landing-hub-eyebrow">All your tools</span>
+        <h2>
+          Four products. <em>One hub.</em>
+        </h2>
+        <p>Automated broker sync, journaling, trade replays, and analytics — built around the actual trading day.</p>
+        <div className="landing-hub-chips">
+          {products.map((product) => (
+            <span className="landing-hub-chip" key={product}>{product}</span>
+          ))}
+        </div>
+      </section>
+
+      <section className="landing-section landing-workflow" aria-label="Product tour">
         <div className="landing-section-heading">
           <span>Product tour</span>
           <h2>A workflow that follows the trading day.</h2>
           <p>From pre-market intent to post-market review, every screen is built around the actual work traders repeat.</p>
         </div>
-        <div className="showcase-grid">
-          {productShots.map((shot) => (
-            <article key={shot.title} className="showcase-card">
-              <div>
-                <span>{shot.eyebrow}</span>
-                <h3>{shot.title}</h3>
-                <p>{shot.copy}</p>
-              </div>
-              <Image
-                src={shot.image}
-                alt={`TradeLore ${shot.title.toLowerCase()} screen`}
-                width={2048}
-                height={1078}
-              />
-            </article>
-          ))}
-        </div>
+        <WorkflowShowcase />
       </section>
 
-      <section className="landing-section landing-trade-detail">
-        <div className="trade-detail-copy">
-          <span>Trade replay</span>
-          <h2>Zoom into the exact trade, not just the summary.</h2>
-          <p>
-            Review direction, quantity, entry, exit, order legs, and chart markers together. The outcome becomes easier
-            to explain when the evidence sits in one place.
-          </p>
-          <Link className="landing-primary-btn" href="/login?next=/dashboard">Open your journal</Link>
-        </div>
-        <div className="trade-detail-image">
-          <Image
-            src="/tradelore-trade-detail.png"
-            alt="TradeLore trade detail view with chart and order summary"
-            width={2048}
-            height={1078}
-          />
-        </div>
-      </section>
-
-      <section className="landing-final-cta">
+      <section className="landing-final-cta" id="get-started">
         <span>Ready when the market closes.</span>
-        <h2>Turn today’s trades into tomorrow’s playbook.</h2>
+        <h2>Turn today&rsquo;s trades into tomorrow&rsquo;s playbook.</h2>
         <Link className="landing-primary-btn" href="/login?next=/dashboard">Start with TradeLore</Link>
       </section>
+
+      <LandingFooter />
     </main>
   );
 }
