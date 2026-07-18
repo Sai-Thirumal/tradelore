@@ -154,7 +154,13 @@ export default async function LandingPage() {
         <div className="landing-broker-logos">
           {brokers.map((broker) => (
             <span className="landing-broker" key={broker.name}>
-              <Image className="landing-broker-logo" src={broker.image} alt="" width={58} height={58} />
+              <Image
+                className={`landing-broker-logo${broker.name === 'Dhan' ? ' dhan' : ''}`}
+                src={broker.image}
+                alt=""
+                width={58}
+                height={58}
+              />
               <span>{broker.name}</span>
             </span>
           ))}

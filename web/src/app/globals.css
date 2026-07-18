@@ -3246,15 +3246,15 @@ tbody.day-group + tbody.day-group .day-header-row td {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-width: 116px;
-  min-height: 112px;
-  padding: 13px 16px 12px;
+  gap: 4px;
+  min-width: 104px;
+  min-height: 98px;
+  padding: 6px 10px 5px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.78);
   color: var(--text);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   box-shadow: var(--shadow);
 }
@@ -3262,9 +3262,12 @@ tbody.day-group + tbody.day-group .day-header-row td {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 58px;
-  height: 58px;
+  width: 64px;
+  height: 64px;
   object-fit: contain;
+}
+.landing-broker-logo.dhan {
+  border-radius: 12px;
 }
 .landing-broker.muted {
   padding: 9px 15px;
