@@ -3107,6 +3107,9 @@ tbody.day-group + tbody.day-group .day-header-row td {
   letter-spacing: -0.5px;
   max-width: 15ch;
 }
+.landing-hero {
+  padding-bottom: 48px;
+}
 .landing-hero-visual {
   margin-left: 24px;
   margin-right: -18px;
