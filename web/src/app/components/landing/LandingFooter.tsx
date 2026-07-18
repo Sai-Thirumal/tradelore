@@ -32,6 +32,9 @@ const columns: { title: string; links: { label: string; href: string }[] }[] = [
     links: [
       { label: 'Supported brokers', href: '/#brokers' },
       { label: 'Zerodha', href: '/#brokers' },
+      { label: 'Upstox', href: '/#brokers' },
+      { label: 'Dhan', href: '/#brokers' },
+      { label: 'Angel One', href: '/#brokers' },
       { label: 'Delta Exchange', href: '/#brokers' },
     ],
   },
