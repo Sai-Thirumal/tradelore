@@ -68,9 +68,8 @@ export async function updateSession(request: NextRequest) {
 
   if (!signedIn && !isPublicPath(pathname) && !isAssetPath(pathname) && !pathname.startsWith('/api/')) {
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = '/login';
+    redirectUrl.pathname = '/';
     redirectUrl.search = '';
-    redirectUrl.searchParams.set('next', `${pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(redirectUrl);
   }
 
