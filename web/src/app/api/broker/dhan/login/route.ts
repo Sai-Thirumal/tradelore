@@ -9,6 +9,7 @@ import { decryptSecret } from '@/lib/security/encryption';
 export const runtime = 'nodejs';
 
 const NEXT_COOKIE = 'dhan_oauth_next';
+const STARTED_COOKIE = 'dhan_oauth_started';
 
 export async function GET(request: NextRequest) {
   const { user, response } = await requireActiveEntitlement();
@@ -32,6 +33,13 @@ export async function GET(request: NextRequest) {
     });
     const redirect = NextResponse.redirect(createDhanLoginUrl(consent.consentAppId));
     redirect.cookies.set(NEXT_COOKIE, getInternalRedirectPath(request.nextUrl.searchParams.get('next') || '/dashboard'), {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/api/broker/dhan',
+      maxAge: 10 * 60,
+    });
+    redirect.cookies.set(STARTED_COOKIE, '1', {
       httpOnly: true,
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
