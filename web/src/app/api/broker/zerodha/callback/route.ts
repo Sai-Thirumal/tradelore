@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+import { getInternalRedirectPath } from '@/lib/auth/redirect';
 import { requireActiveEntitlement } from '@/lib/auth/session';
 import { KiteApiError, exchangeRequestToken } from '@/lib/brokers/india/kite/client';
 import { getNextKiteTokenExpiry } from '@/lib/brokers/india/kite/session';
@@ -12,7 +13,7 @@ const STATE_COOKIE = 'zerodha_oauth_state';
 const NEXT_COOKIE = 'zerodha_oauth_next';
 
 function redirectHome(request: NextRequest, status: string, nextPath = '/dashboard') {
-  const redirectUrl = new URL(nextPath, request.nextUrl.origin);
+  const redirectUrl = new URL(getInternalRedirectPath(nextPath), request.nextUrl.origin);
   redirectUrl.searchParams.set('zerodha', status);
   return NextResponse.redirect(redirectUrl);
 }

@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+import { getInternalRedirectPath } from '@/lib/auth/redirect';
 import { requireActiveEntitlement } from '@/lib/auth/session';
 import { consumeDhanConsent } from '@/lib/brokers/india/dhan/client';
 import { DHAN_BROKER, fetchBrokerConnection, getBrokerApiKey, hasBrokerCredentials, upsertBrokerConnection } from '@/lib/db/broker-connections';
@@ -10,7 +11,7 @@ export const runtime = 'nodejs';
 const NEXT_COOKIE = 'dhan_oauth_next';
 
 function redirectHome(request: NextRequest, status: string, nextPath = '/dashboard') {
-  const redirectUrl = new URL(nextPath, request.nextUrl.origin);
+  const redirectUrl = new URL(getInternalRedirectPath(nextPath), request.nextUrl.origin);
   redirectUrl.searchParams.set('dhan', status);
   return NextResponse.redirect(redirectUrl);
 }

@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+import { getInternalRedirectPath } from '@/lib/auth/redirect';
 import { requireActiveEntitlement } from '@/lib/auth/session';
 import { exchangeUpstoxCode } from '@/lib/brokers/india/upstox/client';
 import { getUpstoxConfig } from '@/lib/brokers/india/upstox/config';
@@ -12,7 +13,7 @@ const STATE_COOKIE = 'upstox_oauth_state';
 const NEXT_COOKIE = 'upstox_oauth_next';
 
 function redirectHome(request: NextRequest, status: string, nextPath = '/dashboard') {
-  const redirectUrl = new URL(nextPath, request.nextUrl.origin);
+  const redirectUrl = new URL(getInternalRedirectPath(nextPath), request.nextUrl.origin);
   redirectUrl.searchParams.set('upstox', status);
   return NextResponse.redirect(redirectUrl);
 }
