@@ -40,7 +40,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid request origin' }, { status: 403 });
   }
 
-  const rateLimitResponse = rateLimitRequest(request);
+  const rateLimitResponse = await rateLimitRequest(request);
   if (rateLimitResponse) return rateLimitResponse;
 
   if (!url || !key) {

@@ -1,4 +1,6 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server.js';
+import { hasSupabaseServiceRoleEnv } from '../supabase/env.ts';
+import { createServiceClient } from '../supabase/service.ts';
 
 interface RateLimitRule {
   limit: number;
@@ -11,6 +13,7 @@ interface RateLimitBucket {
 }
 
 const buckets = new Map<string, RateLimitBucket>();
+let warnedAboutSharedLimit = false;
 
 const RATE_LIMIT_RULES: Array<{ method: string; pattern: RegExp; name: string; rule: RateLimitRule }> = [
   { method: 'POST', pattern: /^\/api\/auth\/signup$/, name: 'signup', rule: { limit: 5, windowMs: 60 * 60 * 1000 } },
@@ -66,7 +69,36 @@ function checkRateLimit(key: string, rule: RateLimitRule) {
   return { allowed: bucket.count <= rule.limit, bucket };
 }
 
-export function rateLimitRequest(request: NextRequest) {
+async function checkSharedRateLimit(key: string, rule: RateLimitRule) {
+  if (!hasSupabaseServiceRoleEnv()) return null;
+
+  const { data, error } = await createServiceClient().rpc('check_rate_limit', {
+    p_key: key,
+    p_limit: rule.limit,
+    p_window_seconds: Math.ceil(rule.windowMs / 1000),
+  });
+
+  if (error) {
+    if (!warnedAboutSharedLimit) {
+      warnedAboutSharedLimit = true;
+      console.warn('shared_rate_limit_unavailable', error.message);
+    }
+    return null;
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return null;
+
+  return {
+    allowed: Boolean(row.allowed),
+    bucket: {
+      count: Number(row.count) || 0,
+      resetAt: new Date(row.reset_at).getTime(),
+    },
+  };
+}
+
+export async function rateLimitRequest(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const method = request.method.toUpperCase();
   const match = RATE_LIMIT_RULES.find(({ method: ruleMethod, pattern }) =>
@@ -77,7 +109,7 @@ export function rateLimitRequest(request: NextRequest) {
 
   const ip = clientIp(request);
   const key = `${match.name}:${ip}`;
-  const result = checkRateLimit(key, match.rule);
+  const result = await checkSharedRateLimit(key, match.rule) || checkRateLimit(key, match.rule);
   if (result.allowed) return null;
 
   return NextResponse.json(

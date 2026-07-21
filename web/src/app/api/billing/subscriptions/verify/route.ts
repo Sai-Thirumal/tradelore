@@ -3,13 +3,9 @@ import { requireAuthUser } from '@/lib/auth/session';
 import { getRazorpayKeySecret } from '@/lib/billing/config.ts';
 import { verifyRazorpayCheckoutSignature } from '@/lib/billing/signatures.ts';
 import { internalErrorResponse } from '@/lib/errors';
-import { rateLimitRequest } from '@/lib/security/rate-limit';
 import { createServiceClient } from '@/lib/supabase/service';
 
 export async function POST(request: NextRequest) {
-  const limited = rateLimitRequest(request);
-  if (limited) return limited;
-
   try {
     const { user, response } = await requireAuthUser();
     if (response) return response;

@@ -1,14 +1,10 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import { requireAuthUser } from '@/lib/auth/session';
 import { createRazorpayClient } from '@/lib/billing/razorpay.ts';
 import { internalErrorResponse } from '@/lib/errors';
-import { rateLimitRequest } from '@/lib/security/rate-limit';
 import { createServiceClient } from '@/lib/supabase/service';
 
-export async function POST(request: NextRequest) {
-  const limited = rateLimitRequest(request);
-  if (limited) return limited;
-
+export async function POST() {
   try {
     const { user, response } = await requireAuthUser();
     if (response) return response;

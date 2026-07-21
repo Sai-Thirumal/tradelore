@@ -3,15 +3,11 @@ import { requireAuthUser } from '@/lib/auth/session';
 import { getRazorpayKeyId, parseInternalPlanKey, getBillingPlan } from '@/lib/billing/config.ts';
 import { createRazorpayClient } from '@/lib/billing/razorpay.ts';
 import { internalErrorResponse } from '@/lib/errors';
-import { rateLimitRequest } from '@/lib/security/rate-limit';
 import { createServiceClient } from '@/lib/supabase/service';
 
 const MONTHLY_TOTAL_COUNT = 1200; // Razorpay requires a bounded subscription; 100 years is its documented maximum.
 
 export async function POST(request: NextRequest) {
-  const limited = rateLimitRequest(request);
-  if (limited) return limited;
-
   try {
     const { user, response } = await requireAuthUser();
     if (response) return response;
