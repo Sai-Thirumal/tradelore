@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { requirePageAuth } from "@/lib/auth/page";
+
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   robots: {
@@ -8,6 +11,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  await requirePageAuth();
   return <>{children}</>;
 }
