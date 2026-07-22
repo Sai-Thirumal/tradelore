@@ -44,14 +44,6 @@ const groups: NavGroup[] = [
       { label: 'Analytics', href: '/#p-analytics', desc: 'Net P&L, win rate, profit factor, patterns' },
     ],
   },
-  {
-    label: 'Solutions',
-    items: [
-      { label: 'Pre-market planning', href: '/#p-journal', desc: 'Set bias, levels, and risk before the open' },
-      { label: 'Post-trade review', href: '/#p-journal', desc: 'Turn each session into a lesson' },
-      { label: 'Performance analytics', href: '/#p-analytics', desc: 'Find your repeatable edge' },
-    ],
-  },
 ];
 
 const resources: NavGroup = {
