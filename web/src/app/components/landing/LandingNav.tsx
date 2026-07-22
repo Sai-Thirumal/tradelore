@@ -87,6 +87,7 @@ export default function LandingNav() {
         <Link className="nav-link" href="/#brokers">Supported Brokers</Link>
         <Link className="nav-link" href="/#get-started">Pricing</Link>
         {dropdown(resources)}
+        <Link className="nav-link" href="/blog">Blog</Link>
       </nav>
 
       <div className="landing-header-actions">
@@ -135,6 +136,7 @@ export default function LandingNav() {
           <div className="nav-mobile-group">
             <Link className="nav-mobile-link" href="/#brokers" onClick={() => setMobileOpen(false)}>Supported Brokers</Link>
             <Link className="nav-mobile-link" href="/#get-started" onClick={() => setMobileOpen(false)}>Pricing</Link>
+            <Link className="nav-mobile-link" href="/blog" onClick={() => setMobileOpen(false)}>Blog</Link>
             <Link className="nav-mobile-link" href="/login" onClick={() => setMobileOpen(false)}>Log in</Link>
           </div>
         </div>
