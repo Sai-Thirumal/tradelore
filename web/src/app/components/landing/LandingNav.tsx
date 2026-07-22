@@ -84,7 +84,6 @@ export default function LandingNav() {
 
       <nav className="landing-nav" aria-label="Primary">
         {dropdown(groups[0])}
-        {dropdown(groups[1])}
         <Link className="nav-link" href="/#brokers">Supported Brokers</Link>
         <Link className="nav-link" href="/#get-started">Pricing</Link>
         {dropdown(resources)}
