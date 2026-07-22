@@ -89,6 +89,7 @@ export default async function BlogPostPage({ params }: PageProps) {
                 {section.content.map((block, index) => {
                   if (block.type === "paragraphs") return block.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>);
                   if (block.type === "list") return <ul key={index}>{block.items.map((item) => <li key={item}>{item}</li>)}</ul>;
+                  if (block.type === "subheading") return <h3 key={index}>{block.heading}</h3>;
                   return <div className="blog-table-wrap" key={index}><table><thead><tr>{block.headers.map((header) => <th key={header} scope="col">{header}</th>)}</tr></thead><tbody>{block.rows.map((row) => <tr key={row.join("-")}>{row.map((cell) => <td key={cell}>{cell}</td>)}</tr>)}</tbody></table></div>;
                 })}
               </section>
@@ -101,7 +102,7 @@ export default async function BlogPostPage({ params }: PageProps) {
           </section>
           <section className="blog-final-cta">
             <h2>Make review part of your trading day</h2>
-            <p>Import your trades, journal the decisions, and review the patterns that repeat.</p>
+            <p>{post.cta}</p>
             <Link className="blog-primary" href="/login?next=/dashboard">Start using TradeLore</Link>
           </section>
         </article>
