@@ -24,7 +24,7 @@ const products: Product[] = [
     id: 'p-sync',
     eyebrow: 'Automated broker sync',
     title: 'Your brokers, synced automatically.',
-    copy: 'Sync Zerodha or Delta once to auto-log the day’s trades, or import CSVs whenever you need. TradeLore matches fills into completed trades with costs included, so your dashboard is ready when the market closes.',
+    copy: 'Sync your broker once to auto-log the day’s trades, or import CSVs whenever you need. TradeLore matches fills into completed trades with costs included, so your dashboard is ready when the market closes.',
     image: '/tradelore-dashboard.png',
     alt: 'TradeLore dashboard with P&L charts, stat cards, and a calendar',
   },
