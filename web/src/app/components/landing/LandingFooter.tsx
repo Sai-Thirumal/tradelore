@@ -10,10 +10,9 @@ function TradeLoreMark() {
   );
 }
 
-// NOTE: update these two handles to TradeLore's real profiles when available.
 const SOCIALS = {
-  twitter: 'https://x.com/tradelore',
-  instagram: 'https://instagram.com/tradelore',
+  twitter: 'https://x.com/NSaithirumal1',
+  instagram: 'https://www.instagram.com/thetradelore/',
 };
 
 const columns: { title: string; links: { label: string; href: string }[] }[] = [
