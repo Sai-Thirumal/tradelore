@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import { requireAuthUser } from '@/lib/auth/session';
 import { isLaunchPlanEnabled } from '@/lib/billing/config.ts';
-import { getUserEntitlement } from '@/lib/billing/entitlements.ts';
+import { ensureNewUserTrial, getUserEntitlement } from '@/lib/billing/entitlements.ts';
 import { internalErrorResponse } from '@/lib/errors';
 
 export async function GET() {
   try {
     const { user, response } = await requireAuthUser();
     if (response) return response;
+    await ensureNewUserTrial(user.id, user.createdAt);
     const entitlement = await getUserEntitlement(user.id);
     return NextResponse.json({
       hasAccess: entitlement.hasAccess,

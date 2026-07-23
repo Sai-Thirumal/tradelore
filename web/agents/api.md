@@ -91,7 +91,7 @@ Signs out the current Supabase session and clears auth cookies.
 **Response:** `{ "success": true }`
 
 ### GET /api/billing/status
-Returns the signed-in user's current billing entitlement. It combines manual/trial entitlements from `user_entitlements` with paid subscription periods from `billing_subscriptions`.
+Initializes an eligible new-user trial before returning the signed-in user's current billing entitlement. It combines manual/trial entitlements from `user_entitlements` with paid subscription periods from `billing_subscriptions`.
 
 **Response:**
 ```json
