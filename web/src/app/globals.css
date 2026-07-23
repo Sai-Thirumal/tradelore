@@ -347,6 +347,10 @@ body::before {
   width: 100%;
   height: auto;
 }
+.seo-image-portrait {
+  justify-self: center;
+  max-width: 360px;
+}
 .seo-sections {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

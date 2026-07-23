@@ -17,7 +17,11 @@
 │                            demo, ₹199/month price comparison, product feature checklist, and CTA.
 ├── Final CTA                #get-started
 └── LandingFooter            Dark footer: link columns + risk disclaimer + X/Instagram
+                             Company includes About Us → `/about`
                              (components/landing/LandingFooter.tsx; update social handles)
+
+/about                      Public SEO page with TradeLore origin story, founder section,
+                             mission/vision, and founder portrait (`founder-thirumal.jpeg`).
 
 Landing motion: `components/landing/Reveal.tsx` is a client wrapper that adds
 `is-visible` when an element scrolls into view (honors prefers-reduced-motion).

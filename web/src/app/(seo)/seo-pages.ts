@@ -7,6 +7,9 @@ export type SeoPage = {
   image?: {
     src: string;
     alt: string;
+    width?: number;
+    height?: number;
+    portrait?: boolean;
   };
   sections: {
     heading: string;
@@ -471,22 +474,51 @@ export const seoPages = [
   {
     slug: "about",
     title: "About TradeLore",
-    description: "TradeLore is a trading journal and analytics product for Indian traders who want a better review process.",
-    h1: "TradeLore helps traders build a better review habit",
-    intro: "TradeLore exists to make trading review easier, more structured, and more honest than scattered notes and broker statements.",
+    description: "Learn why TradeLore was built, meet founder Thirumal, and see the mission behind the trading journal and analytics platform.",
+    h1: "About TradeLore",
+    intro: "TradeLore was built from a simple observation: traders spend countless hours finding and executing trades, but very little time systematically reviewing them.",
+    image: {
+      src: "/founder-thirumal.jpeg",
+      alt: "Thirumal, founder of TradeLore",
+      width: 990,
+      height: 1600,
+      portrait: true,
+    },
     sections: [
       {
-        heading: "What TradeLore believes",
+        heading: "Why TradeLore exists",
         body: [
-          "A useful journal should connect the plan, the execution, the result, and the lesson.",
-          "TradeLore is built around that loop: import, journal, replay, review, improve.",
+          "Many traders rely on spreadsheets, screenshots, broker statements, and scattered notes to understand their performance. While these tools record what happened, they rarely explain why it happened or what a trader should improve next.",
+          "TradeLore was created to solve this problem. It is a trading journal and performance analytics platform designed for Indian F&O and swing traders.",
+          "TradeLore helps traders bring their trades, notes, charts, strategies, and performance data into one structured system so they can understand which setups work, where they repeatedly make mistakes, and how timing, discipline, execution, and market conditions affect their results.",
         ],
       },
       {
-        heading: "What TradeLore is not",
+        heading: "About the founder",
         body: [
-          "TradeLore is not investment advice, a signal service, or an order execution tool.",
-          "It is a trading journal and analytics companion for traders who want to study their own behavior and performance.",
+          "I’m Thirumal, a graduate of BITS Pilani, Hyderabad Campus, and the founder of TradeLore.",
+          "My interest in trading and product building led me to explore a problem that many traders face. They have access to more charts, indicators, and market information than ever before, but they still lack a reliable system for learning from their own decisions.",
+          "I started TradeLore by speaking with traders, studying how they maintained journals, identifying gaps in existing tools, and understanding the challenges they faced while reviewing their performance.",
+          "I took TradeLore through the complete product development lifecycle, from identifying the problem and conducting user research to mapping workflows, prioritising features, building the MVP, onboarding users, collecting feedback, and continuously improving the product.",
+          "Today, TradeLore helps traders review their performance using structured journals, detailed trade analysis, broker integrations, and more than 40 trading metrics. The platform has already been used by over 100 traders and has analysed more than 5,000 trades.",
+          "Building TradeLore has also been a personal journey in product thinking, technology, user research, design, execution, and entrepreneurship. Every feature is built around real trader problems rather than adding complexity for the sake of it.",
+        ],
+      },
+      {
+        heading: "Our mission",
+        body: [
+          "Our mission is to help traders become more self-aware, disciplined, and data-driven.",
+          "TradeLore is not designed to give trading calls, promise guaranteed returns, or replace a trader’s decision making. It is designed to help traders understand their own behaviour and make better decisions over time.",
+          "We believe sustainable improvement comes from reviewing the process, not merely celebrating profits or regretting losses.",
+        ],
+      },
+      {
+        heading: "Our vision",
+        body: [
+          "Our long-term vision is to build the most trusted performance and decision support platform for active traders.",
+          "We want TradeLore to become the companion traders use before, during, and after every trading session. It should help them prepare better, avoid repeated mistakes, review their execution, and build a trading process based on evidence rather than emotion.",
+          "TradeLore is being built alongside its users. Feedback from traders directly influences what we prioritise, improve, and build next.",
+          "Because the best trading journal should not only tell you what happened. It should help you understand what to do better next time.",
         ],
       },
     ],

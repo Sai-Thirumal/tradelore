@@ -124,8 +124,14 @@ export default async function SeoPageRoute({ params }: PageProps) {
             <Link className="seo-primary" href="/login?next=/dashboard">Start journaling</Link>
           </div>
           {page.image && (
-            <div className="seo-image">
-              <Image src={page.image.src} alt={page.image.alt} width={1200} height={720} priority />
+            <div className={`seo-image ${page.image.portrait ? "seo-image-portrait" : ""}`}>
+              <Image
+                src={page.image.src}
+                alt={page.image.alt}
+                width={page.image.width ?? 1200}
+                height={page.image.height ?? 720}
+                priority
+              />
             </div>
           )}
         </section>
