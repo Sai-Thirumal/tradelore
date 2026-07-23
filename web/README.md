@@ -164,7 +164,7 @@ Legacy projects can continue using:
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY` is not required for normal app runtime. Keep it out of Vercel unless you are running a one-off admin script that explicitly needs it.
+`SUPABASE_SERVICE_ROLE_KEY` is required server-side when billing is enabled, so subscription creation and Razorpay webhook reconciliation can write billing records. Do not expose it to the browser.
 
 ### Database
 Run these SQL files in your Supabase SQL Editor (in order):

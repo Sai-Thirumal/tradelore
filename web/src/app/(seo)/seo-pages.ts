@@ -408,10 +408,17 @@ export const seoPages = [
   {
     slug: "pricing",
     title: "TradeLore Pricing",
-    description: "TradeLore pricing for traders who want broker import, journaling, trade replay, and analytics in one workspace.",
-    h1: "Simple pricing for a serious trading review workflow",
-    intro: "TradeLore is built for traders who want one place to import trades, journal decisions, replay sessions, and review performance.",
+    description: "TradeLore Pro starts with a one-month free demo, followed by the ₹199/month launch price (normally ₹299/month).",
+    h1: "One month free, then ₹199/month",
+    intro: "TradeLore Pro is currently ₹199/month as a launch offer, reduced from the normal ₹299/month price. Keep the launch price while your subscription stays active.",
     sections: [
+      {
+        heading: "Launch offer",
+        body: [
+          "Your first month is free. After the demo, TradeLore Pro is ₹199 per month during the launch offer, instead of the normal ₹299 per month.",
+          "Subscriptions are monthly. You can manage your subscription from Billing in the app.",
+        ],
+      },
       {
         heading: "What is included",
         body: [

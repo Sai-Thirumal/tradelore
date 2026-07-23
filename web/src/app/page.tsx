@@ -190,6 +190,22 @@ export default async function LandingPage() {
         <WorkflowShowcase />
       </section>
 
+      <section className="landing-pricing" id="pricing" aria-labelledby="pricing-title">
+        <div>
+          <span className="landing-hub-eyebrow">Simple pricing</span>
+          <h2 id="pricing-title">Build your edge for less than a trade.</h2>
+          <p>Start with a full month to see whether TradeLore improves your review process.</p>
+        </div>
+        <div className="landing-pricing-card">
+          <span className="landing-pricing-badge">Launch offer</span>
+          <h3>TradeLore Pro</h3>
+          <p className="landing-pricing-trial">1 month free demo</p>
+          <p className="landing-pricing-price"><s>₹299</s> <strong>₹199</strong><span>/month</span></p>
+          <p className="landing-pricing-note">Keep the ₹199 launch price while your subscription stays active.</p>
+          <Link className="landing-primary-btn" href="/login?next=/dashboard">Start your free month</Link>
+        </div>
+      </section>
+
       <section className="landing-final-cta" id="get-started">
         <span>Ready when the market closes.</span>
         <h2>Turn today&apos;s trades into tomorrow&apos;s playbook.</h2>

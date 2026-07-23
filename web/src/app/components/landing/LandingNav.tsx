@@ -85,7 +85,7 @@ export default function LandingNav() {
       <nav className="landing-nav" aria-label="Primary">
         {dropdown(groups[0])}
         <Link className="nav-link" href="/#brokers">Supported Brokers</Link>
-        <Link className="nav-link" href="/#get-started">Pricing</Link>
+        <Link className="nav-link" href="/#pricing">Pricing</Link>
         {dropdown(resources)}
         <Link className="nav-link" href="/blog">Blog</Link>
       </nav>
@@ -135,7 +135,7 @@ export default function LandingNav() {
           ))}
           <div className="nav-mobile-group">
             <Link className="nav-mobile-link" href="/#brokers" onClick={() => setMobileOpen(false)}>Supported Brokers</Link>
-            <Link className="nav-mobile-link" href="/#get-started" onClick={() => setMobileOpen(false)}>Pricing</Link>
+            <Link className="nav-mobile-link" href="/#pricing" onClick={() => setMobileOpen(false)}>Pricing</Link>
             <Link className="nav-mobile-link" href="/blog" onClick={() => setMobileOpen(false)}>Blog</Link>
             <Link className="nav-mobile-link" href="/login" onClick={() => setMobileOpen(false)}>Log in</Link>
           </div>

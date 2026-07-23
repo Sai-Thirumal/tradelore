@@ -15,6 +15,7 @@ Entitlement selection considers every currently valid entitlement and paid subsc
 Founding traders get six months through `sql/08_founding_trader_entitlements_template.sql` using an explicit UUID list. Do not infer by signup date or email domain.
 
 Required env:
+- `SUPABASE_SERVICE_ROLE_KEY` (server-side only; required by subscription creation and webhook reconciliation)
 - `RAZORPAY_KEY_ID`
 - `RAZORPAY_KEY_SECRET`
 - `RAZORPAY_WEBHOOK_SECRET`

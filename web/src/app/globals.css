@@ -3574,6 +3574,90 @@ tbody.day-group + tbody.day-group .day-header-row td {
   font-weight: 700;
 }
 
+/* ── Launch pricing ── */
+.landing-pricing {
+  width: min(900px, calc(100% - 96px));
+  margin: 0 auto;
+  padding: 92px 0 20px;
+  display: grid;
+  grid-template-columns: 1fr minmax(300px, 380px);
+  align-items: center;
+  gap: 60px;
+}
+.landing-pricing h2 {
+  margin: 14px 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(32px, 4vw, 48px);
+  line-height: 1.06;
+  letter-spacing: -0.8px;
+}
+.landing-pricing > div > p {
+  margin: 16px 0 0;
+  color: var(--text-secondary);
+  font-size: 16px;
+  line-height: 1.6;
+}
+.landing-pricing-card {
+  padding: 30px;
+  border: 1px solid rgba(249, 115, 22, 0.32);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: var(--shadow-md);
+}
+.landing-pricing-badge {
+  display: inline-flex;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: var(--brand-light);
+  color: var(--brand);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.landing-pricing-card h3 {
+  margin: 16px 0 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  letter-spacing: -0.4px;
+}
+.landing-pricing-trial {
+  margin: 10px 0 0;
+  color: var(--green);
+  font-size: 14px;
+  font-weight: 800;
+}
+.landing-pricing-price {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 18px 0 0;
+}
+.landing-pricing-price s {
+  color: var(--text-secondary);
+  font-size: 20px;
+}
+.landing-pricing-price strong {
+  font-family: var(--font-display);
+  font-size: 42px;
+  letter-spacing: -1px;
+}
+.landing-pricing-price span {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+.landing-pricing-note {
+  min-height: 44px;
+  margin: 6px 0 20px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.landing-pricing-card .landing-primary-btn {
+  width: 100%;
+  justify-content: center;
+}
+
 /* ── Scroll-reveal motion primitive ── */
 .reveal {
   opacity: 0;
@@ -3825,6 +3909,10 @@ tbody.day-group + tbody.day-group .day-header-row td {
     gap: 22px;
     padding: 22px;
   }
+  .landing-pricing {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
   .workflow-row.is-reversed .workflow-copy {
     order: 1;
   }
@@ -3846,6 +3934,9 @@ tbody.day-group + tbody.day-group .day-header-row td {
   }
   .landing-hub {
     padding-top: 54px;
+  }
+  .landing-pricing {
+    padding-top: 64px;
   }
   .landing-footer-cols {
     grid-template-columns: repeat(2, minmax(0, 1fr));
