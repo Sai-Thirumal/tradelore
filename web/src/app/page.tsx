@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import { redirect } from 'next/navigation';
+import { Check } from 'lucide-react';
 import JsonLd from './components/JsonLd';
 import LandingFooter from './components/landing/LandingFooter';
 import LandingNav from './components/landing/LandingNav';
@@ -89,6 +90,13 @@ const brokers = [
 ];
 
 const products = ['Automated broker sync', 'Journaling', 'Trade replays', 'Analytics'];
+const pricingFeatures = [
+  'Broker sync and CSV import',
+  'Pre-market and post-trade journal',
+  'Trade replay with chart review',
+  'Performance reports and analytics',
+  'Playbooks and rule tracking',
+];
 
 async function isSignedIn() {
   try {
@@ -197,11 +205,15 @@ export default async function LandingPage() {
           <p>Start with a full month to see whether TradeLore improves your review process.</p>
         </div>
         <div className="landing-pricing-card">
-          <span className="landing-pricing-badge">Launch offer</span>
+          <span className="landing-pricing-badge">Launch offer until August 31</span>
           <h3>TradeLore Pro</h3>
           <p className="landing-pricing-trial">1 month free demo</p>
           <p className="landing-pricing-price"><s>₹299</s> <strong>₹199</strong><span>/month</span></p>
-          <p className="landing-pricing-note">Keep the ₹199 launch price while your subscription stays active.</p>
+          <ul className="landing-pricing-features">
+            {pricingFeatures.map((feature) => (
+              <li key={feature}><Check aria-hidden="true" size={20} strokeWidth={3} />{feature}</li>
+            ))}
+          </ul>
           <Link className="landing-primary-btn" href="/login?next=/dashboard">Start your free month</Link>
         </div>
       </section>

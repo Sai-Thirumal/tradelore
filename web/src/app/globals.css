@@ -3598,10 +3598,14 @@ tbody.day-group + tbody.day-group .day-header-row td {
   line-height: 1.6;
 }
 .landing-pricing-card {
+  box-sizing: border-box;
+  justify-self: center;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 30px;
+  gap: 20px;
+  width: min(100%, 430px);
+  min-height: 520px;
+  padding: 42px;
   border: 1px solid rgba(249, 115, 22, 0.32);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.78);
@@ -3627,7 +3631,7 @@ tbody.day-group + tbody.day-group .day-header-row td {
 }
 .landing-pricing-trial {
   margin: 0;
-  color: var(--green);
+  color: var(--text-secondary);
   font-size: 14px;
   font-weight: 800;
 }
@@ -3650,15 +3654,29 @@ tbody.day-group + tbody.day-group .day-header-row td {
   color: var(--text-secondary);
   font-size: 14px;
 }
-.landing-pricing-note {
-  margin: 0;
+.landing-pricing-features {
+  display: grid;
+  gap: 14px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
   color: var(--text-secondary);
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 14px;
+  font-weight: 600;
+}
+.landing-pricing-features li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.landing-pricing-features svg {
+  flex: 0 0 auto;
+  color: var(--green);
 }
 .landing-pricing-card .landing-primary-btn {
   width: 100%;
   justify-content: center;
+  margin-top: auto;
 }
 
 /* ── Scroll-reveal motion primitive ── */
@@ -3940,6 +3958,13 @@ tbody.day-group + tbody.day-group .day-header-row td {
   }
   .landing-pricing {
     padding-top: 64px;
+  }
+  .landing-pricing-card {
+    min-height: auto;
+    padding: 30px;
+  }
+  .landing-pricing-features {
+    font-size: 14px;
   }
   .landing-footer-cols {
     grid-template-columns: repeat(2, minmax(0, 1fr));
