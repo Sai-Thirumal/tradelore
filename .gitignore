@@ -9,3 +9,5 @@ venv/
 legacy/api/venv/
 *.csv
 .DS_Store
+.vercel
+.env*

@@ -152,6 +152,7 @@ Mobile note: trade detail constrains the top header to the viewport, truncating 
 | File | Type | Notes |
 |------|------|-------|
 | `app/page.tsx` | Server | Public landing page with product screenshots and CTAs into auth |
+| `app/blog/[slug]/page.tsx` | Server | Public SEO articles; the free template article links `/downloads/tradelore-trading-journal-template-india.xlsx` |
 | `app/dashboard/page.tsx` | Client | Main dashboard, 5 tabs (Dashboard, Journal, Trade Log, Playbooks, Reports) |
 | `app/layout.tsx` | Server | Root layout |
 | `app/login/page.tsx` | Client | Focused Supabase sign-up/login page |
