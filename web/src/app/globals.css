@@ -3598,6 +3598,9 @@ tbody.day-group + tbody.day-group .day-header-row td {
   line-height: 1.6;
 }
 .landing-pricing-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   padding: 30px;
   border: 1px solid rgba(249, 115, 22, 0.32);
   border-radius: 18px;
@@ -3605,6 +3608,7 @@ tbody.day-group + tbody.day-group .day-header-row td {
   box-shadow: var(--shadow-md);
 }
 .landing-pricing-badge {
+  align-self: flex-start;
   display: inline-flex;
   padding: 5px 9px;
   border-radius: 999px;
@@ -3616,13 +3620,13 @@ tbody.day-group + tbody.day-group .day-header-row td {
   text-transform: uppercase;
 }
 .landing-pricing-card h3 {
-  margin: 16px 0 0;
+  margin: 0;
   font-family: var(--font-display);
   font-size: 24px;
   letter-spacing: -0.4px;
 }
 .landing-pricing-trial {
-  margin: 10px 0 0;
+  margin: 0;
   color: var(--green);
   font-size: 14px;
   font-weight: 800;
@@ -3631,7 +3635,7 @@ tbody.day-group + tbody.day-group .day-header-row td {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  margin: 18px 0 0;
+  margin: 0;
 }
 .landing-pricing-price s {
   color: var(--text-secondary);
@@ -3647,8 +3651,7 @@ tbody.day-group + tbody.day-group .day-header-row td {
   font-size: 14px;
 }
 .landing-pricing-note {
-  min-height: 44px;
-  margin: 6px 0 20px;
+  margin: 0;
   color: var(--text-secondary);
   font-size: 13px;
   line-height: 1.5;

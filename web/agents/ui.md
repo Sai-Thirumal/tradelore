@@ -14,7 +14,8 @@
 │                            trade replay, analytics); WorkflowShowcase.tsx uses Reveal.tsx
 │                            (IntersectionObserver fade+slide). Trade replay is block #3.
 ├── Pricing                  One-month free demo, then ₹199/month launch price (normally ₹299);
-│                            launch price is retained while the subscription stays active.
+│                            launch price is retained while the subscription stays active, with a
+│                            consistent 16px vertical rhythm inside the price card.
 ├── Final CTA                #get-started
 └── LandingFooter            Dark footer: link columns + risk disclaimer + X/Instagram
                              (components/landing/LandingFooter.tsx; update social handles)
