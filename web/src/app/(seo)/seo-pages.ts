@@ -496,12 +496,13 @@ export const seoPages = [
       {
         heading: "About the founder",
         body: [
-          "I’m Thirumal, a graduate of BITS Pilani, Hyderabad Campus, and the founder of TradeLore.",
-          "My interest in trading and product building led me to explore a problem that many traders face. They have access to more charts, indicators, and market information than ever before, but they still lack a reliable system for learning from their own decisions.",
-          "I started TradeLore by speaking with traders, studying how they maintained journals, identifying gaps in existing tools, and understanding the challenges they faced while reviewing their performance.",
-          "I took TradeLore through the complete product development lifecycle, from identifying the problem and conducting user research to mapping workflows, prioritising features, building the MVP, onboarding users, collecting feedback, and continuously improving the product.",
-          "Today, TradeLore helps traders review their performance using structured journals, detailed trade analysis, broker integrations, and more than 40 trading metrics. The platform has already been used by over 100 traders and has analysed more than 5,000 trades.",
-          "Building TradeLore has also been a personal journey in product thinking, technology, user research, design, execution, and entrepreneurship. Every feature is built around real trader problems rather than adding complexity for the sake of it.",
+          "I’m Thirumal, a graduate of BITS Pilani, Hyderabad Campus, originally from Hyderabad and currently based in Bangalore.",
+          "My time at BITS shaped the way I approach learning and problem-solving. It taught me to explore beyond the classroom, work with people from different backgrounds, experiment with ideas, and learn by building. Outside work, I enjoy playing ultimate frisbee, which has also taught me the importance of teamwork, communication, quick decision-making, and staying composed under pressure.",
+          "Trading was introduced to me by a close friend and mentor from college. Like most beginners, I found the journey challenging. Markets were unpredictable, emotions often influenced decisions, and my reasoning could change from one trade to the next. I might enter a trade for one reason, manage it for another, and later struggle to clearly understand what went right or wrong.",
+          "One problem stood out to me: keeping track of trades, emotions, thought processes, and recurring mistakes was unnecessarily difficult. Existing journals were often manual, fragmented, or focused only on profits and losses rather than the decisions behind them.",
+          "That experience led me to build TradeLore, a trading journal and performance analytics platform designed to help traders learn from their own behaviour.",
+          "I developed TradeLore by speaking with traders, studying their journaling habits, identifying gaps in existing tools, mapping workflows, prioritising features, building the MVP, onboarding users, and improving the product through feedback. Today, TradeLore offers structured trade reviews, broker integrations, detailed analysis, and more than 40 trading metrics. It has been used by over 100 traders and has analysed more than 5,000 trades.",
+          "Building TradeLore has strengthened my skills across product thinking, user research, design, technology, execution, and entrepreneurship. More importantly, it has reinforced my belief that the best products are built by deeply understanding real problems and solving them with simplicity.",
         ],
       },
       {
