@@ -2,7 +2,7 @@
 
 A trading journal and analytics dashboard for Indian markets and crypto derivatives. Import broker files or sync supported broker APIs, track P&L, journal every trade, build repeatable playbooks, and visualise performance — all in one place.
 
-**Live:** [tradelore.co.in](tradelore.co.in)
+**Live:** [tradelore.co.in](https://www.tradelore.co.in)
 
 ---
 
