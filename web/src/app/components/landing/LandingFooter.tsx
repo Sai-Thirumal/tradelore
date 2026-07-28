@@ -45,6 +45,10 @@ const columns: { title: string; links: { label: string; href: string }[] }[] = [
       { label: 'Get started', href: '/login?next=/dashboard' },
     ],
   },
+  {
+    title: 'Contact Us',
+    links: [{ label: 'saithirumal2002@gmail.com', href: 'mailto:saithirumal2002@gmail.com' }],
+  },
 ];
 
 export default function LandingFooter() {

@@ -3837,7 +3837,7 @@ tbody.day-group + tbody.day-group .day-header-row td {
 }
 .landing-footer-cols {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 28px;
 }
 .landing-footer-col {
